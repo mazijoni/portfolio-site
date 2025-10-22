@@ -3,12 +3,21 @@ body {
     padding: 0;
     background-color: #7f7f7f;
 }
+
+/* Make box-sizing predictable so widths don't overflow */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 .nav_bar {
   display: flex;
-  gap: 3vw;
-  justify-content: right;
+  gap: 1.5rem;            /* use rem instead of vw to avoid viewport overflow */
+  justify-content: flex-end; /* use flex-end (correct value) */
   align-items: center;
-  margin-right: 2vw;
+  margin-right: 0;        /* remove margin that could push outside */
+  padding-right: 2rem;    /* keep visual spacing from the right edge */
   margin-top: 1vw;
 }
 
@@ -71,8 +80,8 @@ button:is(:hover, :focus)::after {
 }
 
 .checkmark span {
-  width: 2vw;
-  height: 0.3vh;
+  width: 1.05em;          /* use em so the checkmark scales, not viewport units */
+  height: 0.12em;
   background-color: #fff;
   position: absolute;
   transition: all 0.3s ease-in-out;
@@ -130,4 +139,93 @@ button:is(:hover, :focus)::after {
   height: 100%;
   object-fit: cover;  /* keeps correct proportions */
   z-index: -2;        /* puts it behind everything */
+}
+
+#contactForm {
+  width: min(640px, 92%);
+  margin: 6rem auto;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 1.25rem 1.25rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+  color: #fff;
+  display: grid;
+  gap: 0.75rem;
+  font-family: "Raleway", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+
+#contactForm label {
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+  display: block;
+  color: #f7f7f7;
+  letter-spacing: 0.2px;
+}
+
+#contactForm input[type="text"],
+#contactForm input[type="email"],
+#contactForm textarea {
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.18);
+  color: #fff;
+  font-size: 1rem;
+  resize: vertical;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 120ms ease;
+}
+
+#contactForm input::placeholder,
+#contactForm textarea::placeholder {
+  color: rgba(255,255,255,0.6);
+}
+
+#contactForm input:focus,
+#contactForm textarea:focus {
+  outline: none;
+  border-color: rgba(255,255,255,0.6);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45), 0 0 0 4px rgba(255,255,255,0.03);
+  transform: translateY(-1px);
+}
+
+#contactForm textarea {
+  min-height: 140px;
+}
+
+#contactForm .form-row {
+  display: grid;
+  gap: 0.75rem;
+}
+
+/* Submit button */
+#contactForm button[type="submit"] {
+  justify-self: start;
+  background: #ffffff;
+  color: #000;
+  border: none;
+  padding: 0.6rem 1.05rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+}
+
+#contactForm button[type="submit"]:hover,
+#contactForm button[type="submit"]:focus {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+  opacity: 0.98;
+}
+
+/* Small screens */
+@media (max-width: 520px) {
+  .nav_bar { gap: 1rem; padding-right: 1rem; }
+  #contactForm { margin: 3.5rem auto; padding: 1rem; }
+  #contactForm button[type="submit"] { width: 100%; justify-self: stretch; }
 }
