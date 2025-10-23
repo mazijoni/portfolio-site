@@ -6,7 +6,7 @@ const form = document.getElementById('contactForm');
     const formData = new FormData(form);
 
     try {
-        const response = await fetch('https://jonatan67.app.n8n.cloud/webhook-test/email-check', {
+        const response = await fetch('https://jonatan67.app.n8n.cloud/webhook/email-check', {
         method: 'POST',
         body: formData
         });
