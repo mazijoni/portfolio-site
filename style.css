@@ -229,3 +229,21 @@ button:is(:hover, :focus)::after {
   #contactForm { margin: 3.5rem auto; padding: 1rem; }
   #contactForm button[type="submit"] { width: 100%; justify-self: stretch; }
 }
+
+#contactForm select {
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.18);
+  color: #fff;
+  font-size: 1rem;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 120ms ease;
+}
+
+#contactForm select:focus {
+  outline: none;
+  border-color: rgba(255,255,255,0.6);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45), 0 0 0 4px rgba(255,255,255,0.03);
+  transform: translateY(-1px);
+}
