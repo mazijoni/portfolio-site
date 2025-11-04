@@ -835,7 +835,24 @@
         <p>&copy; 2025 Maze_Development. All rights reserved.</p>
     </footer>
 
-    <!-- JAVASCRIPT -->
+    <script type="module">
+    import emailjs from 'https://cdn.emailjs.com/dist/emailjs.min.mjs';
+
+    emailjs.init("-ypruf5pKrakXY1q3"); // replace with your EmailJS public key
+
+    const contactForm = document.getElementById('contactForm');
+    contactForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        emailjs.sendForm('service_lt9h6eg', 'template_ge1idd7', contactForm)
+        .then(() => {
+            alert('Email sent successfully!');
+            contactForm.reset();
+        }, (error) => {
+            alert('Failed to send email: ' + JSON.stringify(error));
+        });
+    });
+    </script>
     <script>
         // ==================== ANIMATED PARTICLE BACKGROUND ====================
         const canvas = document.getElementById('particleCanvas');
@@ -1008,25 +1025,16 @@
         });
 
         // Contact Form Handling
-        const contactForm = document.getElementById('contactForm');
-        contactForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            
-            // Get form data
-            const formData = {
-                name: document.getElementById('name').value,
-                email: document.getElementById('email').value,
-                message: document.getElementById('message').value
-            };
+        contactForm.addEventListener('submit', function(event) {
+            event.preventDefault();
 
-            // Log form data (replace with actual submission logic)
-            console.log('Form submitted:', formData);
-            
-            // Show success message
-            alert('Thank you for your message! I will get back to you soon.');
-            
-            // Reset form
-            contactForm.reset();
+            emailjs.sendForm('service_lt9h6eg', 'template_ge1idd7', this)
+            .then(function() {
+                alert('Email sent successfully!');
+                contactForm.reset();
+            }, function(error) {
+                alert('Failed to send email: ' + JSON.stringify(error));
+            });
         });
 
         // Add scroll effect to header
