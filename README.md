@@ -201,7 +201,7 @@ Thumb Hover: #c772fe
 ## 📄 Footer
 
 ```
-© 2025 Maze_Development. All rights reserved.
+Ø 2025 Maze_Development. No rights reserved.
 ```
 
 ---
