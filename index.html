@@ -14,14 +14,13 @@
             box-sizing: border-box;
         }
 
-        /* style.css */
         :root {
             --bg-dark: #0a0a0a;
             --bg-secondary: #151515;
             --bg-card: #1a1a1a;
             --text-primary: #ffffff;
             --text-secondary: #a0a0a0;
-            --accent-purple: #c772fe; /* Updated color code */
+            --accent-purple: #c772fe;
             --border-color: #2a2a2a;
         }
 
@@ -56,19 +55,19 @@
 
         /* Custom scroll bar styles */
         ::-webkit-scrollbar {
-        width: 8px;
+            width: 8px;
         }
 
         ::-webkit-scrollbar-track {
-        background: #0a0a0a;
+            background: #0a0a0a;
         }
 
         ::-webkit-scrollbar-thumb {
-        background: #2a2a2a;
+            background: #2a2a2a;
         }
 
         ::-webkit-scrollbar-thumb:hover {
-        background: #c772fe;
+            background: #c772fe;
         }
 
         .logo {
@@ -374,7 +373,6 @@
             transition: transform 0.3s ease, border-color 0.3s ease;
         }
 
-        /* Add this to your CSS file */
         .project-card:hover {
             background: linear-gradient(135deg, var(--bg-secondary), #2a2a2a);
             transform: translateY(-8px);
@@ -556,6 +554,18 @@
 
         /* ==================== RESPONSIVE DESIGN ==================== */
         @media (max-width: 768px) {
+            .logo::after {
+                content: 'MAZE_DEV';
+            }
+
+            .logo {
+                font-size: 0;
+            }
+
+            .logo::after {
+                font-size: 1.5rem;
+            }
+
             .nav-links {
                 display: none;
             }
@@ -565,11 +575,15 @@
             }
 
             .hero-content h1 {
-                font-size: 2.5rem;
+                font-size: 2rem;
             }
 
             .hero-content h2 {
-                font-size: 1.3rem;
+                font-size: 1.1rem;
+            }
+
+            .hero-content p {
+                font-size: 0.95rem;
             }
 
             .about-content,
@@ -579,7 +593,61 @@
             }
 
             .section-title {
-                font-size: 2rem;
+                font-size: 1.6rem;
+            }
+
+            .about-text {
+                font-size: 0.95rem;
+            }
+
+            .about-text p {
+                margin-bottom: 1rem;
+            }
+
+            .skill-card h3 {
+                font-size: 1.1rem;
+            }
+
+            .skill-card li {
+                font-size: 0.9rem;
+            }
+
+            .project-content h3 {
+                font-size: 1.2rem;
+            }
+
+            .project-content p {
+                font-size: 0.9rem;
+            }
+
+            .project-link {
+                font-size: 0.85rem;
+                padding: 0.5rem 1rem;
+            }
+
+            .contact-item h3 {
+                font-size: 1rem;
+            }
+
+            .contact-item a {
+                font-size: 0.9rem;
+            }
+
+            .form-group label {
+                font-size: 0.9rem;
+            }
+
+            .form-group input,
+            .form-group textarea {
+                font-size: 0.9rem;
+            }
+
+            .submit-btn {
+                font-size: 0.9rem;
+            }
+
+            footer p {
+                font-size: 0.85rem;
             }
 
             .projects-grid {
@@ -592,7 +660,7 @@
     <!-- HEADER / NAVIGATION -->
     <header>
         <nav>
-            <div class="logo">MAZE_DEV</div>
+            <div class="logo">MAZE_DEVELOPMENT</div>
             <ul class="nav-links">
                 <li><a href="#home">Home</a></li>
                 <li><a href="#about">About</a></li>
@@ -629,7 +697,7 @@
         <div class="hero-content">
             <h1>MAZE_DEVELOPMENT</h1>
             <h2>IT Student & Developer</h2>
-            <p>I’m Maze_Dev, a developer making 3D Godot games, horror experiences, and web projects.</p>
+            <p>I'm Maze_Dev, a developer making 3D Godot games, horror experiences, and web projects.</p>
         </div>
         <div class="scroll-indicator">
             <span></span>
@@ -646,8 +714,8 @@
                     I specialize in 3D game development using Godot, with a particular passion for crafting thrilling horror games that keep players on the edge of their seats.
                 </p>
                 <p>
-                    When I'm not building immersive worlds, you’ll find me exploring web-based projects, experimenting with new tech, or diving into games myself—because playing is just as important as making.
-                    I’m all about blending creativity and technical skill to deliver experiences that are fun, engaging, and a little bit spooky.
+                    When I'm not building immersive worlds, you'll find me exploring web-based projects, experimenting with new tech, or diving into games myself—because playing is just as important as making.
+                    I'm all about blending creativity and technical skill to deliver experiences that are fun, engaging, and a little bit spooky.
                 </p>
             </div>
             <div class="about-image">
@@ -742,32 +810,6 @@
             </div>
             <div class="project-card">
                 <div class="project-image">
-                    <img src="img/terminal.svg" alt="school" style="width: 50%; height: auto;">
-                </div>
-                <div class="project-content">
-                    <h3>School Finder (.EXE)</h3>
-                    <p>Enter your city, and it instantly locates nearby schools with key details and directions. (but it's an .exe)</p>
-                    <div class="project-links">
-                        <a href="Projects/school-finder.exe" class="project-link">Windows</a>
-                        <a href="https://github.com/mazijoni/schools" class="project-link">GitHub</a>
-                    </div>
-                </div>
-            </div>
-            <div class="project-card">
-                <div class="project-image">
-                    <img src="img/elevator.svg" alt="elevator" style="width: 50%; height: auto;">
-                </div>
-                <div class="project-content">
-                    <h3>Floor By Floor</h3>
-                    <p>I'm makeing a horror game in godot. its not finished yet.</p>
-                    <div class="project-links">
-                        <a href="https://www.youtube.com/@maze_joni" class="project-link">View Trailer</a>
-                        <a href="https://maze-dev.itch.io/floor-by-floor" class="project-link">Itch.io</a>
-                    </div>
-                </div>
-            </div>
-            <div class="project-card">
-                <div class="project-image">
                     <img src="img/folder-code.svg" alt="folder" style="width: 50%; height: auto;">
                 </div>
                 <div class="project-content">
@@ -780,13 +822,13 @@
             </div>
             <div class="project-card">
                 <div class="project-image">
-                    <img src="img/video.svg" alt="folder" style="width: 50%; height: auto;">
+                    <img src="img/Ruter.svg" alt="folder" style="width: 50%; height: auto;">
                 </div>
                 <div class="project-content">
-                    <h3>Minecraft Short-Film</h3>
-                    <p>This is a Minecraft short film that i and some others made in school for a project (couldn't find the finished version)</p>
+                    <h3>Minecraft Ruter</h3>
+                    <p>This the map of the minecraft train on the server</p>
                     <div class="project-links">
-                        <a href="img/Movie.mp4" class="project-link">Play Movie</a>
+                        <a href="http://89.10.223.0:3876" class="project-link">Ruter</a>
                     </div>
                 </div>
             </div>
@@ -799,18 +841,6 @@
                     <p>All projects can be found in my github</p>
                     <div class="project-links">
                         <a href="https://github.com/mazijoni" class="project-link">GitHub</a>
-                    </div>
-                </div>
-            </div>
-            <div class="project-card">
-                <div class="project-image">
-                    <img src="img/Ruter.svg" alt="folder" style="width: 50%; height: auto;">
-                </div>
-                <div class="project-content">
-                    <h3>Minecraft Ruter</h3>
-                    <p>This the map of the minecraft train on the server</p>
-                    <div class="project-links">
-                        <a href="http://89.10.223.0:3876" class="project-link">Ruter</a>
                     </div>
                 </div>
             </div>
@@ -873,7 +903,7 @@
     <script type="module">
     import emailjs from 'https://cdn.emailjs.com/dist/emailjs.min.mjs';
 
-    emailjs.init("-ypruf5pKrakXY1q3"); // replace with your EmailJS public key
+    emailjs.init("-ypruf5pKrakXY1q3");
 
     const contactForm = document.getElementById('contactForm');
     contactForm.addEventListener('submit', (e) => {
@@ -893,7 +923,6 @@
         const canvas = document.getElementById('particleCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Set canvas size
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -901,7 +930,6 @@
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
 
-        // Particle class
         class Particle {
             constructor() {
                 this.x = Math.random() * canvas.width;
@@ -916,7 +944,6 @@
                 this.x += this.speedX;
                 this.y += this.speedY;
 
-                // Wrap around screen
                 if (this.x > canvas.width) this.x = 0;
                 if (this.x < 0) this.x = canvas.width;
                 if (this.y > canvas.height) this.y = 0;
@@ -931,7 +958,6 @@
             }
         }
 
-        // Create particles
         const particlesArray = [];
         const numberOfParticles = 100;
 
@@ -939,7 +965,6 @@
             particlesArray.push(new Particle());
         }
 
-        // Mouse interaction
         let mouse = {
             x: null,
             y: null,
@@ -956,7 +981,6 @@
             mouse.y = null;
         });
 
-        // Connect particles
         function connectParticles() {
             for (let i = 0; i < particlesArray.length; i++) {
                 for (let j = i + 1; j < particlesArray.length; j++) {
@@ -974,7 +998,6 @@
                     }
                 }
 
-                // Mouse interaction
                 if (mouse.x !== null && mouse.y !== null) {
                     const dx = particlesArray[i].x - mouse.x;
                     const dy = particlesArray[i].y - mouse.y;
@@ -992,7 +1015,6 @@
             }
         }
 
-        // Animation loop
         function animate() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
@@ -1008,7 +1030,6 @@
         animate();
 
         // ==================== MOBILE MENU ====================
-        // Mobile Menu Toggle
         const hamburger = document.getElementById('hamburger');
         const mobileMenu = document.getElementById('mobileMenu');
         const mobileLinks = document.querySelectorAll('.mobile-link');
@@ -1018,7 +1039,6 @@
             mobileMenu.classList.toggle('active');
         });
 
-        // Close mobile menu when clicking a link
         mobileLinks.forEach(link => {
             link.addEventListener('click', () => {
                 hamburger.classList.remove('active');
@@ -1026,7 +1046,6 @@
             });
         });
 
-        // Smooth Scrolling for Navigation Links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
                 e.preventDefault();
@@ -1040,7 +1059,6 @@
             });
         });
 
-        // Intersection Observer for Section Animations
         const observerOptions = {
             threshold: 0.15,
             rootMargin: '0px 0px -50px 0px'
@@ -1054,25 +1072,10 @@
             });
         }, observerOptions);
 
-        // Observe all sections
         document.querySelectorAll('section').forEach(section => {
             observer.observe(section);
         });
 
-        // Contact Form Handling
-        contactForm.addEventListener('submit', function(event) {
-            event.preventDefault();
-
-            emailjs.sendForm('service_lt9h6eg', 'template_ge1idd7', this)
-            .then(function() {
-                alert('Email sent successfully!');
-                contactForm.reset();
-            }, function(error) {
-                alert('Failed to send email: ' + JSON.stringify(error));
-            });
-        });
-
-        // Add scroll effect to header
         let lastScroll = 0;
         window.addEventListener('scroll', () => {
             const header = document.querySelector('header');
