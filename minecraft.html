@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Server Window | Maze_Development</title>
+    <title>Minecraft Remake | Download</title>
 
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -76,8 +76,7 @@
 
         .window-container {
             width: 100%;
-            max-width: 1200px;
-            height: 600px;
+            max-width: 800px;
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 16px;
@@ -123,53 +122,112 @@
             color: var(--text-secondary);
         }
 
-        .iframe-wrapper {
-            width: 100%;
-            height: calc(100% - 65px);
-            background: var(--bg-dark);
-            position: relative;
-        }
-
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            display: block;
-        }
-
-        .loading-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--bg-card);
+        .download-content {
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            gap: 1rem;
-            z-index: 10;
-            transition: opacity 0.5s ease;
+            gap: 2rem;
+            padding: 2rem;
         }
 
-        .loading-overlay.hidden {
-            opacity: 0;
-            pointer-events: none;
+        .game-info {
+            text-align: center;
         }
 
-        .spinner {
-            width: 45px;
-            height: 45px;
-            border: 4px solid var(--border);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
+        .game-icon {
+            font-size: 5rem;
+            margin-bottom: 1rem;
         }
 
-        .loading-text {
-            font-size: 0.9rem;
+        .game-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .game-description {
+            font-size: 1rem;
             color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+
+        .features-list {
+            list-style: none;
+            display: grid;
+            gap: 0.8rem;
+            margin-bottom: 2rem;
+        }
+
+        .features-list li {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .features-list li::before {
+            content: "✓";
+            color: var(--accent);
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .download-button {
+            background: linear-gradient(135deg, var(--accent), #9c4fd9);
+            color: var(--text-primary);
+            padding: 1.2rem 2.5rem;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(199, 114, 254, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.8rem;
+            text-decoration: none;
+        }
+
+        .download-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(199, 114, 254, 0.5);
+        }
+
+        .download-button:active {
+            transform: translateY(-1px);
+        }
+
+        .file-info {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-top: 1rem;
+        }
+
+        .warning-box {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 2rem;
+            display: flex;
+            gap: 1rem;
+            align-items: start;
+        }
+
+        .warning-icon {
+            color: #ffc107;
+            font-size: 1.5rem;
+        }
+
+        .warning-text {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.5;
         }
 
         @keyframes fadeInUp {
@@ -198,26 +256,49 @@
     <!-- Particle background -->
     <canvas id="particleCanvas"></canvas>
 
-    <h1 class="page-title">🖥️ Ruter View</h1>
-    <p class="page-subtitle">Live Train Schedule Viewer</p>
+    <h1 class="page-title">⛏️ Minecraft Remake</h1>
+    <p class="page-subtitle">Download the Ultimate Block Building Experience</p>
 
     <div class="window-container">
         <div class="window-header">
             <div class="status-indicator">
                 <div class="status-dot"></div>
-                <span class="status-text">Connected</span>
+                <span class="status-text">Available</span>
             </div>
-            <h2>Live View</h2>
+            <h2>Download Center</h2>
         </div>
 
-        <div class="iframe-wrapper">
-            <div class="loading-overlay" id="loadingOverlay">
-                <div class="spinner"></div>
-                <div class="loading-text">Loading server...</div>
+        <div class="download-content">
+            <div class="game-info">
+                <div class="game-icon"><img src="img/box.svg" width="100"></div>
+                <h2 class="game-title">Minecraft Remake</h2>
+                <p class="game-description">
+                    Experience the classic block-building adventure with enhanced graphics and modern features. 
+                    Build, explore, and survive in an infinite procedurally generated world.
+                </p>
             </div>
 
-            <!-- Your HTTP iframe -->
-            <iframe src="http://89.10.223.0:3876" id="serverFrame"></iframe>
+            <ul class="features-list">
+                <li>Infinite world generation</li>
+                <li>Kinda creative and maybe survival modes</li>
+                <li>Shit graphics and shaders</li>
+            </ul>
+
+            <a href="#" class="download-button" id="downloadBtn">
+                <span><img src="img/download.svg" alt=""></span>
+                <span>Download Minecraft Remake</span>
+            </a>
+
+            <div class="file-info">
+                Version 1.0.0 | Windows 10?/11 | 245 MB
+            </div>
+
+            <div class="warning-box">
+                <div class="warning-icon">⚠️</div>
+                <div class="warning-text">
+                    <strong>Note:</strong> This is a fan-made remake of Minecraft. NOT the real thing. (People are stupid!)
+                </div>
+            </div>
         </div>
     </div>
 
@@ -257,14 +338,13 @@
         }
         animate();
 
-        // Iframe loading overlay
-        const frame = document.getElementById("serverFrame");
-        const overlay = document.getElementById("loadingOverlay");
-
-        frame.addEventListener("load", () => {
-            setTimeout(() => {
-                overlay.classList.add("hidden");
-            }, 500);
+        // Download button functionality
+        const downloadBtn = document.getElementById("downloadBtn");
+        downloadBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            // Add your download link here
+            // window.location.href = "path-to-your-exe-file.exe";
+            alert("Download link not configured. Please add your .exe file URL in the JavaScript.");
         });
 
         // Resize canvas

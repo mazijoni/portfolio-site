@@ -1,25 +1,281 @@
-<div class="frame-box">
-    <iframe src="http://89.10.223.0:3876/"></iframe>
-</div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Definitely Not a Troll</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><text y="24" font-size="24">🤡</text></svg>'), auto;
+        }
 
-<style>
-    body {
-        background: #0a0a0a;
-        font-family: Poppins, sans-serif;
-    }
+        body {
+            font-family: 'Comic Sans MS', cursive;
+            background: linear-gradient(45deg, #ff0000, #00ff00, #0000ff, #ffff00);
+            background-size: 400% 400%;
+            animation: gradient 3s ease infinite;
+            overflow: hidden;
+            height: 100vh;
+        }
 
-    .frame-box {
-        width: 100%;
-        height: 600px;
-        border-radius: 20px;
-        overflow: hidden;
-        border: 3px solid #444;
-        box-shadow: 0 0 30px rgba(0,0,0,0.5);
-    }
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
 
-    iframe {
-        width: 100%;
-        height: 100%;
-        border: none;
-    }
-</style>
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 4rem;
+            color: white;
+            text-shadow: 3px 3px 0 #000, -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000;
+            animation: shake 0.5s infinite, rainbow 2s linear infinite;
+            margin-bottom: 30px;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: rotate(-3deg); }
+            50% { transform: rotate(3deg); }
+        }
+
+        @keyframes rainbow {
+            0% { filter: hue-rotate(0deg); }
+            100% { filter: hue-rotate(360deg); }
+        }
+
+        .button {
+            padding: 20px 40px;
+            font-size: 2rem;
+            background: #ff00ff;
+            color: white;
+            border: 5px solid #00ffff;
+            border-radius: 50px;
+            font-weight: bold;
+            text-transform: uppercase;
+            animation: pulse 1s infinite;
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .button:hover {
+            transform: scale(0.9) rotate(5deg);
+            background: #00ff00;
+            border-color: #ff0000;
+        }
+
+        .emoji-rain {
+            position: fixed;
+            top: -50px;
+            font-size: 3rem;
+            animation: fall linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes fall {
+            to {
+                transform: translateY(100vh) rotate(360deg);
+            }
+        }
+
+        .popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 40px;
+            border: 10px solid black;
+            border-radius: 20px;
+            z-index: 1000;
+            animation: bounce 0.5s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+        }
+
+        .popup h2 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: #ff0000;
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 999;
+        }
+
+        .spinning {
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .secret-message {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.3);
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 CONGRATULATIONS! 🎉</h1>
+        <p style="color: white; font-size: 2rem; margin-bottom: 30px; text-shadow: 2px 2px 4px #000;">
+            You are the 1,000,000th visitor!
+        </p>
+        <button class="button" id="claimButton">CLAIM YOUR PRIZE!</button>
+    </div>
+
+    <div class="overlay" id="overlay"></div>
+    <div class="popup" id="popup">
+        <h2>🤡 TROLLED! 🤡</h2>
+        <p style="font-size: 1.5rem;">You really thought you'd win something? 😂</p>
+        <button class="button" style="margin-top: 20px;" onclick="location.reload()">Try Again (It Won't Help)</button>
+    </div>
+
+    <div class="secret-message">
+        you've been trolled
+    </div>
+
+    <script>
+        // Emoji rain
+        const emojis = ['😂', '🤡', '💀', '🎪', '🎭', '🃏', '👻', '💩'];
+        
+        function createEmojiRain() {
+            const emoji = document.createElement('div');
+            emoji.className = 'emoji-rain';
+            emoji.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+            emoji.style.left = Math.random() * 100 + '%';
+            emoji.style.animationDuration = (Math.random() * 3 + 2) + 's';
+            document.body.appendChild(emoji);
+            
+            setTimeout(() => emoji.remove(), 5000);
+        }
+
+        setInterval(createEmojiRain, 300);
+
+        // Button that moves away
+        const button = document.getElementById('claimButton');
+        let clickCount = 0;
+
+        button.addEventListener('mouseenter', function(e) {
+            if (clickCount < 3) {
+                const x = Math.random() * (window.innerWidth - button.offsetWidth);
+                const y = Math.random() * (window.innerHeight - button.offsetHeight);
+                button.style.position = 'fixed';
+                button.style.left = x + 'px';
+                button.style.top = y + 'px';
+            }
+        });
+
+        button.addEventListener('click', function() {
+            clickCount++;
+            if (clickCount >= 3) {
+                document.getElementById('overlay').style.display = 'block';
+                document.getElementById('popup').style.display = 'block';
+                
+                // Make everything spin
+                document.body.classList.add('spinning');
+                
+                // Play sound if available
+                try {
+                    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSyBzvLZiTYIGWi78OScTgwMUKzn77dmGwU7k9bxy3ksBS55yO7ekUEJE12z6OyrVxMJRZ/h8r1sIQYrf87y2Ik2Bxl');
+                    audio.play();
+                } catch (e) {}
+            }
+        });
+
+        // Random alert spam after opening popup
+        let alertInterval;
+        document.getElementById('overlay').addEventListener('click', function() {
+            clearInterval(alertInterval);
+            alertInterval = setInterval(() => {
+                const messages = [
+                    "Still here? 🤡",
+                    "You can't escape! 😈",
+                    "This is your life now 💀",
+                    "Have you learned your lesson? 🎪",
+                    "Click faster! 🏃"
+                ];
+                alert(messages[Math.floor(Math.random() * messages.length)]);
+            }, 2000);
+        });
+
+        // Disable right click
+        document.addEventListener('contextmenu', e => {
+            e.preventDefault();
+            alert('Nice try! 🤡');
+        });
+
+        // Disable F12
+        document.addEventListener('keydown', e => {
+            if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I')) {
+                e.preventDefault();
+                alert('No cheating! 😈');
+            }
+        });
+
+        // Random page title changes
+        const titles = [
+            '🤡 TROLLED 🤡',
+            'You fell for it!',
+            'Gotcha! 😂',
+            'L + ratio',
+            'rekt',
+            'Definitely Not a Troll'
+        ];
+        
+        setInterval(() => {
+            document.title = titles[Math.floor(Math.random() * titles.length)];
+        }, 1000);
+
+        // Konami code easter egg
+        let konamiCode = [];
+        const konamiPattern = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+        
+        document.addEventListener('keydown', e => {
+            konamiCode.push(e.key);
+            konamiCode = konamiCode.slice(-10);
+            
+            if (konamiCode.join(',') === konamiPattern.join(',')) {
+                alert('🎮 Cheat code activated! (Just kidding, nothing happens) 🎮');
+                konamiCode = [];
+            }
+        });
+    </script>
+</body>
+</html>
