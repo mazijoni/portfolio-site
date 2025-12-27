@@ -532,6 +532,22 @@
             color: var(--text-secondary);
         }
 
+        .visitor-counter {
+            margin-top: 1rem;
+            padding: 0.8rem 1.5rem;
+            background: linear-gradient(135deg, var(--bg-card), var(--bg-secondary));
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            display: inline-block;
+        }
+
+        .visitor-counter span:last-child {
+            color: var(--accent-purple);
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-left: 0.5rem;
+        }
+
         /* ==================== ANIMATIONS ==================== */
         @keyframes fadeInUp {
             from {
@@ -906,6 +922,9 @@
     <!-- FOOTER -->
     <footer>
         <p>Ø 2025 Maze_Development. No rights reserved.</p>
+        <div class="visitor-counter">
+            <span>👁️</span> Visits: <span id="visitCount">0</span>
+        </div>
     </footer>
 
     <script type="module">
@@ -1097,6 +1116,22 @@
 
             lastScroll = currentScroll;
         });
+
+        // ==================== VISIT COUNTER ====================
+        function updateVisitCounter() {
+            let visitCount = localStorage.getItem('visitCount');
+            
+            if (visitCount === null) {
+                visitCount = 1;
+            } else {
+                visitCount = parseInt(visitCount) + 1;
+            }
+            
+            localStorage.setItem('visitCount', visitCount);
+            document.getElementById('visitCount').textContent = visitCount;
+        }
+        
+        updateVisitCounter();
     </script>
 </body>
 </html>
