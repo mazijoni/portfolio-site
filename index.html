@@ -532,22 +532,6 @@
             color: var(--text-secondary);
         }
 
-        .visitor-counter {
-            margin-top: 1rem;
-            padding: 0.8rem 1.5rem;
-            background: linear-gradient(135deg, var(--bg-card), var(--bg-secondary));
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            display: inline-block;
-        }
-
-        .visitor-counter span:last-child {
-            color: var(--accent-purple);
-            font-weight: 600;
-            font-size: 1.1rem;
-            margin-left: 0.5rem;
-        }
-
         /* ==================== ANIMATIONS ==================== */
         @keyframes fadeInUp {
             from {
@@ -826,7 +810,8 @@
                     <h3>School Finder (Web)</h3>
                     <p>Enter your city, and it instantly locates nearby schools with key details and directions.</p>
                     <div class="project-links">
-                        <a href="https://mazijoni.github.io/schools-web/index.html" class="project-link">View Demo</a>
+                        <a href="https://mazijoni.github.io/schools-web/index.html" class="project-link">Demo</a>
+                        <a href="Projects/school-finder.exe" class="project-link" download>.EXE</a>
                         <a href="https://github.com/mazijoni/schools-web" class="project-link">GitHub</a>
                     </div>
                 </div>
@@ -922,9 +907,6 @@
     <!-- FOOTER -->
     <footer>
         <p>Ø 2025 Maze_Development. No rights reserved.</p>
-        <div class="visitor-counter">
-            <span>👁️</span> Visits: <span id="visitCount">0</span>
-        </div>
     </footer>
 
     <script type="module">
@@ -1116,22 +1098,6 @@
 
             lastScroll = currentScroll;
         });
-
-        // ==================== VISIT COUNTER ====================
-        function updateVisitCounter() {
-            let visitCount = localStorage.getItem('visitCount');
-            
-            if (visitCount === null) {
-                visitCount = 1;
-            } else {
-                visitCount = parseInt(visitCount) + 1;
-            }
-            
-            localStorage.setItem('visitCount', visitCount);
-            document.getElementById('visitCount').textContent = visitCount;
-        }
-        
-        updateVisitCounter();
     </script>
 </body>
 </html>
