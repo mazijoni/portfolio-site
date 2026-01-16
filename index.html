@@ -160,30 +160,63 @@
         }
 
         /* Hamburger Menu */
-        .hamburger {
+        #checkbox {
+            display: none;
+        }
+
+        .toggle {
+            position: relative;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
             display: none;
             flex-direction: column;
-            cursor: pointer;
-            gap: 5px;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition-duration: .5s;
         }
 
-        .hamburger span {
-            width: 25px;
-            height: 2px;
-            background-color: var(--text-primary);
-            transition: all 0.3s ease;
+        .bars {
+            width: 100%;
+            height: 4px;
+            background-color: rgb(176, 92, 255);
+            border-radius: 4px;
         }
 
-        .hamburger.active span:nth-child(1) {
-            transform: rotate(45deg) translate(7px, 7px);
+        #bar2 {
+            transition-duration: .8s;
         }
 
-        .hamburger.active span:nth-child(2) {
-            opacity: 0;
+        #bar1, #bar3 {
+            width: 70%;
         }
 
-        .hamburger.active span:nth-child(3) {
-            transform: rotate(-45deg) translate(7px, -7px);
+        #checkbox:checked + .toggle .bars {
+            position: absolute;
+            transition-duration: .5s;
+        }
+
+        #checkbox:checked + .toggle #bar2 {
+            transform: scaleX(0);
+            transition-duration: .5s;
+        }
+
+        #checkbox:checked + .toggle #bar1 {
+            width: 100%;
+            transform: rotate(45deg);
+            transition-duration: .5s;
+        }
+
+        #checkbox:checked + .toggle #bar3 {
+            width: 100%;
+            transform: rotate(-45deg);
+            transition-duration: .5s;
+        }
+
+        #checkbox:checked + .toggle {
+            transition-duration: .5s;
+            transform: rotate(180deg);
         }
 
         /* Mobile Menu Overlay */
@@ -545,7 +578,7 @@
                 display: none;
             }
 
-            .hamburger {
+            .toggle {
                 display: flex;
             }
 
@@ -646,11 +679,12 @@
                 <li><a href="#contact">Contact</a></li>
                 <li><a href="cv.pdf">CV</a></li>
             </ul>
-            <div class="hamburger" id="hamburger">
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
+            <input type="checkbox" id="checkbox">
+            <label for="checkbox" class="toggle">
+                <div class="bars" id="bar1"></div>
+                <div class="bars" id="bar2"></div>
+                <div class="bars" id="bar3"></div>
+            </label>
         </nav>
     </header>
 
@@ -864,18 +898,17 @@
 
     <script>
         // ==================== MOBILE MENU ====================
-        const hamburger = document.getElementById('hamburger');
+        const checkbox = document.getElementById('checkbox');
         const mobileMenu = document.getElementById('mobileMenu');
         const mobileLinks = document.querySelectorAll('.mobile-link');
 
-        hamburger.addEventListener('click', () => {
-            hamburger.classList.toggle('active');
-            mobileMenu.classList.toggle('active');
+        checkbox.addEventListener('change', () => {
+            mobileMenu.classList.toggle('active', checkbox.checked);
         });
 
         mobileLinks.forEach(link => {
             link.addEventListener('click', () => {
-                hamburger.classList.remove('active');
+                checkbox.checked = false;
                 mobileMenu.classList.remove('active');
             });
         });
