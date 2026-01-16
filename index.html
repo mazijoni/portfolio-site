@@ -6,6 +6,7 @@
     <title>Maze_Development | IT Professional</title>
     <link rel="icon" href="img/logo.svg" type="image/svg"/>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         /* ==================== GLOBAL STYLES ==================== */
         * {
@@ -699,6 +700,36 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* ==================== 3D LOGO SECTION ==================== */
+        .logo-3d-section {
+            padding: 6rem 5%;
+            text-align: center;
+        }
+
+        #logo3d-container {
+            width: 100%;
+            max-width: 600px;
+            height: 500px;
+            margin: 2rem auto;
+            cursor: pointer;
+            border-radius: 20px;
+            overflow: hidden;
+            background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-secondary) 100%);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 40px rgba(199, 114, 254, 0.1);
+            transition: box-shadow 0.3s ease;
+        }
+
+        #logo3d-container:hover {
+            box-shadow: 0 15px 50px rgba(199, 114, 254, 0.2);
+        }
+
+        .logo-3d-section p {
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
     </style>
 </head>
 <body>
@@ -911,6 +942,13 @@
         </div>
     </section>
 
+    <!-- 3D LOGO SECTION -->
+    <section class="logo-3d-section">
+        <h2 class="section-title">Interactive 3D Logo</h2>
+        <p>Hover over the logo to see the jelly physics in action</p>
+        <div id="logo3d-container"></div>
+    </section>
+
     <!-- CONTACT SECTION -->
     <section id="contact">
         <h2 class="section-title">Get In Touch & Links</h2>
@@ -1006,6 +1044,156 @@
             }
 
             lastScroll = currentScroll;
+        });
+    </script>
+    <script>
+        // Three.js 3D Logo with Jelly Physics
+        const container = document.getElementById('logo3d-container');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, container.offsetWidth / container.offsetHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        
+        renderer.setSize(container.offsetWidth, container.offsetHeight);
+        renderer.setClearColor(0x000000, 0);
+        container.appendChild(renderer.domElement);
+
+        // Logo geometry - create 3D parallelograms based on the SVG
+        const logoGroup = new THREE.Group();
+        
+        // Define the logo shapes with their positions (scaled and centered)
+        const shapes = [
+            { color: 0xc673ff, vertices: [[125.47, 24], [111.23, 44], [53.7, 44], [67.94, 24]] },
+            { color: 0xffffff, vertices: [[163.59, 50], [149.35, 70], [36.33, 70], [50.57, 50]] },
+            { color: 0xffffff, vertices: [[188.4, 76], [174.16, 96], [66.62, 96], [80.86, 76]] },
+            { color: 0xc673ff, vertices: [[72.27, 76], [58.04, 96], [19.08, 96], [33.31, 76]] },
+            { color: 0xc673ff, vertices: [[188.4, 101.08], [174.17, 121.08], [135.21, 121.08], [149.44, 101.08]] },
+            { color: 0xffffff, vertices: [[140.5, 101.96], [126.27, 121.96], [18.73, 121.96], [32.96, 101.96]] },
+            { color: 0xffffff, vertices: [[171, 127.06], [156.77, 147.06], [43.57, 147.06], [57.81, 127.06]] },
+            { color: 0xc673ff, vertices: [[153.07, 152.84], [138.84, 172.84], [81.67, 172.84], [95.9, 152.84]] }
+        ];
+
+        const meshes = [];
+        shapes.forEach((shape, index) => {
+            const shapeGeom = new THREE.Shape();
+            const verts = shape.vertices;
+            
+            // Convert 2D vertices to Shape
+            shapeGeom.moveTo((verts[0][0] - 104.5) / 30, -(verts[0][1] - 98.5) / 30);
+            for (let i = 1; i < verts.length; i++) {
+                shapeGeom.lineTo((verts[i][0] - 104.5) / 30, -(verts[i][1] - 98.5) / 30);
+            }
+            shapeGeom.lineTo((verts[0][0] - 104.5) / 30, -(verts[0][1] - 98.5) / 30);
+
+            const extrudeSettings = {
+                depth: 0.3 + Math.random() * 0.3,
+                bevelEnabled: true,
+                bevelThickness: 0.1,
+                bevelSize: 0.05,
+                bevelSegments: 3
+            };
+
+            const geometry = new THREE.ExtrudeGeometry(shapeGeom, extrudeSettings);
+            const material = new THREE.MeshPhongMaterial({ 
+                color: shape.color,
+                shininess: 100,
+                specular: 0x444444
+            });
+            
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.userData.originalPosition = mesh.position.clone();
+            mesh.userData.velocity = new THREE.Vector3(0, 0, 0);
+            mesh.userData.spring = 0.15;
+            mesh.userData.damping = 0.85;
+            meshes.push(mesh);
+            logoGroup.add(mesh);
+        });
+
+        scene.add(logoGroup);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+        
+        const pointLight1 = new THREE.PointLight(0xc673ff, 1, 100);
+        pointLight1.position.set(5, 5, 5);
+        scene.add(pointLight1);
+        
+        const pointLight2 = new THREE.PointLight(0xffffff, 0.8, 100);
+        pointLight2.position.set(-5, -5, 5);
+        scene.add(pointLight2);
+
+        camera.position.z = 8;
+
+        // Mouse interaction
+        let mouseX = 0;
+        let mouseY = 0;
+        let isHovering = false;
+
+        container.addEventListener('mousemove', (event) => {
+            const rect = container.getBoundingClientRect();
+            mouseX = ((event.clientX - rect.left) / container.offsetWidth) * 2 - 1;
+            mouseY = -((event.clientY - rect.top) / container.offsetHeight) * 2 + 1;
+        });
+
+        container.addEventListener('mouseenter', () => {
+            isHovering = true;
+        });
+
+        container.addEventListener('mouseleave', () => {
+            isHovering = false;
+            mouseX = 0;
+            mouseY = 0;
+        });
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Rotate logo
+            logoGroup.rotation.y += 0.005;
+
+            // Apply jelly physics when hovering
+            meshes.forEach((mesh, index) => {
+                if (isHovering) {
+                    // Calculate force based on mouse position
+                    const targetX = mouseX * 2;
+                    const targetY = mouseY * 2;
+                    
+                    // Apply spring force
+                    const dx = targetX - mesh.position.x;
+                    const dy = targetY - mesh.position.y;
+                    
+                    mesh.userData.velocity.x += dx * mesh.userData.spring;
+                    mesh.userData.velocity.y += dy * mesh.userData.spring;
+                } else {
+                    // Return to original position
+                    mesh.userData.velocity.x += (mesh.userData.originalPosition.x - mesh.position.x) * mesh.userData.spring;
+                    mesh.userData.velocity.y += (mesh.userData.originalPosition.y - mesh.position.y) * mesh.userData.spring;
+                }
+
+                // Apply damping
+                mesh.userData.velocity.multiplyScalar(mesh.userData.damping);
+                
+                // Update position
+                mesh.position.add(mesh.userData.velocity);
+                
+                // Add subtle rotation based on velocity
+                mesh.rotation.x = mesh.userData.velocity.y * 0.5;
+                mesh.rotation.y = mesh.userData.velocity.x * 0.5;
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            const width = container.offsetWidth;
+            const height = container.offsetHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
         });
     </script>
 </body>
