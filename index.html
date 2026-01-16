@@ -184,32 +184,13 @@
             overflow: hidden;
         }
 
-        .hero-bg {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-            overflow: hidden;
-        }
-
-        .hero-bg canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-
         .hero-overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, rgba(10, 10, 10, 0.85), rgba(123, 97, 255, 0.15));
+            background: rgba(10, 10, 10, 0.95);
             z-index: 2;
         }
 
@@ -434,66 +415,7 @@
         .contact-container {
             margin-top: 3rem;
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4rem;
-        }
-
-        .contact-form {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .form-group label {
-            color: var(--text-secondary);
-            font-weight: 500;
-        }
-
-        .form-group input,
-        .form-group textarea {
-            padding: 1rem;
-            background-color: var(--bg-card);
-            border: 1px solid var(--border-color);
-            color: var(--text-primary);
-            font-family: 'Poppins', sans-serif;
-            transition: border-color 0.3s ease;
-        }
-
-        .form-group input:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: var(--accent-purple);
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 150px;
-        }
-
-        .submit-btn {
-            padding: 1rem 2rem;
-            background-color: transparent;
-            color: var(--text-primary);
-            border: 1px solid var(--accent-purple);
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-family: 'Poppins', sans-serif;
-        }
-
-        .submit-btn:hover {
-            background-color: var(--accent-purple);
-        }
-
-        .contact-info {
-            display: flex;
-            flex-direction: column;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 2rem;
         }
 
@@ -590,8 +512,7 @@
                 font-size: 0.95rem;
             }
 
-            .about-content,
-            .contact-container {
+            .about-content {
                 grid-template-columns: 1fr;
                 gap: 2rem;
             }
@@ -634,19 +555,6 @@
             }
 
             .contact-item a {
-                font-size: 0.9rem;
-            }
-
-            .form-group label {
-                font-size: 0.9rem;
-            }
-
-            .form-group input,
-            .form-group textarea {
-                font-size: 0.9rem;
-            }
-
-            .submit-btn {
                 font-size: 0.9rem;
             }
 
@@ -694,9 +602,6 @@
 
     <!-- HERO SECTION -->
     <section class="hero" id="home">
-        <div class="hero-bg">
-            <canvas id="particleCanvas"></canvas>
-        </div>
         <div class="hero-overlay"></div>
         <div class="hero-content">
             <h1>MAZE_DEVELOPMENT</h1>
@@ -858,48 +763,31 @@
 
     <!-- CONTACT SECTION -->
     <section id="contact">
-        <h2 class="section-title">Get In Touch</h2>
+        <h2 class="section-title">Get In Touch & Links</h2>
         <div class="contact-container">
-            <form class="contact-form" id="contactForm">
-                <div class="form-group">
-                    <label for="name">Name</label>
-                    <input type="text" id="name" name="name" required>
-                </div>
-                <div class="form-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" name="email" required>
-                </div>
-                <div class="form-group">
-                    <label for="message">Message</label>
-                    <textarea id="message" name="message" required></textarea>
-                </div>
-                <button type="submit" class="submit-btn">Submit</button>
-            </form>
-            <div class="contact-info">
-                <div class="contact-item">
-                    <h3>Email</h3>
-                    <a href="mailto:jonatan.lund.ermesjo@gmail.com">jonatan.lund.ermesjo@gmail.com</a>
-                </div>
-                <div class="contact-item">
-                    <h3>GitHub</h3>
-                    <a href="https://github.com/mazijoni" target="_blank">github.com/mazijoni</a>
-                </div>
-                <div class="contact-item">
-                    <h3>LinkedIn</h3>
-                    <a href="https://www.linkedin.com/in/jonatan-lund-ermesjo-b8b332353/" target="_blank">linkedin.com/in/jonatan-lund-ermesjo</a>
-                </div>
-                <div class="contact-item">
-                    <h3>Itch.io</h3>
-                    <a href="https://maze-dev.itch.io/" target="_blank">maze-dev.itch.io</a>
-                </div>                
-                <div class="contact-item">
-                    <h3>Youtube</h3>
-                    <a href="https://www.youtube.com/@maze_joni" target="_blank">youtube.com/@maze_joni</a>
-                </div>
-                <div class="contact-item">
-                    <h3>TikTok</h3>
-                    <a href="https://www.tiktok.com/@maze_development" target="_blank">tiktok.com/@maze_development</a>
-                </div>
+            <div class="contact-item">
+                <h3>Email</h3>
+                <a href="mailto:jonatan.lund.ermesjo@gmail.com">jonatan.lund.ermesjo@gmail.com</a>
+            </div>
+            <div class="contact-item">
+                <h3>GitHub</h3>
+                <a href="https://github.com/mazijoni" target="_blank">github.com/mazijoni</a>
+            </div>
+            <div class="contact-item">
+                <h3>LinkedIn</h3>
+                <a href="https://www.linkedin.com/in/jonatan-lund-ermesjo-b8b332353/" target="_blank">linkedin.com/in/jonatan-lund-ermesjo</a>
+            </div>
+            <div class="contact-item">
+                <h3>Itch.io</h3>
+                <a href="https://maze-dev.itch.io/" target="_blank">maze-dev.itch.io</a>
+            </div>
+            <div class="contact-item">
+                <h3>Youtube</h3>
+                <a href="https://www.youtube.com/@maze_joni" target="_blank">youtube.com/@maze_joni</a>
+            </div>
+            <div class="contact-item">
+                <h3>TikTok</h3>
+                <a href="https://www.tiktok.com/@maze_development" target="_blank">tiktok.com/@maze_development</a>
             </div>
         </div>
     </section>
@@ -909,135 +797,7 @@
         <p>Ø 2025 Maze_Development. No rights reserved.</p>
     </footer>
 
-    <script type="module">
-    import emailjs from 'https://cdn.emailjs.com/dist/emailjs.min.mjs';
-
-    emailjs.init("-ypruf5pKrakXY1q3");
-
-    const contactForm = document.getElementById('contactForm');
-    contactForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-
-        emailjs.sendForm('service_lt9h6eg', 'template_ge1idd7', contactForm)
-        .then(() => {
-            alert('Email sent successfully!');
-            contactForm.reset();
-        }, (error) => {
-            alert('Failed to send email: ' + JSON.stringify(error));
-        });
-    });
-    </script>
     <script>
-        // ==================== ANIMATED PARTICLE BACKGROUND ====================
-        const canvas = document.getElementById('particleCanvas');
-        const ctx = canvas.getContext('2d');
-
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
-
-        class Particle {
-            constructor() {
-                this.x = Math.random() * canvas.width;
-                this.y = Math.random() * canvas.height;
-                this.size = Math.random() * 2 + 1;
-                this.speedX = Math.random() * 0.5 - 0.25;
-                this.speedY = Math.random() * 0.5 - 0.25;
-                this.opacity = Math.random() * 0.5 + 0.2;
-            }
-
-            update() {
-                this.x += this.speedX;
-                this.y += this.speedY;
-
-                if (this.x > canvas.width) this.x = 0;
-                if (this.x < 0) this.x = canvas.width;
-                if (this.y > canvas.height) this.y = 0;
-                if (this.y < 0) this.y = canvas.height;
-            }
-
-            draw() {
-                ctx.fillStyle = `rgba(123, 97, 255, ${this.opacity})`;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-
-        const particlesArray = [];
-        const numberOfParticles = 100;
-
-        for (let i = 0; i < numberOfParticles; i++) {
-            particlesArray.push(new Particle());
-        }
-
-        let mouse = {
-            x: null,
-            y: null,
-            radius: 150
-        };
-
-        canvas.addEventListener('mousemove', (e) => {
-            mouse.x = e.x;
-            mouse.y = e.y;
-        });
-
-        canvas.addEventListener('mouseleave', () => {
-            mouse.x = null;
-            mouse.y = null;
-        });
-
-        function connectParticles() {
-            for (let i = 0; i < particlesArray.length; i++) {
-                for (let j = i + 1; j < particlesArray.length; j++) {
-                    const dx = particlesArray[i].x - particlesArray[j].x;
-                    const dy = particlesArray[i].y - particlesArray[j].y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-
-                    if (distance < 120) {
-                        ctx.strokeStyle = `rgba(123, 97, 255, ${0.15 * (1 - distance / 120)})`;
-                        ctx.lineWidth = 1;
-                        ctx.beginPath();
-                        ctx.moveTo(particlesArray[i].x, particlesArray[i].y);
-                        ctx.lineTo(particlesArray[j].x, particlesArray[j].y);
-                        ctx.stroke();
-                    }
-                }
-
-                if (mouse.x !== null && mouse.y !== null) {
-                    const dx = particlesArray[i].x - mouse.x;
-                    const dy = particlesArray[i].y - mouse.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-
-                    if (distance < mouse.radius) {
-                        ctx.strokeStyle = `rgba(123, 97, 255, ${0.3 * (1 - distance / mouse.radius)})`;
-                        ctx.lineWidth = 2;
-                        ctx.beginPath();
-                        ctx.moveTo(particlesArray[i].x, particlesArray[i].y);
-                        ctx.lineTo(mouse.x, mouse.y);
-                        ctx.stroke();
-                    }
-                }
-            }
-        }
-
-        function animate() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            for (let particle of particlesArray) {
-                particle.update();
-                particle.draw();
-            }
-            
-            connectParticles();
-            requestAnimationFrame(animate);
-        }
-
-        animate();
-
         // ==================== MOBILE MENU ====================
         const hamburger = document.getElementById('hamburger');
         const mobileMenu = document.getElementById('mobileMenu');
