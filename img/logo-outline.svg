@@ -1,0 +1,16 @@
+<svg version="1.2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 209 197" width="209" height="197">
+	<style>
+		.s0 { fill: none;stroke: #c673ff;stroke-miterlimit:10;stroke-width: 2 } 
+		.s1 { fill: none;stroke: #ffffff;stroke-miterlimit:10;stroke-width: 2 } 
+	</style>
+	<g id="Layer 1">
+		<path id="Shape 1" fill-rule="evenodd" class="s0" d="m125.47 24l-14.24 20h-57.53l14.24-20z"/>
+		<path id="Shape 1 copy" fill-rule="evenodd" class="s1" d="m163.59 50l-14.24 20h-113.02l14.24-20z"/>
+		<path id="Shape 1 copy 2" fill-rule="evenodd" class="s1" d="m188.4 76l-14.24 20h-107.54l14.24-20z"/>
+		<path id="Shape 1 copy 6" fill-rule="evenodd" class="s0" d="m72.27 76l-14.23 20h-38.96l14.23-20z"/>
+		<path id="Shape 1 copy 7" fill-rule="evenodd" class="s0" d="m188.4 101.08l-14.23 20h-38.96l14.23-20z"/>
+		<path id="Shape 1 copy 3" fill-rule="evenodd" class="s1" d="m140.5 101.96l-14.23 20h-107.54l14.23-20z"/>
+		<path id="Shape 1 copy 4" fill-rule="evenodd" class="s1" d="m171 127.06l-14.23 20h-113.2l14.24-20z"/>
+		<path id="Shape 1 copy 5" fill-rule="evenodd" class="s0" d="m153.07 152.84l-14.23 20h-57.17l14.23-20z"/>
+	</g>
+</svg>
