@@ -304,13 +304,8 @@
 
 <main>
 
-  <!-- CONFIG -->
-  <div class="config-banner" id="configBanner">
-    ⚙ Sett fat-versions-andreas-releases.trycloudflare.com IP-adresse for å koble til databasen:
-    <input type="text" id="piIp" placeholder="f.eks. 192.168.1.50" />
-    <button onclick="setIp()">Koble til</button>
-    <span id="configMsg"></span>
-  </div>
+  <!-- CONFIG: automatic connection -->
+  <!-- koble til fjernet; bruker alltid fat-versions-andreas-releases.trycloudflare.com -->
 
   <!-- VAREHUS -->
   <div class="section-title">Varehus</div>
@@ -362,18 +357,9 @@
 </main>
 
 <script>
-  let BASE_URL = localStorage.getItem('piUrl') || '';
+  const BASE_URL = 'https://fat-versions-andreas-releases.trycloudflare.com';
   let allVarer = [];
   let activeKat = 'alle';
-
-  function setIp() {
-    const ip = document.getElementById('piIp').value.trim();
-    if (!ip) return;
-    BASE_URL = `https://${ip}`;
-    localStorage.setItem('piUrl', BASE_URL);
-    document.getElementById('configMsg').textContent = `→ Koblet til ${BASE_URL}`;
-    loadAll();
-  }
 
   async function fetchJSON(endpoint) {
     const res = await fetch(BASE_URL + endpoint);
@@ -479,13 +465,8 @@
     loadLager();
   }
 
-  // Auto-load if IP already saved
-  if (BASE_URL) {
-    const saved = BASE_URL.replace('https://', '').replace('');
-    document.getElementById('piIp').value = saved;
-    document.getElementById('configMsg').textContent = `→ Koblet til ${BASE_URL}`;
-    loadAll();
-  }
+  // start loading immediately
+  loadAll();
 </script>
 </body>
 </html>
