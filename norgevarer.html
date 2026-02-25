@@ -306,7 +306,7 @@
 
   <!-- CONFIG -->
   <div class="config-banner" id="configBanner">
-    ⚙ Sett Raspberry Pi IP:
+    ⚙ Sett fat-versions-andreas-releases.trycloudflare.com IP-adresse for å koble til databasen:
     <input type="text" id="piIp" placeholder="f.eks. 192.168.1.50" />
     <button onclick="setIp()">Koble til</button>
     <span id="configMsg"></span>
@@ -369,7 +369,7 @@
   function setIp() {
     const ip = document.getElementById('piIp').value.trim();
     if (!ip) return;
-    BASE_URL = `http://${ip}:5000`;
+    BASE_URL = `https://${ip}`;
     localStorage.setItem('piUrl', BASE_URL);
     document.getElementById('configMsg').textContent = `→ Koblet til ${BASE_URL}`;
     loadAll();
@@ -377,7 +377,7 @@
 
   async function fetchJSON(endpoint) {
     const res = await fetch(BASE_URL + endpoint);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw new Error(`HTTPS ${res.status}`);
     return res.json();
   }
 
@@ -481,7 +481,7 @@
 
   // Auto-load if IP already saved
   if (BASE_URL) {
-    const saved = BASE_URL.replace('http://', '').replace(':5000','');
+    const saved = BASE_URL.replace('https://', '').replace('');
     document.getElementById('piIp').value = saved;
     document.getElementById('configMsg').textContent = `→ Koblet til ${BASE_URL}`;
     loadAll();
