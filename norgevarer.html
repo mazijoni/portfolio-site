@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NorgeVarer AS – Lagersystem</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #0e0f13;
+      --surface: #16181f;
+      --border: #2a2d38;
+      --accent: #e8ff4a;
+      --accent2: #4affcb;
+      --text: #eaedf5;
+      --muted: #6b7080;
+      --red: #ff5c5c;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── HEADER ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.8rem 3rem;
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0;
+      background: var(--bg);
+      z-index: 100;
+    }
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.5rem;
+      letter-spacing: -0.03em;
+    }
+    .logo span { color: var(--accent); }
+    .status-pill {
+      font-size: 0.7rem;
+      background: rgba(232,255,74,0.12);
+      color: var(--accent);
+      border: 1px solid rgba(232,255,74,0.3);
+      padding: 0.3rem 0.8rem;
+      border-radius: 100px;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .dot {
+      width: 6px; height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ── MAIN LAYOUT ── */
+    main { padding: 2.5rem 3rem; max-width: 1400px; margin: 0 auto; }
+
+    /* ── CONFIG BANNER ── */
+    .config-banner {
+      background: rgba(255,92,92,0.08);
+      border: 1px solid rgba(255,92,92,0.3);
+      border-radius: 8px;
+      padding: 1rem 1.5rem;
+      margin-bottom: 2.5rem;
+      font-size: 0.8rem;
+      color: #ff9f9f;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .config-banner input {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.8rem;
+      width: 200px;
+    }
+    .config-banner button {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      padding: 0.4rem 1rem;
+      border-radius: 6px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+
+    /* ── SECTION HEADING ── */
+    .section-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── VAREHUS CARDS ── */
+    .varehus-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-bottom: 3rem;
+    }
+    .varehus-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.4rem;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .varehus-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+    .varehus-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+    }
+    .varehus-id {
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+    .varehus-name {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      margin-bottom: 0.3rem;
+    }
+    .varehus-by {
+      color: var(--accent2);
+      font-size: 0.75rem;
+    }
+    .varehus-adresse {
+      color: var(--muted);
+      font-size: 0.7rem;
+      margin-top: 0.4rem;
+    }
+
+    /* ── TABLE ── */
+    .table-wrap {
+      overflow-x: auto;
+      margin-bottom: 3rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    thead th {
+      background: var(--surface);
+      font-family: 'Syne', sans-serif;
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 0.9rem 1.2rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.03); }
+    td {
+      padding: 0.85rem 1.2rem;
+      font-size: 0.8rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      font-weight: 500;
+      background: rgba(74, 255, 203, 0.1);
+      color: var(--accent2);
+      border: 1px solid rgba(74,255,203,0.2);
+    }
+    .pris { color: var(--accent); font-weight: 500; }
+
+    .antall-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+    .bar-bg {
+      flex: 1;
+      max-width: 100px;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      transition: width 0.6s ease;
+    }
+
+    /* ── LOADING ── */
+    .loading {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.8rem;
+      padding: 3rem;
+    }
+    .spinner {
+      width: 24px; height: 24px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── ANIMATIONS ── */
+    .fade-in {
+      animation: fadeUp 0.4s ease both;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .varehus-card { animation: fadeUp 0.4s ease both; }
+    .varehus-card:nth-child(1) { animation-delay: 0.05s; }
+    .varehus-card:nth-child(2) { animation-delay: 0.10s; }
+    .varehus-card:nth-child(3) { animation-delay: 0.15s; }
+    .varehus-card:nth-child(4) { animation-delay: 0.20s; }
+
+    /* ── FILTER ── */
+    .filter-row {
+      display: flex;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .filter-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 0.35rem 0.9rem;
+      border-radius: 6px;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-btn:hover, .filter-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(232,255,74,0.06);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Norge<span>Varer</span> AS</div>
+  <div class="status-pill"><div class="dot"></div> LIVE DATA</div>
+</header>
+
+<main>
+
+  <!-- CONFIG -->
+  <div class="config-banner" id="configBanner">
+    ⚙ Sett Raspberry Pi IP:
+    <input type="text" id="piIp" placeholder="f.eks. 192.168.1.50" />
+    <button onclick="setIp()">Koble til</button>
+    <span id="configMsg"></span>
+  </div>
+
+  <!-- VAREHUS -->
+  <div class="section-title">Varehus</div>
+  <div class="varehus-grid" id="varehusGrid">
+    <div class="loading"><div class="spinner"></div>Laster varehus…</div>
+  </div>
+
+  <!-- VARER -->
+  <div class="section-title">Varekatalog</div>
+  <div class="filter-row" id="katFilter"></div>
+  <div class="table-wrap">
+    <table id="varerTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Vare</th>
+          <th>Kategori</th>
+          <th>Pris</th>
+          <th>Varehus</th>
+          <th>By</th>
+        </tr>
+      </thead>
+      <tbody id="varerBody">
+        <tr><td colspan="6"><div class="loading"><div class="spinner"></div>Laster varer…</div></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- LAGER -->
+  <div class="section-title">Lagerbeholdning</div>
+  <div class="table-wrap">
+    <table id="lagerTable">
+      <thead>
+        <tr>
+          <th>Varehus</th>
+          <th>By</th>
+          <th>Vare</th>
+          <th>Kategori</th>
+          <th>Pris</th>
+          <th>Antall på lager</th>
+        </tr>
+      </thead>
+      <tbody id="lagerBody">
+        <tr><td colspan="6"><div class="loading"><div class="spinner"></div>Laster lager…</div></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+
+<script>
+  let BASE_URL = localStorage.getItem('piUrl') || '';
+  let allVarer = [];
+  let activeKat = 'alle';
+
+  function setIp() {
+    const ip = document.getElementById('piIp').value.trim();
+    if (!ip) return;
+    BASE_URL = `http://${ip}:5000`;
+    localStorage.setItem('piUrl', BASE_URL);
+    document.getElementById('configMsg').textContent = `→ Koblet til ${BASE_URL}`;
+    loadAll();
+  }
+
+  async function fetchJSON(endpoint) {
+    const res = await fetch(BASE_URL + endpoint);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  /* ── VAREHUS ── */
+  async function loadVarehus() {
+    try {
+      const data = await fetchJSON('/varehus');
+      const grid = document.getElementById('varehusGrid');
+      grid.innerHTML = data.map((v, i) => `
+        <div class="varehus-card" style="animation-delay:${i*0.05}s">
+          <div class="varehus-id">ID #${v.varehus_id}</div>
+          <div class="varehus-name">${v.navn}</div>
+          <div class="varehus-by">${v.by}</div>
+          <div class="varehus-adresse">${v.adresse}</div>
+        </div>
+      `).join('');
+    } catch(e) {
+      document.getElementById('varehusGrid').innerHTML =
+        `<div class="loading" style="color:var(--red)">Feil: ${e.message}</div>`;
+    }
+  }
+
+  /* ── VARER ── */
+  async function loadVarer() {
+    try {
+      allVarer = await fetchJSON('/varer');
+      buildKatFilter();
+      renderVarer();
+    } catch(e) {
+      document.getElementById('varerBody').innerHTML =
+        `<tr><td colspan="6" style="color:var(--red);padding:1.5rem">Feil: ${e.message}</td></tr>`;
+    }
+  }
+
+  function buildKatFilter() {
+    const kategorier = ['alle', ...new Set(allVarer.map(v => v.kategori))];
+    const row = document.getElementById('katFilter');
+    row.innerHTML = kategorier.map(k => `
+      <button class="filter-btn ${k==='alle'?'active':''}" onclick="filterKat('${k}')">${k}</button>
+    `).join('');
+  }
+
+  function filterKat(kat) {
+    activeKat = kat;
+    document.querySelectorAll('.filter-btn').forEach(b => {
+      b.classList.toggle('active', b.textContent === kat);
+    });
+    renderVarer();
+  }
+
+  function renderVarer() {
+    const filtered = activeKat === 'alle'
+      ? allVarer
+      : allVarer.filter(v => v.kategori === activeKat);
+
+    document.getElementById('varerBody').innerHTML = filtered.map((v,i) => `
+      <tr class="fade-in" style="animation-delay:${i*0.02}s">
+        <td style="color:var(--muted)">${v.vare_id}</td>
+        <td>${v.navn}</td>
+        <td><span class="badge">${v.kategori || '—'}</span></td>
+        <td class="pris">${parseFloat(v.pris).toFixed(2)} kr</td>
+        <td>${v.varehus_navn}</td>
+        <td style="color:var(--accent2)">${v.by}</td>
+      </tr>
+    `).join('');
+  }
+
+  /* ── LAGER ── */
+  async function loadLager() {
+    try {
+      const data = await fetchJSON('/lager');
+      const maxAntall = Math.max(...data.map(d => d.antall));
+      document.getElementById('lagerBody').innerHTML = data.map((d,i) => {
+        const pct = Math.round((d.antall / maxAntall) * 100);
+        return `
+        <tr class="fade-in" style="animation-delay:${i*0.015}s">
+          <td style="font-family:'Syne',sans-serif;font-weight:700">${d.varehus}</td>
+          <td style="color:var(--accent2)">${d.by}</td>
+          <td>${d.vare}</td>
+          <td><span class="badge">${d.kategori || '—'}</span></td>
+          <td class="pris">${parseFloat(d.pris).toFixed(2)} kr</td>
+          <td>
+            <div class="antall-bar">
+              <span>${d.antall}</span>
+              <div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    } catch(e) {
+      document.getElementById('lagerBody').innerHTML =
+        `<tr><td colspan="6" style="color:var(--red);padding:1.5rem">Feil: ${e.message}</td></tr>`;
+    }
+  }
+
+  function loadAll() {
+    loadVarehus();
+    loadVarer();
+    loadLager();
+  }
+
+  // Auto-load if IP already saved
+  if (BASE_URL) {
+    const saved = BASE_URL.replace('http://', '').replace(':5000','');
+    document.getElementById('piIp').value = saved;
+    document.getElementById('configMsg').textContent = `→ Koblet til ${BASE_URL}`;
+    loadAll();
+  }
+</script>
+</body>
+</html>
