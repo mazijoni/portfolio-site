@@ -1060,9 +1060,13 @@
 
         /* ── Firebase init — try local config first, fall back to firebase.js ── */
         let firebaseConfig;
-        try {
-            ({ firebaseConfig } = await import('./firebase.local.js'));
-        } catch {
+        if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+            try {
+                ({ firebaseConfig } = await import('./firebase.local.js'));
+            } catch {
+                ({ firebaseConfig } = await import('./firebase.js'));
+            }
+        } else {
             ({ firebaseConfig } = await import('./firebase.js'));
         }
 
