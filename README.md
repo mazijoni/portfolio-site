@@ -187,6 +187,88 @@ Movement: 0px → -10px → -5px → 0px
 
 ---
 
+## 🔐 Authentication + Media Collection
+
+Two restricted pages using **Firebase Authentication** (Email/Password + Google Sign-In) and **Firebase Firestore** for persistent storage.
+
+### Pages
+| File | Purpose |
+|------|---------|
+| `login.html` | Sign in / create account page |
+| `private.html` | Members-only media collection dashboard |
+
+### How the auth flow works
+1. User visits `private.html` → auth check runs
+2. If **not signed in** → redirected to `login.html?redirect=private.html`
+3. User signs in → redirected back to `private.html`
+4. "Sign out" button → redirected to `login.html`
+
+---
+
+### 📁 Media Collection Dashboard (`private.html`)
+
+A gallery that saves images and videos from Reddit, YouTube, and any other URL.
+
+**Features:**
+- **Sidebar:** Category list with counts; add/delete user-defined categories
+- **Add Media panel:** Paste any URL — Reddit posts, YouTube links, direct image/video URLs, or generic links
+- **Auto-detection:** Reddit posts are fetched via the Reddit JSON API (`{url}.json?raw_json=1`), extracting title, thumbnail, and media type. YouTube IDs are extracted for thumbnails automatically
+- **Gallery grid:** Flat media cards matching the site design; click "Open" to visit the source, "Media" for direct media URL, "Delete" to remove
+- **Search:** Live filter by title, source, or subreddit
+- **Bookmarklet:** Drag the purple bookmark button to your bookmarks bar. Clicking it on any page opens `private.html` pre-filled with that page's URL and title
+
+**Firestore data structure:**
+```
+users/{uid}/media/{docId}
+  url        — original page URL
+  title      — post/page title
+  category   — user-defined category name
+  type       — 'image' | 'video' | 'youtube' | 'link'
+  source     — 'reddit' | 'youtube' | hostname
+  mediaUrl   — direct image/video URL (if detected)
+  ytId       — YouTube video ID (if YouTube)
+  subreddit  — subreddit name (if Reddit)
+  addedAt    — Unix timestamp
+
+users/{uid}/categories/{name}
+  name       — category display name
+```
+
+---
+
+### Firebase setup required
+1. [console.firebase.google.com](https://console.firebase.google.com) → your project
+2. **Authentication → Sign-in method** → enable **Email/Password** and **Google**
+3. **Authentication → Settings → Authorized domains** → add `localhost` for local dev
+4. **Firestore Database** → Create database (start in **test mode** for dev, then apply rules below)
+5. **Firestore → Rules** → paste the following security rules:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+```
+
+This ensures each user can only read and write their own data.
+
+---
+
+### Styling rules
+Both pages follow the exact same design language as `index.html`:
+- Same CSS variables (`:root`)
+- Same animated SVG background (`.anime-container` + `.line` paths)
+- Same fixed frosted-glass header with `MAZE_DEVELOPMENT` logo
+- Same flat card style: no `border-radius`, `border: 1px solid var(--border-color)`, hover lifts with `border-color: var(--accent-purple)`
+- Buttons use transparent background + border, fill purple on hover
+- Same custom scrollbar, same Poppins font stack, same footer text
+
+---
+
 ## 🎨 Custom Scrollbar
 
 ```css
