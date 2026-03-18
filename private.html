@@ -235,6 +235,31 @@
         .icon-btn:hover { border-color: var(--accent-purple); color: var(--accent-purple); }
         .icon-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
 
+        /* ==================== SUB-GROUPS ==================== */
+        .sub-group {
+            margin-bottom: 1.5rem;
+        }
+        .sub-group:last-child { margin-bottom: 0; }
+
+        .sub-group-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.65rem;
+        }
+        .sub-group-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-secondary);
+        }
+        .sub-group-line {
+            flex: 1;
+            height: 1px;
+            background: var(--border-color);
+        }
+
         /* ==================== SITES GRID ==================== */
         .sites-grid {
             display: grid;
@@ -334,6 +359,7 @@
             gap: 4px;
             opacity: 0;
             transition: opacity 0.2s;
+            z-index: 2;
         }
         .site-card:hover .site-card-actions { opacity: 1; }
 
@@ -721,6 +747,91 @@
         #toast.success { border-left: 3px solid var(--success); }
         #toast.error { border-left: 3px solid var(--danger); }
 
+        /* ==================== SITE VIEWER PANEL ==================== */
+        .site-viewer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 65vh;
+            min-height: 200px;
+            max-height: 92vh;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            z-index: 6000;
+            display: flex;
+            flex-direction: column;
+            transform: translateY(100%);
+            transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 -8px 40px rgba(0,0,0,0.6);
+        }
+        .site-viewer.active { transform: translateY(0); }
+
+        .site-viewer-resize {
+            height: 6px;
+            cursor: ns-resize;
+            background: transparent;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .site-viewer-resize::before {
+            content: '';
+            width: 40px;
+            height: 3px;
+            background: var(--border-color);
+            border-radius: 2px;
+        }
+        .site-viewer-resize:hover::before { background: var(--accent-purple); }
+
+        .site-viewer-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0 0.75rem 0.5rem;
+            flex-shrink: 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .site-viewer-favicon {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+        .site-viewer-urlbar {
+            flex: 1;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.75rem;
+            padding: 0.3rem 0.6rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sv-btn {
+            background: none;
+            border: 1px solid transparent;
+            color: var(--text-secondary);
+            width: 26px;
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: border-color 0.15s, color 0.15s;
+            flex-shrink: 0;
+        }
+        .sv-btn:hover { border-color: var(--accent-purple); color: var(--accent-purple); }
+        .sv-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+        .site-viewer-iframe {
+            flex: 1;
+            width: 100%;
+            border: none;
+            background: #fff;
+        }
+
         /* ==================== RESPONSIVE ==================== */
         @media (max-width: 600px) {
             .sites-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
@@ -876,13 +987,14 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label" for="video-url-input">YouTube URL</label>
+                <label class="form-label" for="video-url-input">Video URL</label>
                 <input class="form-input" id="video-url-input" type="url"
-                    placeholder="https://youtube.com/shorts/abc123"
+                    placeholder="https://youtube.com/watch?v=… or video.mp4"
                     oninput="debouncedVideoPreview()">
-                <p class="form-hint">Supports youtube.com/watch?v=, youtube.com/shorts/, and youtu.be/ links.</p>
+                <p class="form-hint">YouTube, Vimeo, or a direct video file link (.mp4, .webm, .ogg).</p>
                 <div class="video-preview-wrap" id="video-preview-wrap">
-                    <iframe id="video-preview-iframe" src="" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+                    <iframe id="video-preview-iframe" src="" allowfullscreen allow="autoplay; encrypted-media" style="display:none"></iframe>
+                    <video id="video-preview-video" src="" controls style="width:100%;height:100%;display:none"></video>
                 </div>
             </div>
 
@@ -911,6 +1023,27 @@
         <img class="lightbox-img" id="lightbox-img" src="" alt="">
     </div>
 
+    <!-- ==================== SITE VIEWER ==================== -->
+    <div class="site-viewer" id="site-viewer">
+        <div class="site-viewer-resize" id="sv-resize"></div>
+        <div class="site-viewer-bar">
+            <img class="site-viewer-favicon" id="sv-favicon" src="" alt="">
+            <div class="site-viewer-urlbar" id="sv-urlbar">about:blank</div>
+            <button class="sv-btn" id="sv-reload" title="Reload">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M10.5 2A5 5 0 1 0 11 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M10.5 2V5h-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button class="sv-btn" id="sv-external" title="Open in new tab">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5.5 1H9v3.5M9 1L4 6M2 3.5H1v5.5h5.5V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button class="sv-btn danger" id="sv-close" title="Close">
+                <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1 1l7 7M8 1L1 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </button>
+        </div>
+        <iframe class="site-viewer-iframe" id="sv-iframe" src="about:blank"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+            allow="autoplay"></iframe>
+    </div>
+
     <!-- ==================== TOAST ==================== -->
     <div id="toast"></div>
 
@@ -925,16 +1058,13 @@
             onSnapshot, query, orderBy, serverTimestamp, writeBatch
         } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
-        /* ── Firebase init ── */
-        const firebaseConfig = {
-            apiKey: "%%FIREBASE_API_KEY%%",
-            authDomain: "%%FIREBASE_AUTH_DOMAIN%%",
-            projectId: "%%FIREBASE_PROJECT_ID%%",
-            storageBucket: "%%FIREBASE_STORAGE_BUCKET%%",
-            messagingSenderId: "%%FIREBASE_MESSAGING_SENDER_ID%%",
-            appId: "%%FIREBASE_APP_ID%%",
-            measurementId: "%%FIREBASE_MEASUREMENT_ID%%"
-        };
+        /* ── Firebase init — try local config first, fall back to firebase.js ── */
+        let firebaseConfig;
+        try {
+            ({ firebaseConfig } = await import('./firebase.local.js'));
+        } catch {
+            ({ firebaseConfig } = await import('./firebase.js'));
+        }
 
         const app  = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -1026,12 +1156,19 @@
             });
         }
 
+        function makeSubGroupHeader(label) {
+            const h = document.createElement('div');
+            h.className = 'sub-group-header';
+            h.innerHTML = `<span class="sub-group-label">${label}</span><div class="sub-group-line"></div>`;
+            return h;
+        }
+
         function buildCategoryBlock(cat, links) {
             const block = document.createElement('div');
             block.className = 'category-block';
             block.dataset.catId = cat.id;
 
-            // Header
+            // Category header
             const header = document.createElement('div');
             header.className = 'category-header';
             header.innerHTML = `
@@ -1053,21 +1190,14 @@
             renameBtn.addEventListener('click', () => openCategoryModal(cat.id, cat.name));
             deleteCatBtn.addEventListener('click', () => confirmDeleteCategory(cat.id, cat.name));
 
-            // Grid
-            const grid = document.createElement('div');
-            grid.className = 'sites-grid';
-
-            links.forEach(link => {
-                if (link.type === 'video') {
-                    grid.appendChild(buildVideoCard(link));
-                } else if (link.type === 'image') {
-                    grid.appendChild(buildImageCard(link));
-                } else {
-                    grid.appendChild(buildSiteCard(link));
-                }
-            });
-
-            // Add Site button
+            // ── Sites sub-group ──
+            const sitesGroup = document.createElement('div');
+            sitesGroup.className = 'sub-group';
+            sitesGroup.appendChild(makeSubGroupHeader('Sites'));
+            const sitesGrid = document.createElement('div');
+            sitesGrid.className = 'sites-grid';
+            links.filter(l => l.type !== 'video' && l.type !== 'image')
+                 .forEach(link => sitesGrid.appendChild(buildSiteCard(link)));
             const addSiteCard = document.createElement('button');
             addSiteCard.className = 'add-type-card';
             addSiteCard.onclick = () => openSiteModal(cat.id);
@@ -1077,9 +1207,20 @@
                     <path d="M5 9h8M9 5v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                 </svg>
                 <span class="add-type-label">Add Site</span>`;
-            grid.appendChild(addSiteCard);
+            sitesGrid.appendChild(addSiteCard);
+            sitesGroup.appendChild(sitesGrid);
 
-            // Add Video button
+            // ── Media sub-group ──
+            const mediaGroup = document.createElement('div');
+            mediaGroup.className = 'sub-group';
+            mediaGroup.appendChild(makeSubGroupHeader('Media'));
+            const mediaGrid = document.createElement('div');
+            mediaGrid.className = 'sites-grid';
+            links.filter(l => l.type === 'video' || l.type === 'image')
+                 .forEach(link => {
+                     if (link.type === 'video') mediaGrid.appendChild(buildVideoCard(link));
+                     else                       mediaGrid.appendChild(buildImageCard(link));
+                 });
             const addVideoCard = document.createElement('button');
             addVideoCard.className = 'add-type-card';
             addVideoCard.onclick = () => openVideoModal(cat.id);
@@ -1089,9 +1230,7 @@
                     <path d="M7.5 6.5l5 2.5-5 2.5V6.5z" fill="currentColor"/>
                 </svg>
                 <span class="add-type-label">Add Video</span>`;
-            grid.appendChild(addVideoCard);
-
-            // Add Image button
+            mediaGrid.appendChild(addVideoCard);
             const addImageCard = document.createElement('button');
             addImageCard.className = 'add-type-card';
             addImageCard.onclick = () => openImageModal(cat.id);
@@ -1102,10 +1241,12 @@
                     <path d="M1 13l4-4 3 3 3-3 5 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
                 <span class="add-type-label">Add Image</span>`;
-            grid.appendChild(addImageCard);
+            mediaGrid.appendChild(addImageCard);
+            mediaGroup.appendChild(mediaGrid);
 
             block.appendChild(header);
-            block.appendChild(grid);
+            block.appendChild(sitesGroup);
+            block.appendChild(mediaGroup);
             return block;
         }
 
@@ -1133,13 +1274,16 @@
                             <path d="M8.5 2l1 1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
                         </svg>
                     </button>
+                    <button class="icon-btn" title="Open in new tab">
+                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5.5 1H9v3.5M9 1L4 6M2 3.5H1v5.5h5.5V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
                     <button class="icon-btn danger" title="Delete">
                         <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
                             <path d="M1 1l9 9M10 1L1 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                         </svg>
                     </button>
                 </div>
-                <a class="site-card-link" href="${escAttr(link.url)}" target="_blank" rel="noopener noreferrer">
+                <div class="site-card-link" style="cursor:pointer">
                     <div class="site-card-thumb">
                         <img class="site-thumb-img" src="${escAttr(thumbSrc)}" alt=""
                              onerror="this.style.display='none';document.getElementById('fb_${link.id}').style.display='flex'">
@@ -1149,11 +1293,13 @@
                         <div class="site-card-name">${escHtml(link.name)}</div>
                         <div class="site-card-url">${escHtml(prettyUrl(link.url))}</div>
                     </div>
-                </a>`;
+                </div>`;
 
-            const [siteEditBtn, siteDelBtn] = card.querySelectorAll('.site-card-actions button');
-            siteEditBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); openSiteModal(link.categoryId, link.id); });
-            siteDelBtn.addEventListener('click',  (e) => { e.preventDefault(); e.stopPropagation(); confirmDeleteSite(link.id, link.name); });
+            const [siteEditBtn, siteExtBtn, siteDelBtn] = card.querySelectorAll('.site-card-actions button');
+            siteEditBtn.addEventListener('click', (e) => { e.stopPropagation(); openSiteModal(link.categoryId, link.id); });
+            siteExtBtn.addEventListener('click',  (e) => { e.stopPropagation(); window.open(link.url, '_blank'); });
+            siteDelBtn.addEventListener('click',  (e) => { e.stopPropagation(); confirmDeleteSite(link.id, link.name); });
+            card.querySelector('.site-card-link').addEventListener('click', () => openPip(link.url, link.name));
             return card;
         }
 
@@ -1166,12 +1312,9 @@
             const card = document.createElement('div');
             card.className = 'video-card';
 
-            const videoId = getYouTubeId(link.url);
-            const embedSrc = videoId
-                ? `https://www.youtube-nocookie.com/embed/${videoId}`
-                : '';
+            const embed = getVideoEmbed(link.url);
 
-            card.innerHTML = `
+            const actionsHtml = `
                 <div class="video-card-actions">
                     <button class="icon-btn" title="Edit">
                         <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
@@ -1184,15 +1327,24 @@
                             <path d="M1 1l9 9M10 1L1 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                         </svg>
                     </button>
-                </div>
-                <div class="video-iframe-wrap">
-                    ${videoId
-                        ? `<iframe src="${embedSrc}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" loading="lazy"></iframe>`
-                        : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#555;font-size:0.8rem">Invalid YouTube URL</div>`
-                    }
-                </div>
+                </div>`;
+
+            let mediaHtml;
+            if (!embed) {
+                mediaHtml = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#555;font-size:0.8rem">Unsupported URL</div>`;
+            } else if (embed.type === 'direct') {
+                mediaHtml = `<video src="${escAttr(embed.src)}" controls style="position:absolute;inset:0;width:100%;height:100%;background:#000" preload="metadata"></video>`;
+            } else {
+                mediaHtml = `<iframe src="${escAttr(embed.src)}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" loading="lazy"></iframe>`;
+            }
+
+            const badgeLabel = !embed ? '?' : embed.type === 'youtube' ? 'YT' : embed.type === 'vimeo' ? 'VIMEO' : 'VIDEO';
+
+            card.innerHTML = `
+                ${actionsHtml}
+                <div class="video-iframe-wrap">${mediaHtml}</div>
                 <div class="video-card-body">
-                    <span class="video-type-badge">YT</span>
+                    <span class="video-type-badge">${badgeLabel}</span>
                     <span class="video-card-name">${escHtml(link.name)}</span>
                 </div>`;
 
@@ -1246,6 +1398,53 @@
             document.getElementById('lightbox').classList.remove('active');
         };
 
+        /* ── Site Viewer Panel ── */
+        const svPanel  = document.getElementById('site-viewer');
+        const svIframe = document.getElementById('sv-iframe');
+        const svUrlBar = document.getElementById('sv-urlbar');
+        let svCurrentUrl = '';
+
+        window.openPip = (url, name) => {
+            svCurrentUrl = url;
+            try {
+                const u = new URL(url);
+                document.getElementById('sv-favicon').src = `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=32`;
+            } catch {}
+            svUrlBar.textContent = url;
+            svUrlBar.title = url;
+            svIframe.src = url;
+            document.getElementById('sv-external').onclick = () => window.open(url, '_blank');
+            svPanel.classList.add('active');
+        };
+
+        document.getElementById('sv-close').addEventListener('click', () => {
+            svPanel.classList.remove('active');
+            setTimeout(() => { svIframe.src = 'about:blank'; svCurrentUrl = ''; }, 300);
+        });
+        document.getElementById('sv-reload').addEventListener('click', () => {
+            if (svIframe.src && svIframe.src !== 'about:blank') svIframe.src = svIframe.src;
+        });
+
+        // Drag-to-resize from top edge
+        const svResizeHandle = document.getElementById('sv-resize');
+        let svResizing = false, svStartY = 0, svStartH = 0;
+        svResizeHandle.addEventListener('mousedown', (e) => {
+            svResizing = true;
+            svStartY = e.clientY;
+            svStartH = svPanel.offsetHeight;
+            document.body.style.userSelect = 'none';
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (!svResizing) return;
+            const delta = svStartY - e.clientY;
+            const newH  = Math.min(window.innerHeight * 0.92, Math.max(160, svStartH + delta));
+            svPanel.style.height = newH + 'px';
+        });
+        document.addEventListener('mouseup', () => {
+            if (svResizing) { svResizing = false; document.body.style.userSelect = ''; }
+        });
+
         function getYouTubeId(url) {
             try {
                 const u = new URL(url);
@@ -1257,6 +1456,32 @@
                 // youtu.be/ID
                 if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('/')[0];
             } catch {}
+            return null;
+        }
+
+        function getVimeoId(url) {
+            try {
+                const u = new URL(url);
+                if (u.hostname === 'vimeo.com' || u.hostname === 'www.vimeo.com') {
+                    const m = u.pathname.match(/\/(\d+)/);
+                    if (m) return m[1];
+                }
+                if (u.hostname === 'player.vimeo.com') {
+                    const m = u.pathname.match(/\/video\/(\d+)/);
+                    if (m) return m[1];
+                }
+            } catch {}
+            return null;
+        }
+
+        function getVideoEmbed(url) {
+            if (!url) return null;
+            const ytId = getYouTubeId(url);
+            if (ytId) return { type: 'youtube', src: `https://www.youtube-nocookie.com/embed/${ytId}` };
+            const vimeoId = getVimeoId(url);
+            if (vimeoId) return { type: 'vimeo', src: `https://player.vimeo.com/video/${vimeoId}` };
+            if (/\.(mp4|webm|ogg|mov|m4v)(\?|$)/i.test(url)) return { type: 'direct', src: url };
+            try { new URL(url); return { type: 'embed', src: url }; } catch {}
             return null;
         }
 
@@ -1452,8 +1677,8 @@
             const editId = document.getElementById('video-edit-id').value;
 
             if (!name) { showToast('Enter a title.', 'error'); return; }
-            if (!url)  { showToast('Enter a YouTube URL.', 'error'); return; }
-            if (!getYouTubeId(url)) { showToast('Could not detect a YouTube video ID. Check the URL.', 'error'); return; }
+            if (!url)  { showToast('Enter a video URL.', 'error'); return; }
+            if (!isValidUrl(url)) { showToast('Enter a valid URL (include https://).', 'error'); return; }
 
             const btn = document.getElementById('video-save-btn');
             btn.disabled = true;
@@ -1480,17 +1705,27 @@
         };
 
         window.updateVideoPreview = () => {
-            const url  = document.getElementById('video-url-input').value.trim();
-            const wrap = document.getElementById('video-preview-wrap');
+            const url    = document.getElementById('video-url-input').value.trim();
+            const wrap   = document.getElementById('video-preview-wrap');
             const iframe = document.getElementById('video-preview-iframe');
-            const vid  = getYouTubeId(url);
-            if (vid) {
-                iframe.src = `https://www.youtube-nocookie.com/embed/${vid}`;
-                wrap.classList.add('visible');
+            const video  = document.getElementById('video-preview-video');
+            const embed  = getVideoEmbed(url);
+
+            iframe.style.display = 'none';
+            video.style.display  = 'none';
+            iframe.src = '';
+            video.src  = '';
+
+            if (!embed) { wrap.classList.remove('visible'); return; }
+
+            if (embed.type === 'direct') {
+                video.src = embed.src;
+                video.style.display = 'block';
             } else {
-                iframe.src = '';
-                wrap.classList.remove('visible');
+                iframe.src = embed.src;
+                iframe.style.display = 'block';
             }
+            wrap.classList.add('visible');
         };
 
         /* ── Image preview ── */
@@ -1577,6 +1812,8 @@
                 closeModal('image-modal');
                 closeLightbox();
                 closeConfirm();
+                svPanel.classList.remove('active');
+                setTimeout(() => { svIframe.src = 'about:blank'; svCurrentUrl = ''; }, 300);
             }
         });
     </script>
