@@ -23,6 +23,14 @@ jobs:
           sed -i "s|%%FIREBASE_APP_ID%%|${{ secrets.FIREBASE_APP_ID }}|g" $FILES
           sed -i "s|%%FIREBASE_MEASUREMENT_ID%%|${{ secrets.FIREBASE_MEASUREMENT_ID }}|g" $FILES
 
+      - name: Verify substitution succeeded
+        run: |
+          if grep -r "%%FIREBASE" firebase.js; then
+            echo "ERROR: Firebase placeholders were not substituted. Check that all repository secrets are set."
+            exit 1
+          fi
+          echo "✓ Firebase config substituted successfully."
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
