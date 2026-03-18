@@ -1058,9 +1058,19 @@
             onSnapshot, query, orderBy, serverTimestamp, writeBatch
         } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
-        /* ── Firebase init — try local config first, fall back to firebase.js ── */
+        // ─── CONFIG SWITCH ──────────────────────────────────────────────────
+        // true  → always use firebase.local.js (local dev)
+        // false → always use firebase.js        (production / GitHub)
+        // 'auto' → use local only on localhost, production everywhere else
+        const USE_LOCAL_CONFIG = 'false';
+        // ───────────────────────────────────────────────────────────────────
+
+        /* ── Firebase init ── */
         let firebaseConfig;
-        if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+        const isLocal = USE_LOCAL_CONFIG === true ||
+            (USE_LOCAL_CONFIG === 'auto' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1'));
+
+        if (isLocal) {
             try {
                 ({ firebaseConfig } = await import('./firebase.local.js'));
             } catch {
