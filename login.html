@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In | Maze_Development</title>
+    <link rel="icon" href="img/logo.svg" type="image/svg"/>
+    <link rel="icon" href="img/logo_black.svg" type="image/svg" media="(prefers-color-scheme: light)"/>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* ==================== GLOBAL STYLES ==================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #0a0a0a;
+            --bg-secondary: #151515;
+            --bg-card: #1a1a1a;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --accent-purple: #c772fe;
+            --border-color: #2a2a2a;
+        }
+
+        /* ==================== ANIMATED BACKGROUND ==================== */
+        .anime-container {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            max-width: 40%;
+            height: auto;
+            z-index: 0;
+            opacity: 0.15;
+            pointer-events: none;
+        }
+
+        .anime-container svg { width: 100%; height: auto; }
+
+        .line {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: draw 3s ease-in-out infinite;
+        }
+
+        .line:nth-child(1) { animation-delay: 0s; }
+        .line:nth-child(2) { animation-delay: 0.1s; }
+        .line:nth-child(3) { animation-delay: 0.2s; }
+        .line:nth-child(4) { animation-delay: 0.3s; }
+        .line:nth-child(5) { animation-delay: 0.4s; }
+        .line:nth-child(6) { animation-delay: 0.5s; }
+        .line:nth-child(7) { animation-delay: 0.6s; }
+        .line:nth-child(8) { animation-delay: 0.7s; }
+        .line:nth-child(9) { animation-delay: 0.8s; }
+        .line:nth-child(10) { animation-delay: 0.9s; }
+
+        @keyframes draw {
+            0%   { stroke-dashoffset: 1000; }
+            50%  { stroke-dashoffset: 0; }
+            100% { stroke-dashoffset: 1000; }
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ==================== CUSTOM SCROLLBAR ==================== */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0a0a0a; }
+        ::-webkit-scrollbar-thumb { background: #2a2a2a; }
+        ::-webkit-scrollbar-thumb:hover { background: #c772fe; }
+
+        /* ==================== HEADER ==================== */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background-color: rgba(10, 10, 10, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.2rem 5%;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: 1px;
+            text-decoration: none;
+        }
+
+        .nav-back {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.3s ease;
+            position: relative;
+        }
+        .nav-back:hover { color: var(--accent-purple); }
+        .nav-back::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background-color: var(--accent-purple);
+            transition: width 0.3s ease;
+        }
+        .nav-back:hover::after { width: 100%; }
+
+        /* ==================== MAIN ==================== */
+        main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8rem 5% 4rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .auth-wrapper {
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .auth-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--accent-purple);
+            margin-bottom: 0.75rem;
+        }
+
+        .auth-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .auth-subtitle {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            margin-bottom: 2.5rem;
+        }
+
+        /* ==================== TABS ==================== */
+        .tabs {
+            display: flex;
+            gap: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 2rem;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            padding: 0.5rem 0;
+            margin-bottom: -1px;
+            color: var(--text-secondary);
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: color 0.3s ease, border-color 0.3s ease;
+        }
+        .tab-btn.active {
+            color: var(--text-primary);
+            border-bottom-color: var(--accent-purple);
+        }
+        .tab-btn:hover { color: var(--accent-purple); }
+
+        /* ==================== FORMS ==================== */
+        .form-section { display: none; }
+        .form-section.active { display: block; }
+
+        .form-group { margin-bottom: 1.25rem; }
+
+        label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 0.4rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        input[type="email"],
+        input[type="password"],
+        input[type="text"] {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+        input:focus { border-color: var(--accent-purple); }
+
+        /* ==================== BUTTONS ==================== */
+        .btn-primary {
+            width: 100%;
+            padding: 0.75rem 1.5rem;
+            background-color: transparent;
+            color: var(--text-primary);
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 500;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+            margin-top: 0.5rem;
+        }
+        .btn-primary:hover {
+            background-color: var(--accent-purple);
+            border-color: var(--accent-purple);
+        }
+        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .btn-google {
+            width: 100%;
+            padding: 0.75rem 1.5rem;
+            background-color: transparent;
+            color: var(--text-secondary);
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 500;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            transition: border-color 0.3s ease, color 0.3s ease;
+        }
+        .btn-google:hover {
+            border-color: var(--accent-purple);
+            color: var(--text-primary);
+        }
+        .btn-google svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+        /* ==================== DIVIDER ==================== */
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 1.25rem 0;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+        }
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border-color);
+        }
+
+        /* ==================== MESSAGES ==================== */
+        .message {
+            font-size: 0.825rem;
+            padding: 0.65rem 1rem;
+            border: 1px solid var(--border-color);
+            margin-bottom: 1rem;
+            display: none;
+        }
+        .message.error {
+            border-color: #ff5555;
+            color: #ff5555;
+            background-color: rgba(255, 85, 85, 0.05);
+            display: block;
+        }
+        .message.success {
+            border-color: #55cc88;
+            color: #55cc88;
+            background-color: rgba(85, 204, 136, 0.05);
+            display: block;
+        }
+
+        /* ==================== LOADING ==================== */
+        .loading-spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ==================== FOOTER ==================== */
+        footer {
+            background-color: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            padding: 2rem 5%;
+            text-align: center;
+            color: var(--text-secondary);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ==================== RESPONSIVE ==================== */
+        @media (max-width: 768px) {
+            .anime-container { max-width: 80%; }
+            .auth-title { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <!-- ANIMATED BACKGROUND -->
+    <div class="anime-container">
+        <svg viewBox="0 0 209 197">
+            <g>
+                <path class="line s0" fill="none" stroke="#c673ff" stroke-miterlimit="10" stroke-width="2" fill-rule="evenodd" d="m125.47 24l-14.24 20h-57.53l14.24-20z"/>
+                <path class="line s1" fill="none" stroke="#ffffff" stroke-miterlimit="10" stroke-width="2" fill-rule="evenodd" d="m163.59 50l-14.24 20h-113.02l14.24-20z"/>
+                <path class="line s1" fill="none" stroke="#ffffff" stroke-miterlimit="10" stroke-width="2" fill-rule="evenodd" d="m188.4 76l-14.24 20h-107.54l14.24-20z"/>
+                <path class="line s0" fill="none" stroke="#c673ff" stroke-miterlimit="10" stroke-width="2" fill-rule="evenodd" d="m72.27 76l-14.23 20h-38.96l14.23-20z"/>
+                <path class="line s0" fill="none" stroke="#c673ff" stroke-miterlimit="10" stroke-width="2" fill-rule="evenodd" d="m188.4 101.08l-14.23 20h-38.96l14.23-20z"/>
+                <path class="line s1" fill="none" stroke="#ffffff" stroke-miterlimit="10" stroke-width="2" fill-rule="evenodd" d="m140.5 101.96l-14.23 20h-107.54l14.23-20z"/>
+                <path class="line s1" fill="none" stroke="#ffffff" stroke-miterlimit="10" stroke-width="2" fill-rule="evenodd" d="m171 127.06l-14.23 20h-113.2l14.24-20z"/>
+                <path class="line s0" fill="none" stroke="#c673ff" stroke-miterlimit="10" stroke-width="2" fill-rule="evenodd" d="m153.07 152.84l-14.23 20h-57.17l14.23-20z"/>
+            </g>
+        </svg>
+    </div>
+
+    <!-- HEADER -->
+    <header>
+        <nav>
+            <a href="index.html" class="logo">MAZE<span style="color: var(--accent-purple);">_</span>DEVELOPMENT</a>
+            <a href="index.html" class="nav-back">&larr; Back to portfolio</a>
+        </nav>
+    </header>
+
+    <!-- MAIN -->
+    <main>
+        <div class="auth-wrapper">
+            <p class="auth-label">Members Area</p>
+            <h1 class="auth-title">Welcome back</h1>
+            <p class="auth-subtitle">Sign in to access restricted content.</p>
+
+            <div class="tabs">
+                <button class="tab-btn active" id="tab-signin" onclick="switchTab('signin')">Sign In</button>
+                <button class="tab-btn" id="tab-signup" onclick="switchTab('signup')">Create Account</button>
+            </div>
+
+        <!-- Sign In -->
+        <div class="form-section active" id="section-signin">
+            <div id="signin-message" class="message"></div>
+            <div class="form-group">
+                <label for="signin-email">Email</label>
+                <input type="email" id="signin-email" placeholder="you@example.com" autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label for="signin-password">Password</label>
+                <input type="password" id="signin-password" placeholder="••••••••" autocomplete="current-password">
+            </div>
+            <button class="btn-primary" id="signin-btn" onclick="signIn()">Sign In</button>
+
+            <div class="divider">or</div>
+            <button class="btn-google" id="google-signin-btn" onclick="signInWithGoogle()">
+                <!-- Google "G" logo -->
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+                Continue with Google
+            </button>
+        </div>
+
+        <!-- Sign Up -->
+        <div class="form-section" id="section-signup">
+            <div id="signup-message" class="message"></div>
+            <div class="form-group">
+                <label for="signup-name">Display Name</label>
+                <input type="text" id="signup-name" placeholder="Your name" autocomplete="name">
+            </div>
+            <div class="form-group">
+                <label for="signup-email">Email</label>
+                <input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label for="signup-password">Password</label>
+                <input type="password" id="signup-password" placeholder="Min. 6 characters" autocomplete="new-password">
+            </div>
+            <button class="btn-primary" id="signup-btn" onclick="signUp()">Create Account</button>
+
+            <div class="divider">or</div>
+            <button class="btn-google" id="google-signup-btn" onclick="signInWithGoogle()">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+                Sign up with Google
+            </button>
+        </div>
+
+        <a href="index.html" class="back-link">← Back to portfolio</a>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-app.js";
+        import {
+            getAuth,
+            onAuthStateChanged,
+            signInWithEmailAndPassword,
+            createUserWithEmailAndPassword,
+            GoogleAuthProvider,
+            signInWithPopup,
+            updateProfile
+        } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-auth.js";
+
+        // ─── CONFIG SWITCH ──────────────────────────────────────────────────
+        // true  → always use firebase.local.js (local dev)
+        // false → always use firebase.js        (production / GitHub)
+        // 'auto' → use local only on localhost, production everywhere else
+        const USE_LOCAL_CONFIG = 'auto';
+        // ───────────────────────────────────────────────────────────────────
+
+        let firebaseConfig;
+        const isLocal = USE_LOCAL_CONFIG === true ||
+            (USE_LOCAL_CONFIG === 'auto' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1'));
+
+        if (isLocal) {
+            try {
+                ({ firebaseConfig } = await import('./firebase.local.js'));
+            } catch {
+                ({ firebaseConfig } = await import('./firebase.js'));
+            }
+        } else {
+            ({ firebaseConfig } = await import('./firebase.js'));
+        }
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const googleProvider = new GoogleAuthProvider();
+
+        // Redirect already-logged-in users
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                const dest = new URLSearchParams(window.location.search).get('redirect') || 'private.html';
+                window.location.href = dest;
+            }
+        });
+
+        function setLoading(btnId, loading) {
+            const btn = document.getElementById(btnId);
+            if (loading) {
+                btn.disabled = true;
+                btn.dataset.original = btn.innerHTML;
+                btn.innerHTML = '<span class="loading-spinner"></span>Loading…';
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = btn.dataset.original || btn.innerHTML;
+            }
+        }
+
+        function showMessage(id, text, type) {
+            const el = document.getElementById(id);
+            el.textContent = text;
+            el.className = 'message ' + type;
+        }
+
+        function friendlyError(code) {
+            const map = {
+                'auth/user-not-found': 'No account found with that email.',
+                'auth/wrong-password': 'Incorrect password. Please try again.',
+                'auth/invalid-credential': 'Incorrect email or password.',
+                'auth/email-already-in-use': 'An account with this email already exists.',
+                'auth/weak-password': 'Password must be at least 6 characters.',
+                'auth/invalid-email': 'Please enter a valid email address.',
+                'auth/popup-closed-by-user': 'Sign-in popup was closed.',
+                'auth/cancelled-popup-request': '',
+            };
+            return map[code] || 'Something went wrong. Please try again.';
+        }
+
+        // Expose functions to global scope for onclick handlers
+        window.switchTab = function(tab) {
+            document.getElementById('section-signin').classList.toggle('active', tab === 'signin');
+            document.getElementById('section-signup').classList.toggle('active', tab === 'signup');
+            document.getElementById('tab-signin').classList.toggle('active', tab === 'signin');
+            document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
+        };
+
+        window.signIn = async function() {
+            const email = document.getElementById('signin-email').value.trim();
+            const password = document.getElementById('signin-password').value;
+            if (!email || !password) {
+                showMessage('signin-message', 'Please fill in all fields.', 'error');
+                return;
+            }
+            setLoading('signin-btn', true);
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                // onAuthStateChanged will handle redirect
+            } catch (e) {
+                showMessage('signin-message', friendlyError(e.code), 'error');
+                setLoading('signin-btn', false);
+            }
+        };
+
+        window.signUp = async function() {
+            const name = document.getElementById('signup-name').value.trim();
+            const email = document.getElementById('signup-email').value.trim();
+            const password = document.getElementById('signup-password').value;
+            if (!name || !email || !password) {
+                showMessage('signup-message', 'Please fill in all fields.', 'error');
+                return;
+            }
+            setLoading('signup-btn', true);
+            try {
+                const cred = await createUserWithEmailAndPassword(auth, email, password);
+                await updateProfile(cred.user, { displayName: name });
+                // onAuthStateChanged will handle redirect
+            } catch (e) {
+                showMessage('signup-message', friendlyError(e.code), 'error');
+                setLoading('signup-btn', false);
+            }
+        };
+
+        window.signInWithGoogle = async function() {
+            try {
+                await signInWithPopup(auth, googleProvider);
+                // onAuthStateChanged will handle redirect
+            } catch (e) {
+                const msg = friendlyError(e.code);
+                if (msg) showMessage('signin-message', msg, 'error');
+            }
+        };
+
+        // Allow Enter key submission
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            const signinActive = document.getElementById('section-signin').classList.contains('active');
+            if (signinActive) window.signIn();
+            else window.signUp();
+        });
+    </script>
+</body>
+</html>
