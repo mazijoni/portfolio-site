@@ -467,6 +467,18 @@
             ({ firebaseConfig } = await import('./firebase.js'));
         }
 
+        if (!firebaseConfig.apiKey || firebaseConfig.apiKey.startsWith('%%')) {
+            document.body.innerHTML = `<div style="font-family:monospace;color:#ff5555;background:#0a0a0a;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem;text-align:center;">
+                <div>
+                    <p style="font-size:1.2rem;margin-bottom:1rem;">⚠️ Firebase is not configured.</p>
+                    <p style="color:#a0a0a0;font-size:0.9rem;">The API key placeholder was not substituted.<br>
+                    Make sure all <code>FIREBASE_*</code> secrets are set in GitHub → Settings → Secrets and variables → Actions,<br>
+                    and that GitHub Pages is serving from the <code>gh-pages</code> branch (not <code>main</code>).</p>
+                </div>
+            </div>`;
+            throw new Error('Firebase config placeholders not substituted.');
+        }
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const googleProvider = new GoogleAuthProvider();
