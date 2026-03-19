@@ -336,6 +336,34 @@
             .anime-container { max-width: 80%; }
             .auth-title { font-size: 1.8rem; }
         }
+
+        @media (max-width: 480px) {
+            nav { padding: 1rem 4%; }
+            .logo { font-size: 1.2rem; }
+            .nav-back { font-size: 0.8rem; }
+
+            main { padding: 6rem 4% 3rem; align-items: flex-start; }
+
+            .anime-container { display: none; }
+
+            .auth-title { font-size: 1.6rem; }
+            .auth-subtitle { font-size: 0.9rem; margin-bottom: 1.75rem; }
+
+            input[type="email"],
+            input[type="password"],
+            input[type="text"] {
+                font-size: 1rem; /* prevents iOS zoom-in on focus */
+                padding: 0.85rem 1rem;
+            }
+
+            .btn-primary,
+            .btn-google {
+                padding: 0.85rem 1.5rem;
+                font-size: 1rem;
+            }
+
+            footer { font-size: 0.8rem; padding: 1.5rem 4%; }
+        }
     </style>
 </head>
 <body>
