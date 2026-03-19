@@ -485,10 +485,16 @@
 
         // Handle the result coming back from Google redirect
         try {
-            await getRedirectResult(auth);
+            const result = await getRedirectResult(auth);
+            if (result?.user) {
+                // Redirect immediately — don't wait for onAuthStateChanged
+                const dest = new URLSearchParams(window.location.search).get('redirect') || 'private.html';
+                window.location.href = dest;
+            }
         } catch (e) {
+            console.error('getRedirectResult error:', e.code, e.message);
             const msg = friendlyError(e.code);
-            if (msg) showMessage('signin-message', msg, 'error');
+            showMessage('signin-message', msg, 'error');
         }
 
         // Redirect already-logged-in users
@@ -527,8 +533,10 @@
                 'auth/invalid-email': 'Please enter a valid email address.',
                 'auth/popup-closed-by-user': 'Sign-in popup was closed.',
                 'auth/cancelled-popup-request': '',
+                'auth/unauthorized-domain': 'This domain is not authorised in Firebase. Go to Firebase Console → Authentication → Settings → Authorized domains and add this domain.',
+                'auth/internal-error': 'An internal error occurred. Check the browser console for details.',
             };
-            return map[code] || 'Something went wrong. Please try again.';
+            return map[code] || `Something went wrong (${code || 'unknown'}). Please try again.`;
         }
 
         // Expose functions to global scope for onclick handlers
