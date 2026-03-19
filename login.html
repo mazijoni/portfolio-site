@@ -433,6 +433,33 @@
         <a href="index.html" class="back-link">← Back to portfolio</a>
     </div>
 
+    <!-- DEBUG: captures errors to a persistent overlay and localStorage before page navigates away -->
+    <script>
+        window.__debugErrors = JSON.parse(localStorage.getItem('__debugErrors') || '[]');
+        if (window.__debugErrors.length) {
+            const el = document.createElement('div');
+            el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#1a0000;color:#ff8888;font-family:monospace;font-size:12px;padding:1rem;z-index:99999;max-height:40vh;overflow:auto;border-top:2px solid #ff4444;white-space:pre-wrap;';
+            el.textContent = '── Captured errors from previous page load ──\n' + window.__debugErrors.join('\n');
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = '✕ Clear';
+            closeBtn.style.cssText = 'position:absolute;top:8px;right:8px;background:#ff4444;color:#fff;border:none;padding:4px 10px;cursor:pointer;font-family:monospace;';
+            closeBtn.onclick = () => { localStorage.removeItem('__debugErrors'); el.remove(); };
+            el.appendChild(closeBtn);
+            document.body.appendChild(el);
+            localStorage.removeItem('__debugErrors');
+        }
+        const origError = console.error.bind(console);
+        console.error = (...args) => {
+            origError(...args);
+            const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+            const log = JSON.parse(localStorage.getItem('__debugErrors') || '[]');
+            log.push(new Date().toISOString() + '  ' + msg);
+            localStorage.setItem('__debugErrors', JSON.stringify(log.slice(-20)));
+        };
+        window.addEventListener('error', e => console.error('window.onerror:', e.message, e.filename, e.lineno));
+        window.addEventListener('unhandledrejection', e => console.error('unhandledrejection:', e.reason));
+    </script>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-app.js";
         import {
