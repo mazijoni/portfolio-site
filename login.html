@@ -468,8 +468,7 @@
             signInWithEmailAndPassword,
             createUserWithEmailAndPassword,
             GoogleAuthProvider,
-            signInWithRedirect,
-            getRedirectResult,
+            signInWithPopup,
             updateProfile
         } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-auth.js";
 
@@ -511,18 +510,7 @@
         const googleProvider = new GoogleAuthProvider();
 
         // Handle the result coming back from Google redirect
-        try {
-            const result = await getRedirectResult(auth);
-            if (result?.user) {
-                // Redirect immediately — don't wait for onAuthStateChanged
-                const dest = new URLSearchParams(window.location.search).get('redirect') || 'private.html';
-                window.location.href = dest;
-            }
-        } catch (e) {
-            console.error('getRedirectResult error:', e.code, e.message);
-            const msg = friendlyError(e.code);
-            showMessage('signin-message', msg, 'error');
-        }
+        // (no-op now that we use signInWithPopup, kept as safety net)
 
         // Redirect already-logged-in users
         onAuthStateChanged(auth, (user) => {
@@ -612,9 +600,10 @@
 
         window.signInWithGoogle = async function() {
             try {
-                await signInWithRedirect(auth, googleProvider);
-                // Page will reload; getRedirectResult() above handles the result
+                await signInWithPopup(auth, googleProvider);
+                // onAuthStateChanged will handle redirect
             } catch (e) {
+                console.error('signInWithPopup error:', e.code, e.message);
                 const msg = friendlyError(e.code);
                 if (msg) showMessage('signin-message', msg, 'error');
             }
