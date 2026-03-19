@@ -7,6 +7,7 @@
     <link rel="icon" href="img/logo.svg" type="image/svg"/>
     <link rel="icon" href="img/logo_black.svg" type="image/svg" media="(prefers-color-scheme: light)"/>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
     <style>
         /* ==================== GLOBAL ==================== */
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -726,6 +727,33 @@
             color: #888;
             text-align: center;
             word-break: break-all;
+        }
+
+        /* Tweet embed in card */
+        .tweet-embed-wrap {
+            background: #000;
+            display: flex;
+            justify-content: center;
+            padding: 0.75rem;
+            min-height: 100px;
+        }
+        /* Tweet embed in feed */
+        .feed-slide-media.feed-tweet-media {
+            overflow-y: auto;
+            align-items: center;
+            justify-content: center;
+            padding: 3.5rem 1rem 6rem;
+        }
+        .feed-tweet-inner {
+            width: 100%;
+            max-width: 550px;
+        }
+        .feed-tweet-inner iframe {
+            position: static !important;
+            inset: auto !important;
+            width: auto !important;
+            height: auto !important;
+            max-width: 100% !important;
         }
 
         /* Video preview in modal */
@@ -1644,12 +1672,13 @@
                 <input class="form-input" id="video-url-input" type="url"
                     placeholder="https://youtube.com/watch?v=… or video.mp4"
                     oninput="debouncedVideoPreview()">
-                <p class="form-hint" id="video-url-hint">YouTube, Vimeo, or a direct video file link (.mp4, .webm, .ogg).</p>
-                <p class="form-hint" id="video-x-hint" style="display:none;color:var(--accent-purple)">X/Twitter requires a manual screenshot — paste it in the Thumbnail field below.</p>
+                <p class="form-hint" id="video-url-hint">YouTube, Vimeo, direct video file (.mp4, .webm, .ogg), or X/Twitter post URL.</p>
+                <p class="form-hint" id="video-x-hint" style="display:none;color:var(--accent-purple)">X/Twitter profile URLs can't be embedded — paste a direct post/status URL (x.com/user/status/…) instead.</p>
                 <div class="video-preview-wrap" id="video-preview-wrap">
                     <iframe id="video-preview-iframe" src="" allowfullscreen allow="autoplay; encrypted-media" style="display:none"></iframe>
                     <video id="video-preview-video" src="" controls style="width:100%;height:100%;display:none"></video>
                 </div>
+                <div id="video-preview-tweet" class="tweet-embed-wrap" style="display:none; margin-top:0.6rem;"></div>
             </div>
 
             <div class="form-group">
@@ -2073,6 +2102,7 @@
             applyFilter();
             document.getElementById('search-bar-wrap').style.display = '';
             applySearch();
+            tweetLoad(container);
         }
 
         function makeSubGroupHeader(label) {
@@ -2368,9 +2398,13 @@
             let mediaHtml;
             let isThumbOnly = false;
             let isLinkOnly  = false;
+            let isTweet     = false;
             if (embed) {
                 if (embed.type === 'direct') {
                     mediaHtml = `<video src="${escAttr(embed.src)}" controls style="position:absolute;inset:0;width:100%;height:100%;background:#000" preload="metadata"></video>`;
+                } else if (embed.type === 'tweet') {
+                    isTweet = true;
+                    mediaHtml = `<div class="tweet-embed-wrap"><blockquote class="twitter-tweet" data-dnt="true" data-theme="dark"><a href="${escAttr(embed.src)}"></a></blockquote></div>`;
                 } else {
                     mediaHtml = `<iframe src="${escAttr(embed.src)}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" loading="lazy"></iframe>`;
                 }
@@ -2392,17 +2426,18 @@
                 mediaHtml = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#555;font-size:0.8rem">No video or thumbnail</div>`;
             }
 
-            const badgeLabel = embed ? (embed.type === 'youtube' ? 'YT' : embed.type === 'vimeo' ? 'VIMEO' : 'VIDEO') : (link.thumbUrl ? 'IMG' : link.url ? 'LINK' : '?');
+            const badgeLabel = embed ? (embed.type === 'youtube' ? 'YT' : embed.type === 'vimeo' ? 'VIMEO' : embed.type === 'tweet' ? 'X' : 'VIDEO') : (link.thumbUrl ? 'IMG' : link.url ? 'LINK' : '?');
 
             card.innerHTML = `
                 ${actionsHtml}
-                <div class="video-iframe-wrap${isThumbOnly ? ' video-iframe-wrap--thumb' : ''}">${mediaHtml}</div>
+                ${isTweet ? mediaHtml : `<div class="video-iframe-wrap${isThumbOnly ? ' video-iframe-wrap--thumb' : ''}">${mediaHtml}</div>`}
                 <div class="video-card-body">
                     <span class="video-type-badge">${badgeLabel}</span>
                     <span class="video-card-name">${escHtml(link.name)}</span>
                     ${link.sourceUrl ? `<a class="card-source-link" href="${escAttr(link.sourceUrl)}" target="_blank" rel="noopener noreferrer" title="Source: ${escAttr(link.sourceUrl)}"><svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M5.5 1H10v4.5M10 1L4.5 6.5M2 4H1v6h6V8.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>` : ''}
                 </div>`;
 
+            // tweet cards: tweetLoad() is called by render() after everything is in the DOM
             const [vidEditBtn, vidDelBtn] = card.querySelectorAll('.video-card-actions button');
             vidEditBtn.addEventListener('click', () => openVideoModal(link.categoryId, link.id));
             vidDelBtn.addEventListener('click',  () => confirmDeleteSite(link.id, link.name));
@@ -2635,6 +2670,12 @@
                         vid.muted = false;
                         vid.dataset.feedVideo = 'direct';
                         mediaWrap.appendChild(vid);
+                    } else if (embed && embed.type === 'tweet') {
+                        mediaWrap.classList.add('feed-tweet-media');
+                        const tweetContainer = document.createElement('div');
+                        tweetContainer.className = 'feed-tweet-inner';
+                        tweetContainer.innerHTML = `<blockquote class="twitter-tweet" data-dnt="true" data-theme="dark"><a href="${escAttr(embed.src)}"></a></blockquote>`;
+                        mediaWrap.appendChild(tweetContainer);
                     } else if (embed) {
                         const ifr = document.createElement('iframe');
                         ifr.src = embed.src + (embed.src.includes('?') ? '&' : '?') + 'enablejsapi=1&autoplay=0';
@@ -2780,6 +2821,8 @@
             }, { root: scroller, threshold: 0.5 });
 
             scroller.querySelectorAll('.feed-slide').forEach(s => window._feedObserver.observe(s));
+
+            tweetLoad(scroller);
         };
 
         window.closeFeed = () => {
@@ -2892,7 +2935,12 @@
             const vimeoId = getVimeoId(url);
             if (vimeoId) return { type: 'vimeo', src: `https://player.vimeo.com/video/${vimeoId}` };
             if (/\.(mp4|webm|ogg|mov|m4v)(\?|$)/i.test(url)) return { type: 'direct', src: url };
+            if (isXTweetUrl(url)) return { type: 'tweet', src: url };
             return null;
+        }
+
+        function tweetLoad(container) {
+            if (window.twttr && window.twttr.widgets) window.twttr.widgets.load(container);
         }
 
         function getFavicon(url) {
@@ -3364,6 +3412,14 @@
             } catch { return false; }
         }
 
+        function isXTweetUrl(url) {
+            try {
+                const u = new URL(url);
+                const h = u.hostname.replace(/^www\./, '');
+                return (h === 'x.com' || h === 'twitter.com') && /\/status\/\d+/.test(u.pathname);
+            } catch { return false; }
+        }
+
         window.updateVideoPreview = () => {
             const url    = document.getElementById('video-url-input').value.trim();
             const wrap   = document.getElementById('video-preview-wrap');
@@ -3378,8 +3434,12 @@
             iframe.src = '';
             video.src  = '';
 
-            // Show contextual hint for x.com / twitter.com
-            if (url && isXUrl(url)) {
+            const tweetDiv = document.getElementById('video-preview-tweet');
+            tweetDiv.style.display = 'none';
+            tweetDiv.innerHTML = '';
+
+            // Show hint only for x.com profile URLs (not embeddable tweet URLs)
+            if (url && isXUrl(url) && !isXTweetUrl(url)) {
                 xHint.style.display  = '';
                 urlHint.style.display = 'none';
             } else {
@@ -3389,14 +3449,20 @@
 
             if (!embed) { wrap.classList.remove('visible'); return; }
 
-            if (embed.type === 'direct') {
+            if (embed.type === 'tweet') {
+                wrap.classList.remove('visible');
+                tweetDiv.style.display = '';
+                tweetDiv.innerHTML = `<blockquote class="twitter-tweet" data-dnt="true" data-theme="dark"><a href="${escAttr(embed.src)}"></a></blockquote>`;
+                tweetLoad(tweetDiv);
+            } else if (embed.type === 'direct') {
                 video.src = embed.src;
                 video.style.display = 'block';
+                wrap.classList.add('visible');
             } else {
                 iframe.src = embed.src;
                 iframe.style.display = 'block';
+                wrap.classList.add('visible');
             }
-            wrap.classList.add('visible');
         };
 
         /* ── Image preview ── */
