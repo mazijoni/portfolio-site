@@ -25,11 +25,16 @@ jobs:
 
       - name: Verify substitution succeeded
         run: |
-          if grep -r "%%FIREBASE" firebase.js; then
-            echo "ERROR: Firebase placeholders were not substituted. Check that all repository secrets are set."
-            exit 1
-          fi
-          echo "✓ Firebase config substituted successfully."
+          FAIL=0
+          for f in login.html private.html firebase.js; do
+            if grep -q "%%FIREBASE" "$f"; then
+              echo "ERROR: Placeholder found in $f — secret may be missing or misspelled."
+              FAIL=1
+            else
+              echo "✓ $f — all placeholders substituted."
+            fi
+          done
+          if [ $FAIL -eq 1 ]; then exit 1; fi
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
