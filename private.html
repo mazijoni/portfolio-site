@@ -400,6 +400,415 @@
             font-weight: 600;
         }
 
+        /* ==================== COMICS GRID ==================== */
+        .comics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 1rem;
+        }
+
+        .comic-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            transition: border-color 0.2s, background 0.2s;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .comic-card:hover { border-color: #3a3a3a; background: var(--bg-card-hover); }
+
+        .comic-card-cover {
+            width: 100%;
+            aspect-ratio: 2 / 3;
+            background: var(--bg-secondary);
+            overflow: hidden;
+            position: relative;
+        }
+        .comic-card-cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+            display: block;
+        }
+        .comic-card:hover .comic-card-cover img { transform: scale(1.04); }
+
+        .comic-cover-fallback {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            color: var(--text-secondary);
+            font-size: 0.68rem;
+            text-align: center;
+            padding: 0.5rem;
+            gap: 0.4rem;
+            word-break: break-word;
+        }
+
+        .comic-card-body {
+            padding: 0.5rem 0.6rem 0.6rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .comic-card-name {
+            font-size: 0.78rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.3;
+        }
+        .comic-status-badge {
+            display: inline-block;
+            font-size: 0.58rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 0.1rem 0.35rem;
+            border-radius: 3px;
+            align-self: flex-start;
+        }
+        .comic-status--reading      { background: rgba(100,130,255,0.18); color: #8899ff; }
+        .comic-status--completed    { background: rgba(85,204,136,0.18);  color: #55cc88; }
+        .comic-status--want-to-read { background: rgba(204,170,60,0.18);  color: #ccaa3c; }
+        .comic-status--dropped      { background: rgba(150,150,150,0.18); color: #999;    }
+
+        .comic-card-actions {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 2;
+        }
+        .comic-card:hover .comic-card-actions { opacity: 1; }
+
+        .comic-cover-preview-wrap {
+            margin-top: 0.6rem;
+            width: 130px;
+            aspect-ratio: 2 / 3;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .comic-cover-preview-wrap.visible { display: flex; }
+        .comic-cover-preview-wrap img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+        .comic-pages-textarea {
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .comic-fetch-pages-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            color: var(--text-secondary);
+            padding: 0.2rem 0.55rem;
+            font-size: 0.68rem;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+            cursor: pointer;
+            transition: border-color 0.15s, color 0.15s;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .comic-fetch-pages-btn:hover { border-color: var(--accent-purple); color: var(--accent-purple); }
+        .comic-fetch-pages-btn:disabled { opacity: 0.45; cursor: default; }
+
+        .comic-gen-row {
+            display: flex;
+            gap: 0.4rem;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .comic-gen-row .form-input {
+            flex: 1;
+            font-size: 0.75rem;
+            padding: 0.32rem 0.55rem;
+        }
+
+        .comic-page-count-badge {
+            font-size: 0.6rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--border-color);
+            padding: 0.1rem 0.35rem;
+            border-radius: 3px;
+            align-self: flex-start;
+        }
+
+        /* ── Chapter list in modal ── */
+        .chapter-list { display: flex; flex-direction: column; gap: 0.6rem; }
+        .chapter-item {
+            border: 1px solid var(--border-color);
+            background: rgba(255,255,255,0.03);
+        }
+        .chapter-item-header {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.45rem 0.55rem;
+            cursor: pointer;
+            user-select: none;
+        }
+        .chapter-item-header:hover { background: rgba(255,255,255,0.04); }
+        .chapter-num {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            min-width: 20px;
+            flex-shrink: 0;
+        }
+        .chapter-name-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: inherit;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.8rem;
+            outline: none;
+            padding: 0;
+            min-width: 0;
+        }
+        .chapter-name-input::placeholder { color: var(--text-secondary); }
+        .chapter-toggle {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+        .chapter-del-btn {
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 0.75rem;
+            padding: 0 0.15rem;
+            flex-shrink: 0;
+            transition: color 0.15s;
+        }
+        .chapter-del-btn:hover { color: #ff6666; }
+        .chapter-item-body {
+            padding: 0 0.55rem 0.55rem;
+            display: none;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+        .chapter-item-body.open { display: flex; }
+        .chapter-first-input {
+            font-size: 0.72rem;
+            padding: 0.28rem 0.5rem;
+        }
+        .chapter-pages-ta {
+            font-family: 'Courier New', monospace;
+            font-size: 0.7rem;
+            resize: vertical;
+            min-height: 60px;
+        }
+        .chapter-hint {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+        }
+        .add-chapter-btn {
+            background: transparent;
+            border: 1px dashed var(--border-color);
+            color: var(--text-secondary);
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.75rem;
+            padding: 0.4rem;
+            cursor: pointer;
+            transition: border-color 0.15s, color 0.15s;
+            width: 100%;
+        }
+        .add-chapter-btn:hover { border-color: var(--accent-purple); color: var(--accent-purple); }
+
+        /* ── Chapter selector bar in reader ── */
+        .comic-reader-chapter-bar {
+            display: flex;
+            gap: 0.3rem;
+            overflow-x: auto;
+            padding: 0 1rem 0.4rem;
+            background: rgba(15,15,15,0.95);
+            scrollbar-width: thin;
+            scrollbar-color: #2a2a2a transparent;
+            flex-wrap: nowrap;
+            flex-shrink: 0;
+        }
+        .comic-reader-chap-pill {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid #2a2a2a;
+            border-radius: 20px;
+            color: #777;
+            font-size: 0.62rem;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+            padding: 0.2rem 0.65rem;
+            cursor: pointer;
+            white-space: nowrap;
+            flex-shrink: 0;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+        .comic-reader-chap-pill:hover { color: #ccc; border-color: #444; }
+        .comic-reader-chap-pill.active { background: rgba(124,112,232,0.25); border-color: #7c70e8; color: #a89fff; }
+
+        /* ==================== COMIC READER ==================== */
+        .comic-reader-overlay {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 9000;
+            display: none;
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .comic-reader-overlay.active { display: flex; }
+
+        .comic-reader-topbar {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 1rem;
+            background: rgba(15,15,15,0.95);
+            border-bottom: 1px solid #1e1e1e;
+            flex-shrink: 0;
+            min-height: 42px;
+        }
+        .comic-reader-title {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: #ddd;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .comic-reader-pager {
+            font-size: 0.78rem;
+            color: #666;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .comic-reader-close-btn {
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            padding: 0.2rem 0.45rem;
+            font-size: 1.15rem;
+            line-height: 1;
+            transition: color 0.15s;
+            flex-shrink: 0;
+        }
+        .comic-reader-close-btn:hover { color: #fff; }
+
+        .comic-reader-page-area {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+        .comic-reader-img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: block;
+            transition: opacity 0.12s;
+        }
+        .comic-reader-img.fading { opacity: 0; }
+        .comic-reader-hit-prev,
+        .comic-reader-hit-next {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 40%;
+            cursor: pointer;
+            z-index: 1;
+        }
+        .comic-reader-hit-prev { left: 0; }
+        .comic-reader-hit-next { right: 0; }
+
+        .comic-reader-bottombar {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.5rem 0.75rem;
+            background: rgba(15,15,15,0.95);
+            border-top: 1px solid #1e1e1e;
+            flex-shrink: 0;
+        }
+        .comic-reader-nav-btn {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid #2a2a2a;
+            border-radius: 4px;
+            color: #bbb;
+            width: 34px;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+        .comic-reader-nav-btn:hover:not(:disabled) { background: rgba(255,255,255,0.12); color: #fff; }
+        .comic-reader-nav-btn:disabled { opacity: 0.2; cursor: default; }
+
+        .comic-reader-thumb-strip {
+            display: flex;
+            gap: 4px;
+            flex: 1;
+            overflow-x: auto;
+            padding: 2px 0;
+            scrollbar-width: thin;
+            scrollbar-color: #2a2a2a transparent;
+        }
+        .comic-reader-thumb {
+            width: 28px;
+            height: 42px;
+            flex-shrink: 0;
+            object-fit: cover;
+            border: 1.5px solid transparent;
+            cursor: pointer;
+            opacity: 0.45;
+            transition: opacity 0.15s, border-color 0.15s;
+        }
+        .comic-reader-thumb:hover { opacity: 0.75; }
+        .comic-reader-thumb.active { border-color: #7c70e8; opacity: 1; }
+
+        .comic-reader-open-btn {
+            background: none;
+            border: 1px solid #2a2a2a;
+            border-radius: 4px;
+            color: #666;
+            padding: 0.3rem 0.7rem;
+            font-size: 0.7rem;
+            font-family: 'Poppins', sans-serif;
+            cursor: pointer;
+            transition: border-color 0.15s, color 0.15s;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .comic-reader-open-btn:hover { border-color: #555; color: #bbb; }
+
         /* ==================== MEDIA GRID (masonry / Pinterest-style) ==================== */
         .media-grid {
             columns: 4 200px;
@@ -549,6 +958,7 @@
             letter-spacing: 0.08em;
             padding: 1px 5px;
             flex-shrink: 0;
+            border: 1px solid transparent;
         }
         .creator-platform-badge.yt  { color: #ff4444; border: 1px solid rgba(255,68,68,0.4); }
         .creator-platform-badge.tw  { color: #1d9bf0; border: 1px solid rgba(29,155,240,0.4); }
@@ -556,6 +966,22 @@
         .creator-platform-badge.ttk { color: #69c9d0; border: 1px solid rgba(105,201,208,0.4); }
         .creator-platform-badge.twitch { color: #9147ff; border: 1px solid rgba(145,71,255,0.4); }
         .creator-platform-badge.other { color: var(--text-secondary); border: 1px solid var(--border-color); }
+        .creator-platform-badge.person { color: #55ccbb; border: 1px solid rgba(85,204,187,0.4); }
+
+        /* Person row in image/video cards */
+        .image-card-person {
+            padding: 0 0.9rem 0.55rem;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.7rem;
+            color: #55ccbb;
+        }
+        .image-card-person-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
         .creator-username {
             font-size: 0.72rem;
             color: var(--text-secondary);
@@ -656,6 +1082,21 @@
             height: auto;
             display: block;
         }
+        .video-iframe-wrap--tweet {
+            padding-top: 0;
+            height: auto;
+            min-height: 80px;
+            background: #0a0a0a;
+        }
+        .tweet-embed-wrap {
+            width: 100%;
+            padding: 0.5rem;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .tweet-embed-wrap > iframe { max-width: 100% !important; }
         .video-iframe-wrap iframe {
             position: absolute;
             inset: 0;
@@ -773,6 +1214,8 @@
             border: 1px solid var(--border-color);
             width: 100%;
             max-width: 480px;
+            max-height: 90vh;
+            overflow-y: auto;
             padding: 2rem;
             transform: translateY(12px);
             transition: transform 0.2s;
@@ -1398,6 +1841,7 @@
         /* ==================== RESPONSIVE ==================== */
         @media (max-width: 600px) {
             .sites-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+            .comics-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
             .media-grid { columns: 2 150px; }
             .page-title { font-size: 1.5rem; }
         }
@@ -1421,6 +1865,7 @@
 
             /* Cards */
             .sites-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; }
+            .comics-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 0.75rem; }
             .media-grid { columns: 1; column-gap: 0.75rem; }
             .media-grid > * { margin-bottom: 0.75rem; }
             .add-type-card { min-height: 100px; font-size: 0.75rem; }
@@ -1428,6 +1873,7 @@
             /* Category actions always visible on touch */
             .category-actions { opacity: 1; }
             .site-card-actions { opacity: 1; }
+            .comic-card-actions { opacity: 1; }
             .image-card-actions { opacity: 1; }
             .video-card-actions { opacity: 1; }
 
@@ -1892,6 +2338,14 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M10 9.5l5 2.5-5 2.5V9.5z" fill="currentColor"/></svg>
                     Feed
                 </button>
+                <button class="btn-add-category" id="auto-tag-person-btn" onclick="autoTagPersons()" style="background:none;border-color:rgba(255,255,255,0.15);color:var(--text-secondary)" title="Auto-tag images/videos with a person based on their title">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M2 20c0-3.314 3.134-6 7-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M15 13l2 2 4-4" stroke="#55ccbb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Auto-tag
+                </button>
+                <button class="btn-add-category" id="person-photo-btn" onclick="refetchPersonPhotos()" style="background:none;border-color:rgba(255,255,255,0.15);color:var(--text-secondary)" title="Re-fetch photos for persons/characters from Wikipedia">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M2 20c0-3.314 3.134-6 7-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 13v4m0 0v4m0-4h4m-4 0h-4" stroke="#55ccbb" stroke-width="1.8" stroke-linecap="round"/></svg>
+                    Person Photos
+                </button>
                 <button class="btn-add-category" id="rebind-btn" onclick="rebindAllCreators()" style="background:none;border-color:rgba(255,255,255,0.15);color:var(--text-secondary)" title="Scan all items and auto-link creators">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 018-8v2l3-3-3-3v2A10 10 0 002 12h2zm16 0a8 8 0 01-8 8v-2l-3 3 3 3v-2a10 10 0 0010-10h-2z" fill="currentColor"/></svg>
                     Rebind
@@ -1961,6 +2415,86 @@
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="closeModal('category-modal')">Cancel</button>
                 <button class="btn-save" id="category-save-btn" onclick="saveCategory()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== COMIC READER ==================== -->
+    <div class="comic-reader-overlay" id="comic-reader">
+        <div class="comic-reader-topbar">
+            <span class="comic-reader-title" id="comic-reader-title"></span>
+            <span class="comic-reader-pager" id="comic-reader-pager"></span>
+            <button class="comic-reader-close-btn" title="Close (Esc)" onclick="closeComicReader()">&#x2715;</button>
+        </div>
+        <div class="comic-reader-chapter-bar" id="comic-reader-chapter-bar"></div>
+        <div class="comic-reader-page-area">
+            <img class="comic-reader-img" id="comic-reader-img" src="" alt="">
+            <div class="comic-reader-hit-prev" onclick="comicReaderPrev()"></div>
+            <div class="comic-reader-hit-next" onclick="comicReaderNext()"></div>
+        </div>
+        <div class="comic-reader-bottombar">
+            <button class="comic-reader-nav-btn" id="comic-reader-prev-btn" onclick="comicReaderPrev()" title="Previous (&#x2190;)">&#x2039;</button>
+            <div class="comic-reader-thumb-strip" id="comic-reader-thumb-strip"></div>
+            <button class="comic-reader-nav-btn" id="comic-reader-next-btn" onclick="comicReaderNext()" title="Next (&#x2192;)">&#x203a;</button>
+            <button class="comic-reader-open-btn" onclick="comicReaderOpenExternal()">&#x2197; Site</button>
+        </div>
+    </div>
+
+    <!-- ==================== COMIC MODAL ==================== -->
+    <div class="modal-overlay" id="comic-modal" onclick="handleOverlayClick(event, 'comic-modal')">
+        <div class="modal">
+            <h2 class="modal-title" id="comic-modal-title">Add Comic</h2>
+            <input type="hidden" id="comic-edit-id">
+            <input type="hidden" id="comic-category-id">
+
+            <div class="form-group">
+                <label class="form-label" for="comic-name-input">Title</label>
+                <input class="form-input" id="comic-name-input" type="text" placeholder="e.g. Spider-Man" maxlength="120">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="comic-url-input">URL</label>
+                <input class="form-input" id="comic-url-input" type="url" placeholder="https://svscomics.com/comic/...">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="comic-cover-input">
+                    Cover Image URL
+                    <span style="text-transform:none;font-weight:400"> — optional</span>
+                </label>
+                <input class="form-input" id="comic-cover-input" type="url"
+                    placeholder="https://example.com/cover.jpg"
+                    oninput="updateComicCoverPreview()">
+                <div class="comic-cover-preview-wrap" id="comic-cover-preview-wrap">
+                    <img id="comic-cover-preview" src="" alt="cover preview">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="comic-status-select">
+                    Status
+                    <span style="text-transform:none;font-weight:400"> — optional</span>
+                </label>
+                <select class="form-input" id="comic-status-select">
+                    <option value="">&mdash; None &mdash;</option>
+                    <option value="want-to-read">Want to Read</option>
+                    <option value="reading">Reading</option>
+                    <option value="completed">Completed</option>
+                    <option value="dropped">Dropped</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.5rem">
+                    <label class="form-label" style="margin:0">Chapters</label>
+                </div>
+                <div class="chapter-list" id="comic-chapter-list"></div>
+                <button type="button" class="add-chapter-btn" style="margin-top:0.4rem" onclick="addComicChapter()">+ Add Chapter</button>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeModal('comic-modal')">Cancel</button>
+                <button class="btn-save" id="comic-save-btn" onclick="saveComic()">Save</button>
             </div>
         </div>
     </div>
@@ -2045,6 +2579,16 @@
                 <select class="form-input" id="image-creator-select">
                     <option value="">— None —</option>
                 </select>
+                <p class="form-hint">Who posted / created this image.</p>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="image-person-select">
+                    Person / Character
+                    <span style="text-transform:none;font-weight:400"> — optional</span>
+                </label>
+                <select class="form-input" id="image-person-select" multiple size="4" style="height:auto"></select>
+                <p class="form-hint">Who is depicted in this image. Hold <kbd style="font-size:0.7rem;background:rgba(255,255,255,0.1);padding:0.1rem 0.3rem;border-radius:3px">Ctrl</kbd> / <kbd style="font-size:0.7rem;background:rgba(255,255,255,0.1);padding:0.1rem 0.3rem;border-radius:3px">Cmd</kbd> to select multiple.</p>
             </div>
 
             <div class="form-group">
@@ -2080,7 +2624,7 @@
                     placeholder="https://youtube.com/watch?v=… or video.mp4"
                     oninput="debouncedVideoPreview()">
                 <p class="form-hint" id="video-url-hint">YouTube, Vimeo, or a direct video file link (.mp4, .webm, .ogg).</p>
-                <p class="form-hint" id="video-x-hint" style="display:none;color:var(--accent-purple)">X/Twitter requires a manual screenshot — paste it in the Thumbnail field below.</p>
+                <p class="form-hint" id="video-x-hint" style="display:none;color:var(--success)">Tweet URL detected — it will be embedded directly in the card via the Twitter widget.</p>
                 <div class="video-preview-wrap" id="video-preview-wrap">
                     <iframe id="video-preview-iframe" src="" allowfullscreen allow="autoplay; encrypted-media" style="display:none"></iframe>
                     <video id="video-preview-video" src="" controls style="width:100%;height:100%;display:none"></video>
@@ -2119,6 +2663,16 @@
                 <select class="form-input" id="video-creator-select">
                     <option value="">— None —</option>
                 </select>
+                <p class="form-hint">Who posted / created this video.</p>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="video-person-select">
+                    Person / Character
+                    <span style="text-transform:none;font-weight:400"> — optional</span>
+                </label>
+                <select class="form-input" id="video-person-select" multiple size="4" style="height:auto"></select>
+                <p class="form-hint">Who is depicted in this video. Hold <kbd style="font-size:0.7rem;background:rgba(255,255,255,0.1);padding:0.1rem 0.3rem;border-radius:3px">Ctrl</kbd> / <kbd style="font-size:0.7rem;background:rgba(255,255,255,0.1);padding:0.1rem 0.3rem;border-radius:3px">Cmd</kbd> to select multiple.</p>
             </div>
 
             <div class="form-group">
@@ -2140,8 +2694,9 @@
             <h2 class="modal-title" id="creator-modal-title">Add Creator</h2>
             <input type="hidden" id="creator-edit-id">
             <input type="hidden" id="creator-category-id">
+            <input type="hidden" id="creator-is-character">
 
-            <div class="form-group">
+            <div class="form-group" id="creator-url-row">
                 <label class="form-label" for="creator-url-input">Profile URL</label>
                 <input class="form-input" id="creator-url-input" type="url"
                     placeholder="https://youtube.com/@username or https://x.com/username"
@@ -2151,7 +2706,9 @@
 
             <div class="form-group">
                 <label class="form-label" for="creator-name-input">Display Name</label>
-                <input class="form-input" id="creator-name-input" type="text" placeholder="e.g. MrBeast" maxlength="80">
+                <input class="form-input" id="creator-name-input" type="text" placeholder="e.g. MrBeast" maxlength="80"
+                    oninput="debouncedCreatorCharName()">
+                <p class="form-hint" id="creator-char-hint" style="display:none;min-height:1.1em"></p>
             </div>
 
             <div class="form-group">
@@ -2178,10 +2735,20 @@
                 <input class="form-input" id="creator-desc-input" type="text" placeholder="e.g. Shorts creator, cosplay" maxlength="160">
             </div>
 
-            <div class="form-group">
+            <div class="form-group" id="creator-aliases-row" style="display:none">
+                <label class="form-label" for="creator-aliases-input">
+                    Aliases
+                    <span style="text-transform:none;font-weight:400"> — optional</span>
+                </label>
+                <input class="form-input" id="creator-aliases-input" type="text"
+                    placeholder="e.g. ellie, joel's girl" maxlength="200">
+                <p class="form-hint">Comma-separated short names — used to auto-tag media by title.</p>
+            </div>
+
+            <div class="form-group" id="creator-badge-row">
                 <label class="form-label">Platform Badge <span style="text-transform:none;font-weight:400"> — optional override</span></label>
                 <div style="display:flex;gap:0.5rem;align-items:center">
-                    <input class="form-input" id="creator-badge-label" type="text" placeholder="e.g. OnlyFans" maxlength="32"
+                    <input class="form-input" id="creator-badge-label" type="text" placeholder="e.g. TikTok" maxlength="32"
                         style="flex:1" oninput="updateCreatorBadgePreview()">
                     <input type="color" id="creator-badge-color" value="#888888"
                         style="width:2.4rem;height:2.2rem;border:1px solid var(--border-color);border-radius:6px;background:none;cursor:pointer;padding:2px"
@@ -2456,6 +3023,7 @@
                 linksCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 linksReady = true;
                 tryRender();
+                autoFetchPersonAvatars();
             });
 
             onSnapshot(colsQ, (snap) => {
@@ -2622,7 +3190,7 @@
             // Count badge
             const mediaCount = links.filter(l => l.type === 'image' || l.type === 'video').length;
             const siteCount  = links.filter(l => l.type === 'site').length;
-            const totalLabel = links.filter(l => l.type !== 'creator').length;
+            const totalLabel = links.filter(l => l.type !== 'creator' && l.type !== 'person').length;
 
             // Sort key from localStorage
             const SORT_KEY = 'cat_sort_' + cat.id;
@@ -2717,7 +3285,7 @@
             sitesGroup.appendChild(makeSubGroupHeader('Sites'));
             const sitesGrid = document.createElement('div');
             sitesGrid.className = 'sites-grid';
-            sortedLinks.filter(l => l.type !== 'video' && l.type !== 'image' && l.type !== 'creator')
+            sortedLinks.filter(l => l.type !== 'video' && l.type !== 'image' && l.type !== 'creator' && l.type !== 'person' && l.type !== 'comic')
                  .forEach(link => sitesGrid.appendChild(buildSiteCard(link)));
             const addSiteCard = document.createElement('button');
             addSiteCard.className = 'add-type-card';
@@ -2765,13 +3333,33 @@
             mediaGrid.appendChild(addImageCard);
             mediaGroup.appendChild(mediaGrid);
 
+            // ── Comics sub-group ──
+            const comicsGroup = document.createElement('div');
+            comicsGroup.className = 'sub-group';
+            comicsGroup.appendChild(makeSubGroupHeader('Comics'));
+            const comicsGrid = document.createElement('div');
+            comicsGrid.className = 'comics-grid';
+            sortedLinks.filter(l => l.type === 'comic')
+                 .forEach(link => comicsGrid.appendChild(buildComicCard(link)));
+            const addComicCard = document.createElement('button');
+            addComicCard.className = 'add-type-card';
+            addComicCard.onclick = () => openComicModal(cat.id);
+            addComicCard.innerHTML = `
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <rect x="3" y="1" width="11" height="16" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M6 5h6M6 8.5h6M6 12h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                </svg>
+                <span class="add-type-label">Add Comic</span>`;
+            comicsGrid.appendChild(addComicCard);
+            comicsGroup.appendChild(comicsGrid);
+
             // ── Creators sub-group ──
             const creatorsGroup = document.createElement('div');
             creatorsGroup.className = 'sub-group';
             creatorsGroup.appendChild(makeSubGroupHeader('Creators'));
             const creatorsGrid = document.createElement('div');
             creatorsGrid.className = 'creators-grid';
-            sortedLinks.filter(l => l.type === 'creator')
+            sortedLinks.filter(l => l.type === 'creator' && !l.isCharacter)
                  .forEach(link => creatorsGrid.appendChild(buildCreatorCard(link)));
             const addCreatorCard = document.createElement('button');
             addCreatorCard.className = 'add-type-card';
@@ -2785,10 +3373,33 @@
             creatorsGrid.appendChild(addCreatorCard);
             creatorsGroup.appendChild(creatorsGrid);
 
+            // ── Persons / Characters sub-group ──
+            const personsGroup = document.createElement('div');
+            personsGroup.className = 'sub-group';
+            personsGroup.appendChild(makeSubGroupHeader('Persons / Characters'));
+            const personsGrid = document.createElement('div');
+            personsGrid.className = 'creators-grid';
+            sortedLinks.filter(l => l.type === 'person' || (l.type === 'creator' && l.isCharacter))
+                 .forEach(link => personsGrid.appendChild(buildCreatorCard(link)));
+            const addPersonCard = document.createElement('button');
+            addPersonCard.className = 'add-type-card';
+            addPersonCard.onclick = () => openCreatorModal(cat.id, '', { isCharacter: true });
+            addPersonCard.innerHTML = `
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <circle cx="9" cy="5.5" r="3" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M2 16c0-3 3.134-5.5 7-5.5s7 2.5 7 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M13 10.5l1.5 1.5-1.5 1.5M15.5 12h-3" stroke="#55ccbb" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="add-type-label">Add Person</span>`;
+            personsGrid.appendChild(addPersonCard);
+            personsGroup.appendChild(personsGrid);
+
             block.appendChild(header);
             block.appendChild(sitesGroup);
             block.appendChild(mediaGroup);
+            block.appendChild(comicsGroup);
             block.appendChild(creatorsGroup);
+            block.appendChild(personsGroup);
             return block;
         }
 
@@ -2833,8 +3444,144 @@
             }
         }
 
+        /* ── Twitter widget loader ── */
+        let _twitterWidgetPromise = null;
+        function loadTwitterWidget() {
+            if (_twitterWidgetPromise) return _twitterWidgetPromise;
+            _twitterWidgetPromise = new Promise(resolve => {
+                if (window.twttr && window.twttr.widgets) { resolve(); return; }
+                const s = document.createElement('script');
+                s.src = 'https://platform.twitter.com/widgets.js';
+                s.async = true;
+                s.onload  = () => { window.twttr ? window.twttr.ready(resolve) : resolve(); };
+                s.onerror = () => resolve();
+                document.head.appendChild(s);
+            });
+            return _twitterWidgetPromise;
+        }
+        // Render media from fxtwitter API response into container
+        function _renderFxTweetMedia(tweet, displayUrl, container) {
+            const photos  = tweet.media?.photos  || [];
+            const videos  = tweet.media?.videos  || [];
+            const author  = tweet.author;
+            const text    = tweet.text || '';
+
+            if (!photos.length && !videos.length) {
+                // No media — show text card
+                container.innerHTML = `<div style="padding:0.75rem 1rem;font-size:0.82rem;line-height:1.4">
+                    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem">
+                        ${author?.avatar_url ? `<img src="${escAttr(author.avatar_url)}" style="width:24px;height:24px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'">` : ''}
+                        <span style="font-weight:600;color:#e7e9ea">${escHtml(author?.name || '')}</span>
+                        <span style="color:#555">@${escHtml(author?.screen_name || '')}</span>
+                    </div>
+                    <p style="margin:0 0 0.5rem;color:#e7e9ea">${escHtml(text)}</p>
+                    <a href="${escAttr(displayUrl)}" target="_blank" rel="noopener noreferrer" style="color:#1d9bf0;font-size:0.75rem">View on X &rarr;</a>
+                </div>`;
+                return;
+            }
+
+            // Show images in a simple grid, videos as a <video> element
+            let mediaHtml = '';
+            for (const v of videos) {
+                const src = v.url || '';
+                if (src) mediaHtml += `<video src="${escAttr(src)}" controls playsinline style="width:100%;display:block;max-height:400px;background:#000" preload="metadata"></video>`;
+            }
+            if (photos.length) {
+                const cols = photos.length === 1 ? 1 : 2;
+                mediaHtml += `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:2px">` +
+                    photos.map(p => `<a href="${escAttr(displayUrl)}" target="_blank" rel="noopener noreferrer">
+                        <img src="${escAttr(p.url)}" style="width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in"
+                             onclick="event.preventDefault();openLightbox('${escAttr(p.url)}','')">
+                    </a>`).join('') + '</div>';
+            }
+            container.innerHTML = mediaHtml;
+        }
+
+        async function renderTweetInContainer(tweetId, container) {
+            const originalUrl = container.dataset.tweetUrl || '';
+            const displayUrl  = originalUrl || `https://x.com/i/web/status/${tweetId}`;
+
+            // Extract username from URL for fxtwitter fallback
+            let username = null;
+            try {
+                const m = new URL(originalUrl).pathname.match(/^\/([^/]+)\/status\//);
+                if (m && m[1] !== 'i') username = m[1];
+            } catch {}
+
+            // Build oEmbed URL — requires real twitter.com/{user}/status/{id}
+            let oembedTweetUrl = null;
+            if (username) {
+                try {
+                    const u = new URL(originalUrl);
+                    u.hostname = 'twitter.com';
+                    oembedTweetUrl = u.toString();
+                } catch {}
+            }
+
+            container.innerHTML = '<div style="color:#555;font-size:0.78rem;text-align:center;padding:1.5rem">Loading\u2026</div>';
+
+            // 1. Try official oEmbed
+            if (oembedTweetUrl) {
+                try {
+                    const resp = await fetch(`https://publish.twitter.com/oembed?url=${encodeURIComponent(oembedTweetUrl)}&theme=dark&dnt=true&omit_script=1`);
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        if (!document.contains(container)) return;
+                        container.innerHTML = data.html || '';
+                        await loadTwitterWidget();
+                        if (window.twttr?.widgets?.load) twttr.widgets.load(container);
+                        return;
+                    }
+                } catch {}
+            }
+
+            if (!document.contains(container)) return;
+
+            // 2. Fallback: show the Thumbnail Image URL set on the video record
+            const thumbUrl = container.dataset.thumbUrl || '';
+            if (thumbUrl) {
+                container.innerHTML = `<a href="${escAttr(displayUrl)}" target="_blank" rel="noopener noreferrer" style="display:block">
+                    <img src="${escAttr(thumbUrl)}" style="width:100%;height:auto;display:block;cursor:pointer"
+                         alt="" onerror="this.closest('.tweet-embed-wrap').innerHTML=''">
+                </a>`;
+                return;
+            }
+
+            if (!document.contains(container)) return;
+
+            // 3. Final fallback: link card
+            container.innerHTML = `<div style="padding:0.9rem 1rem;display:flex;align-items:center;gap:0.6rem;font-size:0.82rem">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;color:#1d9bf0"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.259 5.622 5.905-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                <a href="${escAttr(displayUrl)}" target="_blank" rel="noopener noreferrer"
+                   style="color:#1d9bf0">View on X &rarr;</a>
+            </div>`;
+        }
+        // Auto-render tweets whenever .tweet-embed-wrap elements appear in the DOM
+        (function() {
+            const obs = new MutationObserver(muts => {
+                for (const mut of muts) {
+                    for (const node of mut.addedNodes) {
+                        if (node.nodeType !== 1) continue;
+                        const wraps = [];
+                        if (node.classList?.contains('tweet-embed-wrap')) wraps.push(node);
+                        node.querySelectorAll?.('.tweet-embed-wrap').forEach(el => wraps.push(el));
+                        for (const wrap of wraps) {
+                            const id  = wrap.dataset.tweetId;
+                            if (id) renderTweetInContainer(id, wrap);
+                        }
+                    }
+                }
+            });
+            obs.observe(document.body, { childList: true, subtree: true });
+        })();
+
         const PLATFORM_LABELS = { youtube: 'YouTube', twitter: 'X / Twitter', instagram: 'Instagram', tiktok: 'TikTok', twitch: 'Twitch', other: '' };
         const PLATFORM_BADGE_CLASS = { youtube: 'yt', twitter: 'tw', instagram: 'ig', tiktok: 'ttk', twitch: 'twitch', other: 'other' };
+        // Short-name aliases that map to a person's full canonical name
+        const PERSON_NAME_ALIASES = {
+            'ellie':   'Ellie (The Last of Us)',
+            'sabrina': 'Sabrina Carpenter',
+        };
 
         function buildCreatorCard(link) {
             const card = document.createElement('div');
@@ -2842,12 +3589,21 @@
             card.dataset.searchName = link.name || '';
             card.dataset.searchUrl  = link.profileUrl || '';
 
-            const badgeClass = PLATFORM_BADGE_CLASS[link.platform] || 'other';
-            const badgeLabel = link.badgeLabel || PLATFORM_LABELS[link.platform] || link.platform || '';
-            const badgeColor = link.badgeColor || null;
-            const badgeStyle = badgeColor ? ` style="color:${escAttr(badgeColor)};border-color:${escAttr(badgeColor)}66"` : '';
-            const avatarSrc  = link.avatarUrl || getCreatorAvatar(link.platform, link.username);
-            const usernameDisplay = link.username ? `@${link.username}` : (link.platform ? PLATFORM_LABELS[link.platform] : '');
+            const isChar    = link.isCharacter || link.type === 'person';
+            const avatarSrc = link.avatarUrl || (isChar ? '' : getCreatorAvatar(link.platform, link.username));
+
+            let metaHtml;
+            if (isChar) {
+                metaHtml = `<span class="creator-platform-badge person">char</span>`;
+            } else {
+                const badgeClass = PLATFORM_BADGE_CLASS[link.platform] || 'other';
+                const badgeLabel = link.badgeLabel || PLATFORM_LABELS[link.platform] || link.platform || '';
+                const badgeColor = link.badgeColor || null;
+                const badgeStyle = badgeColor ? ` style="color:${escAttr(badgeColor)};border-color:${escAttr(badgeColor)}66"` : '';
+                const usernameDisplay = link.username ? `@${link.username}` : (link.platform ? PLATFORM_LABELS[link.platform] : '');
+                metaHtml = `${badgeLabel ? `<span class="creator-platform-badge ${badgeColor ? '' : badgeClass}"${badgeStyle}>${escHtml(badgeLabel)}</span>` : ''}
+                        <span class="creator-username">${escHtml(usernameDisplay)}</span>`;
+            }
 
             card.innerHTML = `
                 <div class="creator-card-actions">
@@ -2870,10 +3626,7 @@
                     : `<div class="creator-avatar-fallback">👤</div>`}
                 <div class="creator-info">
                     <div class="creator-name">${escHtml(link.name)}</div>
-                    <div class="creator-meta">
-                        ${badgeLabel ? `<span class="creator-platform-badge ${badgeColor ? '' : badgeClass}"${badgeStyle}>${escHtml(badgeLabel)}</span>` : ''}
-                        <span class="creator-username">${escHtml(usernameDisplay)}</span>
-                    </div>
+                    <div class="creator-meta">${metaHtml}</div>
                     ${link.description ? `<div class="creator-desc">${escHtml(link.description)}</div>` : ''}
                 </div>`;
 
@@ -2881,6 +3634,354 @@
             editBtn.addEventListener('click', (e) => { e.stopPropagation(); openCreatorModal(link.categoryId, link.id); });
             delBtn.addEventListener('click',  (e) => { e.stopPropagation(); confirmDeleteSite(link.id, link.name); });
             card.addEventListener('click', () => openCreatorPanel(link));
+            return card;
+        }
+
+        /* ── Person name detection ── */
+        function detectPersonIdFromText(text) {
+            if (!text) return '';
+            const persons = linksCache.filter(l => l.type === 'person' || (l.type === 'creator' && l.isCharacter));
+            for (const person of persons) {
+                const pName = (person.name || '').toLowerCase();
+                const nameRe = new RegExp('\\b' + pName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+                if (nameRe.test(text)) return person.id;
+                // Check aliases stored on the character record
+                for (const alias of (person.aliases || [])) {
+                    if (!alias) continue;
+                    const aliasRe = new RegExp('\\b' + alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+                    if (aliasRe.test(text)) return person.id;
+                }
+                // Check shorthand aliases from the hardcoded PERSON_NAME_ALIASES table
+                for (const [alias, canonical] of Object.entries(PERSON_NAME_ALIASES)) {
+                    if (canonical.toLowerCase() === pName) {
+                        const aliasRe = new RegExp('\\b' + alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+                        if (aliasRe.test(text)) return person.id;
+                    }
+                }
+            }
+            return '';
+        }
+
+        /* ── Person dropdown helper ── */
+        function populatePersonDropdown(selectId, catId, selectedIds = []) {
+            const sel = document.getElementById(selectId);
+            const ids = Array.isArray(selectedIds) ? selectedIds : (selectedIds ? [selectedIds] : []);
+            const persons = linksCache.filter(l =>
+                (l.type === 'person' || (l.type === 'creator' && l.isCharacter)) && l.categoryId === catId
+            );
+            sel.innerHTML = persons.length
+                ? persons.map(p => `<option value="${escAttr(p.id)}"${ids.includes(p.id) ? ' selected' : ''}>${escHtml(p.name)}</option>`).join('')
+                : '<option value="" disabled>\u2014 no characters in this category \u2014</option>';
+        }
+
+        /* ── Person / Character auto-fetch (used by character mode in creator modal) ── */
+        let _charNameTimer;
+        window.debouncedCreatorCharName = () => {
+            if (!document.getElementById('creator-is-character').value) return;
+            clearTimeout(_charNameTimer);
+            _charNameTimer = setTimeout(autoFetchCharacterImage, 600);
+        };
+
+        async function autoFetchCharacterImage() {
+            if (!document.getElementById('creator-is-character').value) return;
+            const name = document.getElementById('creator-name-input').value.trim();
+            const hint = document.getElementById('creator-char-hint');
+            if (!name) { hint.textContent = ''; return; }
+            const existingUrl = document.getElementById('creator-avatar-input').value.trim();
+            if (existingUrl) return;
+
+            hint.style.color = 'var(--text-secondary)';
+            hint.textContent = 'Looking up…';
+            try {
+                const titleSlug = encodeURIComponent(name.replace(/ /g, '_'));
+                const resp = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${titleSlug}`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    const thumbUrl = data.thumbnail?.source || data.originalimage?.source || '';
+                    const desc     = data.description || '';
+                    if (thumbUrl) {
+                        document.getElementById('creator-avatar-input').value = thumbUrl;
+                        updateCreatorAvatarPreview();
+                        hint.style.color = 'var(--success)';
+                        hint.textContent = `Found: "${data.title}"${desc ? ' \u2014 ' + desc : ''}`;
+                        const descInput = document.getElementById('creator-desc-input');
+                        if (!descInput.value.trim() && desc) descInput.value = desc;
+                        return;
+                    } else if (data.title && !data.missing) {
+                        hint.style.color = 'var(--text-secondary)';
+                        hint.textContent = `Found "${data.title}" but no image \u2014 paste a URL manually.`;
+                        return;
+                    }
+                }
+                // Fallback: action API
+                const wikiQ  = encodeURIComponent(name);
+                const resp2  = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${wikiQ}&prop=pageimages|pageterms&format=json&pithumbsize=300&pilicense=any&origin=*`);
+                if (!resp2.ok) throw new Error('Network error');
+                const json = await resp2.json();
+                const page  = Object.values(json.query?.pages || {})[0];
+                if (!page || page.missing !== undefined) {
+                    hint.style.color = 'var(--text-secondary)';
+                    hint.textContent = 'No Wikipedia match \u2014 paste a URL manually.';
+                    return;
+                }
+                const thumbUrl2 = page.thumbnail?.source || '';
+                const desc2     = (page.terms?.description || [])[0] || '';
+                if (thumbUrl2) {
+                    document.getElementById('creator-avatar-input').value = thumbUrl2;
+                    updateCreatorAvatarPreview();
+                    hint.style.color = 'var(--success)';
+                    hint.textContent = `Found: "${page.title}"${desc2 ? ' \u2014 ' + desc2 : ''}`;
+                    const descInput = document.getElementById('creator-desc-input');
+                    if (!descInput.value.trim() && desc2) descInput.value = desc2;
+                } else {
+                    hint.style.color = 'var(--text-secondary)';
+                    hint.textContent = `Found "${page.title}" but no image \u2014 paste a URL manually.`;
+                }
+            } catch {
+                hint.style.color = 'var(--text-secondary)';
+                hint.textContent = 'Auto-fetch failed \u2014 paste a URL manually.';
+            }
+        }
+
+        // Track which character IDs we've already tried so we don't spam Wikipedia on every snapshot
+        const _personFetchTried = new Set();
+
+        async function autoFetchPersonAvatars(force = false) {
+            const missing = linksCache.filter(l =>
+                (l.type === 'person' || (l.type === 'creator' && l.isCharacter)) && !l.avatarUrl &&
+                (force || !_personFetchTried.has(l.id))
+            );
+            for (const person of missing) {
+                _personFetchTried.add(person.id);
+                try {
+                    // Try Wikipedia REST summary API first (most reliable)
+                    const titleSlug = encodeURIComponent(person.name.replace(/ /g, '_'));
+                    const resp = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${titleSlug}`);
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        const thumbUrl = data.thumbnail?.source || data.originalimage?.source || '';
+                        if (thumbUrl) {
+                            const updates = { avatarUrl: thumbUrl };
+                            if (!person.description && data.description) updates.description = data.description;
+                            await setDoc(linkDoc(person.id), updates, { merge: true });
+                            continue;
+                        }
+                    }
+                    // Fallback: Wikipedia action API search
+                    const searchSlug = encodeURIComponent(person.name);
+                    const r2 = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${searchSlug}&prop=pageimages&format=json&pithumbsize=300&pilicense=any&origin=*`);
+                    if (!r2.ok) continue;
+                    const json  = await r2.json();
+                    const pages = json.query?.pages || {};
+                    const page  = Object.values(pages)[0];
+                    const thumbUrl = page?.thumbnail?.source;
+                    if (thumbUrl && page.missing === undefined) {
+                        await setDoc(linkDoc(person.id), { avatarUrl: thumbUrl }, { merge: true });
+                    }
+                } catch { /* silent */ }
+            }
+        }
+
+        window.autoTagPersons = async () => {
+            const btn = document.getElementById('auto-tag-person-btn');
+            btn.disabled = true;
+            const origText = btn.lastChild.textContent;
+
+            const items = linksCache.filter(l => (l.type === 'image' || l.type === 'video') && !l.personId && !(l.personIds && l.personIds.length));
+            if (!items.length) {
+                btn.disabled = false;
+                btn.lastChild.textContent = origText;
+                showToast('No untagged media found.');
+                return;
+            }
+
+            // Build a set of unique category IDs present in untagged items (characters are per-category)
+            const catIds = [...new Set(items.map(l => l.categoryId).filter(Boolean))];
+
+            let created = 0, tagged = 0;
+
+            // For each alias entry that doesn't yet have a character in the cache, check if any
+            // untagged item mentions it — if so, create the character (with Wikipedia photo) first.
+            // Build combined sources: hardcoded PERSON_NAME_ALIASES + per-character aliases stored in cache
+            const charSources = [
+                ...Object.entries(PERSON_NAME_ALIASES).map(([alias, canonical]) => ({ canonicalName: canonical, aliasTerms: [alias] })),
+                ...linksCache
+                    .filter(l => (l.type === 'person' || (l.type === 'creator' && l.isCharacter)) && (l.aliases || []).length)
+                    .map(l => ({ canonicalName: l.name, aliasTerms: l.aliases }))
+            ];
+            // Deduplicate by canonical name (hardcoded entries take priority)
+            const _seenChars = new Set();
+            const dedupedSources = charSources.filter(s => {
+                const k = (s.canonicalName || '').toLowerCase();
+                if (_seenChars.has(k)) return false;
+                _seenChars.add(k);
+                return true;
+            });
+
+            for (const { canonicalName, aliasTerms } of dedupedSources) {
+                const aliasRes = aliasTerms.map(a => new RegExp('\\b' + a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i'));
+                const canonRe = new RegExp('\\b' + canonicalName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+
+                // Check if any untagged item mentions any alias or the canonical name
+                const mentioningItems = items.filter(l => canonRe.test(l.name) || aliasRes.some(r => r.test(l.name)));
+                if (!mentioningItems.length) continue;
+
+                // Check if a character with this canonical name already exists in *each* needed category
+                for (const catId of [...new Set(mentioningItems.map(l => l.categoryId))]) {
+                    const existing = linksCache.find(l =>
+                        (l.type === 'person' || (l.type === 'creator' && l.isCharacter)) &&
+                        l.categoryId === catId &&
+                        (l.name || '').toLowerCase() === canonicalName.toLowerCase()
+                    );
+                    if (existing) continue; // already exists
+
+                    btn.lastChild.textContent = `Creating ${canonicalName}…`;
+
+                    // Fetch Wikipedia for photo + description
+                    let avatarUrl = '', description = '';
+                    try {
+                        const titleSlug = encodeURIComponent(canonicalName.replace(/ /g, '_'));
+                        const resp = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${titleSlug}`);
+                        if (resp.ok) {
+                            const wData = await resp.json();
+                            avatarUrl   = wData.thumbnail?.source || wData.originalimage?.source || '';
+                            description = wData.description || '';
+                        }
+                        if (!avatarUrl) {
+                            const r2 = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(canonicalName)}&prop=pageimages|pageterms&format=json&pithumbsize=300&pilicense=any&origin=*`);
+                            if (r2.ok) {
+                                const j2   = await r2.json();
+                                const page = Object.values(j2.query?.pages || {})[0];
+                                if (page && page.missing === undefined) {
+                                    avatarUrl   = page.thumbnail?.source || '';
+                                    description = (page.terms?.description || [])[0] || description;
+                                }
+                            }
+                        }
+                    } catch { /* silent */ }
+
+                    const charData = { name: canonicalName, avatarUrl, description, type: 'creator', isCharacter: true, profileUrl: '', platform: '', username: '', badgeLabel: '', badgeColor: '', categoryId: catId };
+                    await addDoc(linksRef(), { ...charData, createdAt: serverTimestamp() });
+                    created++;
+                }
+            }
+
+            btn.lastChild.textContent = 'Tagging…';
+
+            // After potential new characters are in the DB, wait briefly for snapshot to update linksCache,
+            // then tag all items. We use a small delay so the snapshot callback fires.
+            await new Promise(r => setTimeout(r, 800));
+
+            for (const item of items) {
+                const detected = detectPersonIdFromText(item.name);
+                if (detected) {
+                    await setDoc(linkDoc(item.id), { personIds: [detected], personId: detected }, { merge: true });
+                    tagged++;
+                }
+            }
+
+            btn.disabled = false;
+            btn.lastChild.textContent = origText;
+            const parts = [];
+            if (created) parts.push(`${created} character${created !== 1 ? 's' : ''} created`);
+            if (tagged)  parts.push(`${tagged} item${tagged !== 1 ? 's' : ''} tagged`);
+            showToast(parts.length ? parts.join(', ') + '.' : 'No matches found.');
+        };
+
+        window.refetchPersonPhotos = async () => {
+            const btn = document.getElementById('person-photo-btn');
+            btn.disabled = true;
+            const origText = btn.lastChild.textContent;
+            btn.lastChild.textContent = 'Fetching…';
+            // Clear the tried set so all persons without a photo are retried
+            _personFetchTried.clear();
+            await autoFetchPersonAvatars(true);
+            btn.disabled = false;
+            btn.lastChild.textContent = origText;
+            // Count how many now have photos
+            const total = linksCache.filter(l => l.type === 'person' || (l.type === 'creator' && l.isCharacter)).length;
+            const filled = linksCache.filter(l => (l.type === 'person' || (l.type === 'creator' && l.isCharacter)) && l.avatarUrl).length;
+            showToast(`Person photos: ${filled}/${total} have a photo.`);
+        };
+
+        function buildComicCard(link) {
+            const card = document.createElement('div');
+            card.className = 'comic-card';
+            card.dataset.searchName = link.name || '';
+            card.dataset.searchUrl  = link.url  || '';
+
+            // Normalize: support old `pages[]` or new `chapters[]`
+            const chapters = comicGetChapters(link);
+            const totalPages = chapters.reduce((s, c) => s + c.pages.length, 0);
+            const firstPage  = chapters[0]?.pages[0] || '';
+            const coverSrc   = link.coverUrl || firstPage;
+
+            const statusMap = {
+                'reading':      ['Reading',      'comic-status--reading'],
+                'completed':    ['Completed',    'comic-status--completed'],
+                'want-to-read': ['Want to Read', 'comic-status--want-to-read'],
+                'dropped':      ['Dropped',      'comic-status--dropped'],
+            };
+            const [statusLabel, statusClass] = statusMap[link.status] || [];
+            const statusBadge = statusLabel
+                ? `<span class="comic-status-badge ${statusClass}">${statusLabel}</span>` : '';
+
+            const fallbackCoverHtml = `<div class="comic-cover-fallback">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                    <rect x="4" y="2" width="14" height="20" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+                    <path d="M8 7h8M8 11h8M8 15h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                </svg>
+                <span>${escHtml(link.name)}</span>
+            </div>`;
+
+            const chapterBadge = chapters.length > 1
+                ? `<span class="comic-page-count-badge">${chapters.length} ch</span>` : '';
+            const pageBadge = totalPages > 0
+                ? `<span class="comic-page-count-badge">${totalPages} pg</span>` : '';
+
+            card.innerHTML = `
+                <div class="comic-card-actions">
+                    <button class="icon-btn" title="Edit">
+                        <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                            <path d="M2 9.5L8 3.5l1 1-6 6H2v-1z" stroke="currentColor" stroke-width="1.2"/>
+                            <path d="M8.5 2l1 1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                    <button class="icon-btn" title="Open in new tab">
+                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5.5 1H9v3.5M9 1L4 6M2 3.5H1v5.5h5.5V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                    <button class="icon-btn danger" title="Delete">
+                        <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                            <path d="M1 1l9 9M10 1L1 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="comic-card-cover">
+                    ${coverSrc
+                        ? `<img src="${escAttr(coverSrc)}" alt="${escAttr(link.name)}">`
+                        : fallbackCoverHtml}
+                </div>
+                <div class="comic-card-body">
+                    <div class="comic-card-name">${escHtml(link.name)}</div>
+                    ${statusBadge}
+                    <div style="display:flex;gap:0.3rem;flex-wrap:wrap">${chapterBadge}${pageBadge}</div>
+                </div>`;
+
+            if (coverSrc) {
+                const img = card.querySelector('.comic-card-cover img');
+                if (img) img.onerror = () => { img.parentElement.innerHTML = fallbackCoverHtml; };
+            }
+
+            const [editBtn, extBtn, delBtn] = card.querySelectorAll('.comic-card-actions button');
+            editBtn.addEventListener('click', (e) => { e.stopPropagation(); openComicModal(link.categoryId, link.id); });
+            extBtn.addEventListener('click',  (e) => { e.stopPropagation(); window.open(link.url, '_blank'); });
+            delBtn.addEventListener('click',  (e) => { e.stopPropagation(); confirmDeleteComic(link.id, link.name); });
+            const cover = card.querySelector('.comic-card-cover');
+            cover.style.cursor = 'pointer';
+            cover.addEventListener('click', () => {
+                if (totalPages > 0) openComicReader(link);
+                else if (link.url) window.open(link.url, '_blank');
+            });
             return card;
         }
 
@@ -2971,9 +4072,13 @@
             let mediaHtml;
             let isThumbOnly = false;
             let isLinkOnly  = false;
+            let isTweet     = false;
             if (embed) {
                 if (embed.type === 'direct') {
                     mediaHtml = `<video src="${escAttr(embed.src)}" controls style="position:absolute;inset:0;width:100%;height:100%;background:#000" preload="metadata"></video>`;
+                } else if (embed.type === 'tweet') {
+                    isTweet = true;
+                    mediaHtml = `<div class="tweet-embed-wrap" data-tweet-id="${escAttr(embed.tweetId)}" data-tweet-url="${escAttr(embed.tweetUrl)}" data-thumb-url="${escAttr(link.thumbUrl || '')}"></div>`;
                 } else {
                     mediaHtml = `<iframe src="${escAttr(embed.src)}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" loading="lazy"></iframe>`;
                 }
@@ -2995,11 +4100,11 @@
                 mediaHtml = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#555;font-size:0.8rem">No video or thumbnail</div>`;
             }
 
-            const badgeLabel = embed ? (embed.type === 'youtube' ? 'YT' : embed.type === 'vimeo' ? 'VIMEO' : 'VIDEO') : (link.thumbUrl ? 'IMG' : link.url ? 'LINK' : '?');
+            const badgeLabel = embed ? (embed.type === 'youtube' ? 'YT' : embed.type === 'vimeo' ? 'VIMEO' : embed.type === 'tweet' ? 'X' : 'VIDEO') : (link.thumbUrl ? 'IMG' : link.url ? 'LINK' : '?');
 
             card.innerHTML = `
                 ${actionsHtml}
-                <div class="video-iframe-wrap${isThumbOnly ? ' video-iframe-wrap--thumb' : ''}">${mediaHtml}</div>
+                <div class="video-iframe-wrap${isThumbOnly ? ' video-iframe-wrap--thumb' : ''}${isTweet ? ' video-iframe-wrap--tweet' : ''}">${mediaHtml}</div>
                 <div class="video-card-body">
                     <span class="video-type-badge">${badgeLabel}</span>
                     <span class="video-card-name">${escHtml(link.name)}</span>
@@ -3051,6 +4156,10 @@
             card.dataset.searchName = link.name || '';
             card.dataset.searchUrl  = link.url  || '';
             card.dataset.linkId     = link.id;
+
+            const _personIds = link.personIds || (link.personId ? [link.personId] : []);
+            const _persons = _personIds.map(id => linksCache.find(l => l.id === id)).filter(Boolean);
+
             card.innerHTML = `
                 <div class="image-card-actions">
                     <button class="icon-btn" title="Edit">
@@ -3073,7 +4182,8 @@
                     <span class="image-type-badge">IMG</span>
                     <span class="image-card-name">${escHtml(link.name)}</span>
                     ${link.sourceUrl ? `<a class="card-source-link" href="${escAttr(link.sourceUrl)}" target="_blank" rel="noopener noreferrer" title="Source: ${escAttr(link.sourceUrl)}"><svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M5.5 1H10v4.5M10 1L4.5 6.5M2 4H1v6h6V8.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>` : ''}
-                </div>`;
+                </div>
+                ${_persons.length ? `<div class="image-card-person"><svg width="10" height="10" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="2.5" stroke="#55ccbb" stroke-width="1.3"/><path d="M1 13c0-2.761 2.686-5 6-5s6 2.239 6 5" stroke="#55ccbb" stroke-width="1.3" stroke-linecap="round"/></svg><span class="image-card-person-name">${escHtml(_persons.map(p => p.name).join(', '))}</span></div>` : ''}`;  
 
             const [imgEditBtn, imgDelBtn] = card.querySelectorAll('.image-card-actions button');
             imgEditBtn.addEventListener('click', () => openImageModal(link.categoryId, link.id));
@@ -3108,9 +4218,10 @@
 
         window.openCreatorPanel = (creator) => {
             const panel = document.getElementById('creator-panel');
+            const isChar = creator.isCharacter || creator.type === 'person';
 
             // Header
-            const avatarSrc = creator.avatarUrl || getCreatorAvatar(creator.platform, creator.username);
+            const avatarSrc = creator.avatarUrl || (isChar ? '' : getCreatorAvatar(creator.platform, creator.username));
             const avatarEl  = document.getElementById('cp-avatar');
             const fallbackEl = document.getElementById('cp-avatar-fallback');
             if (avatarSrc) {
@@ -3125,19 +4236,27 @@
             document.getElementById('cp-name').textContent = creator.name || '';
 
             const badge = document.getElementById('cp-badge');
-            const badgeClass = PLATFORM_BADGE_CLASS[creator.platform] || 'other';
-            const badgeLabel = creator.badgeLabel || PLATFORM_LABELS[creator.platform] || creator.platform || '';
-            const badgeColor = creator.badgeColor || null;
-            if (badgeLabel) {
-                badge.textContent = badgeLabel;
-                badge.className = `creator-platform-badge ${badgeColor ? '' : badgeClass}`;
-                badge.style.color       = badgeColor || '';
-                badge.style.borderColor = badgeColor ? badgeColor + '66' : '';
+            if (isChar) {
+                badge.textContent = 'char';
+                badge.className = 'creator-platform-badge person';
+                badge.style.color = '';
+                badge.style.borderColor = '';
                 badge.style.display = '';
-            } else { badge.style.display = 'none'; }
+            } else {
+                const badgeClass = PLATFORM_BADGE_CLASS[creator.platform] || 'other';
+                const badgeLabel = creator.badgeLabel || PLATFORM_LABELS[creator.platform] || creator.platform || '';
+                const badgeColor = creator.badgeColor || null;
+                if (badgeLabel) {
+                    badge.textContent = badgeLabel;
+                    badge.className = `creator-platform-badge ${badgeColor ? '' : badgeClass}`;
+                    badge.style.color       = badgeColor || '';
+                    badge.style.borderColor = badgeColor ? badgeColor + '66' : '';
+                    badge.style.display = '';
+                } else { badge.style.display = 'none'; }
+            }
 
             const usernameEl = document.getElementById('cp-username');
-            usernameEl.textContent = creator.username ? `@${creator.username}` : '';
+            usernameEl.textContent = (!isChar && creator.username) ? `@${creator.username}` : '';
 
             const descEl = document.getElementById('cp-desc');
             if (creator.description) {
@@ -3145,7 +4264,7 @@
                 descEl.style.display = '';
             } else { descEl.style.display = 'none'; }
 
-            creatorPanelProfileUrl = creator.profileUrl || '';
+            creatorPanelProfileUrl = (!isChar && creator.profileUrl) ? creator.profileUrl : '';
             const profileBtn = document.getElementById('cp-profile-btn');
             profileBtn.style.display = creatorPanelProfileUrl ? '' : 'none';
 
@@ -3155,13 +4274,17 @@
             const matched = matchCreatorItems(creator);
 
             if (matched.length === 0) {
+                const emptyLine1 = isChar ? 'No saved items tagged with this character yet.' : 'No saved items linked to this creator yet.';
+                const emptyLine2 = isChar
+                    ? 'Set the <strong>Person</strong> field on images or videos to link them here.'
+                    : 'Set the <strong>Source URL</strong> on images/videos to their profile page to link them here.';
                 body.innerHTML = `<div class="creator-panel-empty">
                     <svg width="48" height="48" viewBox="0 0 48 48" fill="none" opacity="0.25">
                         <rect x="6" y="10" width="36" height="28" rx="2" stroke="white" stroke-width="2"/>
                         <path d="M14 24h20M14 30h12" stroke="white" stroke-width="2" stroke-linecap="round"/>
                     </svg>
-                    <p>No saved items linked to this creator yet.</p>
-                    <p style="margin-top:0.3rem;font-size:0.78rem">Set the <strong>Source URL</strong> on images/videos to their profile page to link them here.</p>
+                    <p>${emptyLine1}</p>
+                    <p style="margin-top:0.3rem;font-size:0.78rem">${emptyLine2}</p>
                 </div>`;
             } else {
                 const countEl = document.createElement('p');
@@ -3186,10 +4309,18 @@
         };
 
         function matchCreatorItems(creator) {
+            const isChar = creator.isCharacter || creator.type === 'person';
+            if (isChar) {
+                return linksCache.filter(item => {
+                    if (item.type !== 'image' && item.type !== 'video') return false;
+                    const ids = item.personIds || (item.personId ? [item.personId] : []);
+                    return ids.includes(creator.id);
+                });
+            }
             const profileUrl = (creator.profileUrl || '').toLowerCase();
             const username   = (creator.username   || '').toLowerCase();
             return linksCache.filter(item => {
-                if (item.type === 'creator') return false;
+                if (item.type === 'creator' || item.type === 'person') return false;
                 // Explicit binding by creatorId
                 if (item.creatorId && item.creatorId === creator.id) return true;
                 const src = (item.sourceUrl || '').toLowerCase();
@@ -3314,6 +4445,7 @@
                 info.className = 'feed-slide-info';
 
                 const creator = item.creatorId ? linksCache.find(l => l.id === item.creatorId) : null;
+                const person  = item.personId  ? linksCache.find(l => l.id === item.personId)  : null;
                 const metaText = !creator && item.sourceUrl ? (() => { try { return new URL(item.sourceUrl).hostname.replace(/^www\./, ''); } catch { return ''; } })() : '';
 
                 let creatorHtml = '';
@@ -3332,7 +4464,19 @@
                     </div>`;
                 }
 
+                let personHtml = '';
+                if (person) {
+                    personHtml = `<div class="feed-creator-row">
+                        ${person.avatarUrl
+                            ? `<img class="feed-creator-avatar" src="${escAttr(person.avatarUrl)}" alt="" onerror="this.style.display='none'">`
+                            : `<div class="feed-creator-avatar-fallback" style="color:#55ccbb;border-color:rgba(85,204,187,0.3)">👤</div>`}
+                        <span class="feed-creator-name" style="color:#55ccbb">${escHtml(person.name)}</span>
+                        <span class="creator-platform-badge person">char</span>
+                    </div>`;
+                }
+
                 info.innerHTML = `
+                    ${personHtml}
                     ${creatorHtml}
                     <div class="feed-slide-title">${escHtml(item.name || '')}</div>
                     ${metaText ? `<div class="feed-slide-meta">${escHtml(metaText)}</div>` : ''}
@@ -3539,12 +4683,26 @@
             return null;
         }
 
+        function getTweetId(url) {
+            try {
+                const u = new URL(url);
+                const h = u.hostname.replace(/^www\./, '');
+                if (h === 'x.com' || h === 'twitter.com') {
+                    const m = u.pathname.match(/\/status\/(\d+)/);
+                    if (m) return m[1];
+                }
+            } catch {}
+            return null;
+        }
+
         function getVideoEmbed(url) {
             if (!url) return null;
             const ytId = getYouTubeId(url);
             if (ytId) return { type: 'youtube', src: `https://www.youtube-nocookie.com/embed/${ytId}` };
             const vimeoId = getVimeoId(url);
             if (vimeoId) return { type: 'vimeo', src: `https://player.vimeo.com/video/${vimeoId}` };
+            const tweetId = getTweetId(url);
+            if (tweetId) return { type: 'tweet', tweetId, tweetUrl: url };
             if (/\.(mp4|webm|ogg|mov|m4v)(\?|$)/i.test(url)) return { type: 'direct', src: url };
             return null;
         }
@@ -3628,10 +4786,32 @@
             }
 
             const label = PLATFORM_LABELS[parsed.platform] || parsed.platform;
-            hint.textContent = parsed.platform !== 'other'
-                ? `Detected: ${label}${parsed.username ? ' — @' + parsed.username : ''}`
-                : 'Platform not recognised — you can still save manually.';
-            hint.style.color = parsed.platform !== 'other' ? 'var(--success)' : 'var(--text-secondary)';
+            if (parsed.platform !== 'other') {
+                hint.textContent = `Detected: ${label}${parsed.username ? ' — @' + parsed.username : ''}`;
+                hint.style.color = 'var(--success)';
+            } else {
+                // Unknown platform — check if an existing creator from the same domain has a custom badge
+                let domainHost;
+                try { domainHost = new URL(url).hostname.replace(/^www\./, ''); } catch {}
+                const domainCreator = domainHost ? linksCache.find(l =>
+                    l.type === 'creator' && !l.isCharacter && l.profileUrl && l.badgeLabel &&
+                    (() => { try { return new URL(l.profileUrl).hostname.replace(/^www\./, '') === domainHost; } catch { return false; } })()
+                ) : null;
+                if (domainCreator) {
+                    const badgeLabelEl = document.getElementById('creator-badge-label');
+                    const badgeColorEl = document.getElementById('creator-badge-color');
+                    if (!badgeLabelEl.value.trim()) {
+                        badgeLabelEl.value = domainCreator.badgeLabel;
+                        badgeColorEl.value = domainCreator.badgeColor || '#888888';
+                        updateCreatorBadgePreview();
+                    }
+                    hint.textContent = `Domain: ${domainHost} — badge from “${domainCreator.name}”`;
+                    hint.style.color = 'var(--success)';
+                } else {
+                    hint.textContent = 'Platform not recognised — you can still save manually.';
+                    hint.style.color = 'var(--text-secondary)';
+                }
+            }
             document.getElementById('creator-platform-preview').textContent = label;
 
             // Auto-fill avatar if empty
@@ -3671,25 +4851,34 @@
             preview.style.borderColor = color + '66';
         };
 
-        window.openCreatorModal = (categoryId, editId = '') => {
+        window.openCreatorModal = (categoryId, editId = '', { isCharacter = false } = {}) => {
             const link = editId ? linksCache.find(l => l.id === editId) : null;
-            document.getElementById('creator-modal-title').textContent = editId ? 'Edit Creator' : 'Add Creator';
+            const isChar = isCharacter || !!(link && (link.isCharacter || link.type === 'person'));
+            document.getElementById('creator-is-character').value = isChar ? '1' : '';
+            document.getElementById('creator-modal-title').textContent = isChar
+                ? (editId ? 'Edit Person / Character' : 'Add Person / Character')
+                : (editId ? 'Edit Creator' : 'Add Creator');
+            document.getElementById('creator-url-row').style.display       = isChar ? 'none' : '';
+            document.getElementById('creator-badge-row').style.display      = isChar ? 'none' : '';
+            document.getElementById('creator-aliases-row').style.display    = isChar ? '' : 'none';
+            document.getElementById('creator-char-hint').style.display      = isChar ? 'block' : 'none';
+            document.getElementById('creator-char-hint').textContent        = '';
             document.getElementById('creator-edit-id').value     = editId;
             document.getElementById('creator-category-id').value = categoryId;
             document.getElementById('creator-url-input').value    = link ? (link.profileUrl  || '') : '';
             document.getElementById('creator-name-input').value   = link ? (link.name        || '') : '';
             document.getElementById('creator-avatar-input').value = link ? (link.avatarUrl   || '') : '';
             document.getElementById('creator-desc-input').value   = link ? (link.description || '') : '';
+            document.getElementById('creator-aliases-input').value = isChar ? ((link?.aliases || []).join(', ')) : '';
             document.getElementById('creator-badge-label').value  = link ? (link.badgeLabel  || '') : '';
             document.getElementById('creator-badge-color').value  = link ? (link.badgeColor  || '#888888') : '#888888';
             document.getElementById('creator-url-hint').textContent = 'Paste any profile link — platform is auto-detected.';
             document.getElementById('creator-url-hint').style.color = '';
             document.getElementById('creator-platform-preview').textContent = link ? (PLATFORM_LABELS[link.platform] || '') : '';
             updateCreatorAvatarPreview();
-            updateCreatorBadgePreview();
-            if (link) autoFillCreator();
+            if (!isChar) { updateCreatorBadgePreview(); if (link) autoFillCreator(); }
             openModal('creator-modal');
-            setTimeout(() => document.getElementById('creator-url-input').focus(), 60);
+            setTimeout(() => document.getElementById(isChar ? 'creator-name-input' : 'creator-url-input').focus(), 60);
         };
 
         window.saveCreator = async () => {
@@ -3701,25 +4890,33 @@
             const badgeColor  = document.getElementById('creator-badge-color').value.trim();
             const catId       = document.getElementById('creator-category-id').value;
             const editId      = document.getElementById('creator-edit-id').value;
+            const isChar      = !!document.getElementById('creator-is-character').value;
 
             if (!name) { showToast('Enter a display name.', 'error'); return; }
-            if (profileUrl && !isValidUrl(profileUrl)) { showToast('Profile URL must include https://.', 'error'); return; }
             if (avatarUrl  && !isValidUrl(avatarUrl))  { showToast('Avatar URL must include https://.', 'error'); return; }
+            if (!isChar && profileUrl && !isValidUrl(profileUrl)) { showToast('Profile URL must include https://.', 'error'); return; }
 
-            const parsed   = profileUrl ? parseCreatorUrl(profileUrl) : { platform: 'other', username: '' };
-            const platform = parsed ? parsed.platform : 'other';
-            const username = parsed ? parsed.username : '';
+            let data;
+            if (isChar) {
+                const aliases = document.getElementById('creator-aliases-input').value
+                    .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+                data = { name, avatarUrl: avatarUrl || '', description, aliases, type: 'creator', isCharacter: true, profileUrl: '', platform: '', username: '', badgeLabel: '', badgeColor: '', categoryId: catId };
+            } else {
+                const parsed   = profileUrl ? parseCreatorUrl(profileUrl) : { platform: 'other', username: '' };
+                const platform = parsed ? parsed.platform : 'other';
+                const username = parsed ? parsed.username : '';
+                data = { name, profileUrl: profileUrl || '', avatarUrl: avatarUrl || '', description, platform, username, badgeLabel: badgeLabel || '', badgeColor: badgeColor || '', type: 'creator', categoryId: catId };
+            }
 
             const btn = document.getElementById('creator-save-btn');
             btn.disabled = true;
-            const data = { name, profileUrl: profileUrl || '', avatarUrl: avatarUrl || '', description, platform, username, badgeLabel: badgeLabel || '', badgeColor: badgeColor || '', type: 'creator', categoryId: catId };
             try {
                 if (editId) {
                     await setDoc(linkDoc(editId), data, { merge: true });
-                    showToast('Creator updated.');
+                    showToast(isChar ? 'Character updated.' : 'Creator updated.');
                 } else {
                     await addDoc(linksRef(), { ...data, createdAt: serverTimestamp() });
-                    showToast('Creator added.');
+                    showToast(isChar ? 'Character added.' : 'Creator added.');
                 }
                 closeModal('creator-modal');
             } catch (e) {
@@ -3780,6 +4977,335 @@
             });
         };
 
+        /* ── Comic helpers ── */
+        // Normalize old pages[] into chapters structure
+        function comicGetChapters(link) {
+            if (link.chapters && link.chapters.length) return link.chapters;
+            if (link.pages && link.pages.length) return [{ name: 'Chapter 1', pages: link.pages }];
+            return [];
+        }
+
+        /* ── Chapter list UI in modal ── */
+        let _chapterDebounces = {};
+
+        function comicChapterItem(chIndex, chapData) {
+            const item = document.createElement('div');
+            item.className = 'chapter-item';
+            item.dataset.chIndex = chIndex;
+
+            const hintId  = `chap-hint-${chIndex}`;
+            const taId    = `chap-ta-${chIndex}`;
+            const firstId = `chap-first-${chIndex}`;
+
+            item.innerHTML = `
+                <div class="chapter-item-header" onclick="toggleChapterItem(${chIndex})">
+                    <span class="chapter-num">#${chIndex + 1}</span>
+                    <input class="chapter-name-input" type="text" placeholder="Chapter name" value="${escAttr(chapData.name || '')}" onclick="event.stopPropagation()">
+                    <span class="chapter-toggle" id="chap-toggle-${chIndex}">&#x25BE;</span>
+                    <button type="button" class="chapter-del-btn" title="Remove chapter" onclick="event.stopPropagation();removeComicChapter(${chIndex})">&#x2715;</button>
+                </div>
+                <div class="chapter-item-body open" id="chap-body-${chIndex}">
+                    <input class="form-input chapter-first-input" id="${firstId}" type="url"
+                        placeholder="First page URL (auto-detect pages)"
+                        oninput="scheduleChapterProbe(${chIndex})">
+                    <textarea class="form-input chapter-pages-ta" id="${taId}" rows="4"
+                        placeholder="https://example.com/001.jpg&#10;https://example.com/002.jpg" spellcheck="false">${escHtml((chapData.pages || []).join('\n'))}</textarea>
+                    <span class="chapter-hint" id="${hintId}">Paste URLs or enter first page URL above to auto-detect.</span>
+                </div>`;
+            return item;
+        }
+
+        window.toggleChapterItem = (chIndex) => {
+            const body   = document.getElementById(`chap-body-${chIndex}`);
+            const toggle = document.getElementById(`chap-toggle-${chIndex}`);
+            const open   = body.classList.toggle('open');
+            toggle.innerHTML = open ? '&#x25BE;' : '&#x25B8;';
+        };
+
+        window.addComicChapter = () => {
+            const list  = document.getElementById('comic-chapter-list');
+            const index = list.children.length;
+            list.appendChild(comicChapterItem(index, { name: `Chapter ${index + 1}`, pages: [] }));
+        };
+
+        window.removeComicChapter = (chIndex) => {
+            const list  = document.getElementById('comic-chapter-list');
+            const items = [...list.querySelectorAll('.chapter-item')];
+            if (items.length <= 1) { showToast('At least one chapter required.', 'error'); return; }
+            items[chIndex]?.remove();
+            // Re-number remaining items
+            [...list.querySelectorAll('.chapter-item')].forEach((el, i) => {
+                el.dataset.chIndex = i;
+                el.querySelector('.chapter-num').textContent = `#${i + 1}`;
+            });
+        };
+
+        function comicReadChaptersFromModal() {
+            const list = document.getElementById('comic-chapter-list');
+            return [...list.querySelectorAll('.chapter-item')].map((item, i) => ({
+                name : item.querySelector('.chapter-name-input').value.trim() || `Chapter ${i + 1}`,
+                pages: (document.getElementById(`chap-ta-${i}`)?.value || '')
+                         .split('\n').map(s => s.trim()).filter(Boolean)
+            }));
+        }
+
+        window.scheduleChapterProbe = (chIndex) => {
+            clearTimeout(_chapterDebounces[chIndex]);
+            const firstUrl = document.getElementById(`chap-first-${chIndex}`)?.value.trim();
+            if (!firstUrl) return;
+            document.getElementById(`chap-hint-${chIndex}`).textContent = 'Waiting\u2026';
+            _chapterDebounces[chIndex] = setTimeout(() => probeChapterPages(chIndex), 550);
+        };
+
+        async function probeChapterPages(chIndex) {
+            const firstUrl = document.getElementById(`chap-first-${chIndex}`)?.value.trim();
+            const hint     = document.getElementById(`chap-hint-${chIndex}`);
+            if (!firstUrl || !hint) return;
+
+            const match = firstUrl.match(/(\d+)(?=[^/]*$)/);
+            if (!match) { hint.textContent = 'No page number found in URL.'; return; }
+
+            const numStr   = match[0], padWidth = numStr.length, startNum = parseInt(numStr, 10);
+            const before   = firstUrl.slice(0, match.index);
+            const after    = firstUrl.slice(match.index + numStr.length);
+            const makeUrl  = (n) => before + String(n).padStart(padWidth, '0') + after;
+            const probeImg = (src) => new Promise(resolve => {
+                const img = new Image();
+                const t   = setTimeout(() => { img.src = ''; resolve(false); }, 4000);
+                img.onload  = () => { clearTimeout(t); resolve(img.naturalWidth > 1); };
+                img.onerror = () => { clearTimeout(t); resolve(false); };
+                img.src = src;
+            });
+
+            hint.textContent = `Probing ${numStr}\u2026`;
+            if (!(await probeImg(firstUrl))) { hint.textContent = 'First page did not load \u2014 check URL.'; return; }
+
+            const found = [firstUrl];
+            let i = startNum + 1, misses = 0;
+            while (found.length < 999 && misses < 3) {
+                hint.textContent = `Found ${found.length} \u2014 probing ${String(i).padStart(padWidth,'0')}\u2026`;
+                if (await probeImg(makeUrl(i))) { found.push(makeUrl(i)); misses = 0; }
+                else misses++;
+                i++;
+            }
+            const ta = document.getElementById(`chap-ta-${chIndex}`);
+            if (ta) ta.value = found.join('\n');
+            hint.textContent = `Found ${found.length} page${found.length !== 1 ? 's' : ''}.`;
+        }
+
+        /* ── Comic modal ── */
+        window.openComicModal = (categoryId, editId = '') => {
+            const link = editId ? linksCache.find(l => l.id === editId) : null;
+            document.getElementById('comic-modal-title').textContent = editId ? 'Edit Comic' : 'Add Comic';
+            document.getElementById('comic-edit-id').value       = editId;
+            document.getElementById('comic-category-id').value   = categoryId;
+            document.getElementById('comic-name-input').value    = link ? link.name       : '';
+            document.getElementById('comic-url-input').value     = link ? link.url        : '';
+            document.getElementById('comic-cover-input').value   = link ? (link.coverUrl  || '') : '';
+            document.getElementById('comic-status-select').value = link ? (link.status    || '') : '';
+
+            // Populate chapters
+            const list     = document.getElementById('comic-chapter-list');
+            list.innerHTML = '';
+            const chapters = link ? comicGetChapters(link) : [];
+            if (chapters.length > 0) {
+                chapters.forEach((ch, i) => list.appendChild(comicChapterItem(i, ch)));
+            } else {
+                list.appendChild(comicChapterItem(0, { name: 'Chapter 1', pages: [] }));
+            }
+
+            updateComicCoverPreview();
+            openModal('comic-modal');
+            setTimeout(() => document.getElementById('comic-name-input').focus(), 60);
+        };
+
+        window.saveComic = async () => {
+            const name     = document.getElementById('comic-name-input').value.trim();
+            const url      = document.getElementById('comic-url-input').value.trim();
+            const coverUrl = document.getElementById('comic-cover-input').value.trim();
+            const status   = document.getElementById('comic-status-select').value;
+            const catId    = document.getElementById('comic-category-id').value;
+            const editId   = document.getElementById('comic-edit-id').value;
+
+            if (!name) { showToast('Enter a comic title.', 'error'); return; }
+            if (!url)  { showToast('Enter a URL.', 'error'); return; }
+            if (!isValidUrl(url)) { showToast('Enter a valid URL (include https://).', 'error'); return; }
+
+            const btn = document.getElementById('comic-save-btn');
+            btn.disabled = true;
+
+            const pagesRaw = '';
+            const pages = [];
+
+            const chapters = comicReadChaptersFromModal();
+            const data = { type: 'comic', name, url, coverUrl: coverUrl || '', status, chapters, categoryId: catId };
+
+            try {
+                if (editId) {
+                    await setDoc(linkDoc(editId), data, { merge: true });
+                    showToast('Comic updated.');
+                } else {
+                    await addDoc(linksRef(), { ...data, createdAt: serverTimestamp() });
+                    showToast('Comic added.');
+                }
+                closeModal('comic-modal');
+            } catch (e) {
+                showToast('Error: ' + e.message, 'error');
+            } finally { btn.disabled = false; }
+        };
+
+        window.confirmDeleteComic = (id, name) => {
+            openConfirm(`Delete "${name}"?`, 'This comic will be removed.', async () => {
+                try {
+                    await deleteDoc(linkDoc(id));
+                    showToast('Comic deleted.');
+                } catch (e) { showToast('Error: ' + e.message, 'error'); }
+            });
+        };
+
+        let _genDebounce = null;
+        window.scheduleGenerateComicPages = () => {};
+        window.generateComicPages = async () => {};
+
+        window.updateComicCoverPreview = () => {
+            const imgUrl  = document.getElementById('comic-cover-input').value.trim();
+            const wrap    = document.getElementById('comic-cover-preview-wrap');
+            const preview = document.getElementById('comic-cover-preview');
+            if (imgUrl) {
+                preview.src = imgUrl;
+                wrap.classList.add('visible');
+                preview.onerror = () => { wrap.classList.remove('visible'); };
+                preview.onload  = () => { wrap.classList.add('visible'); };
+            } else {
+                wrap.classList.remove('visible');
+                preview.src = '';
+            }
+        };
+
+        window.fetchComicPages = async () => {};
+
+        /* ── Comic reader ── */
+        let comicReaderChapters = [];
+        let comicReaderChapIdx  = 0;
+        let comicReaderIndex    = 0;
+        let comicReaderUrl      = '';
+
+        window.openComicReader = (link, startChap = 0) => {
+            comicReaderChapters = comicGetChapters(link);
+            comicReaderUrl      = link.url || '';
+            if (!comicReaderChapters.length || !comicReaderChapters.some(c => c.pages.length)) {
+                if (comicReaderUrl) window.open(comicReaderUrl, '_blank');
+                return;
+            }
+            comicReaderChapIdx = Math.max(0, Math.min(startChap, comicReaderChapters.length - 1));
+            comicReaderIndex   = 0;
+            document.getElementById('comic-reader-title').textContent = link.name || '';
+            document.getElementById('comic-reader').classList.add('active');
+            document.body.style.overflow = 'hidden';
+            comicReaderRenderChapterBar();
+            comicReaderRender();
+        };
+
+        window.closeComicReader = () => {
+            document.getElementById('comic-reader').classList.remove('active');
+            document.body.style.overflow = '';
+            const img = document.getElementById('comic-reader-img');
+            img.classList.remove('fading');
+            img.src = '';
+        };
+
+        window.comicReaderNext = () => {
+            const pages = comicReaderChapters[comicReaderChapIdx]?.pages || [];
+            if (comicReaderIndex < pages.length - 1) {
+                comicReaderIndex++;
+                comicReaderRender();
+            } else if (comicReaderChapIdx < comicReaderChapters.length - 1) {
+                // Advance to next chapter
+                comicReaderChapIdx++;
+                comicReaderIndex = 0;
+                comicReaderRenderChapterBar();
+                comicReaderRender();
+            }
+        };
+
+        window.comicReaderPrev = () => {
+            if (comicReaderIndex > 0) {
+                comicReaderIndex--;
+                comicReaderRender();
+            } else if (comicReaderChapIdx > 0) {
+                comicReaderChapIdx--;
+                const pages = comicReaderChapters[comicReaderChapIdx]?.pages || [];
+                comicReaderIndex = Math.max(0, pages.length - 1);
+                comicReaderRenderChapterBar();
+                comicReaderRender();
+            }
+        };
+
+        window.comicReaderGoTo = (index) => {
+            comicReaderIndex = index;
+            comicReaderRender();
+        };
+
+        window.comicReaderGoToChapter = (chapIndex) => {
+            comicReaderChapIdx = chapIndex;
+            comicReaderIndex   = 0;
+            comicReaderRenderChapterBar();
+            comicReaderRender();
+        };
+
+        window.comicReaderOpenExternal = () => {
+            if (comicReaderUrl) window.open(comicReaderUrl, '_blank');
+        };
+
+        function comicReaderRenderChapterBar() {
+            const bar = document.getElementById('comic-reader-chapter-bar');
+            if (comicReaderChapters.length <= 1) { bar.innerHTML = ''; return; }
+            bar.innerHTML = comicReaderChapters.map((ch, i) =>
+                `<button class="comic-reader-chap-pill${i === comicReaderChapIdx ? ' active' : ''}" onclick="comicReaderGoToChapter(${i})">${escHtml(ch.name || `Ch. ${i+1}`)}</button>`
+            ).join('');
+            const active = bar.querySelector('.active');
+            if (active) active.scrollIntoView({ inline: 'center', behavior: 'smooth' });
+        }
+
+        function comicReaderRender() {
+            const pages  = comicReaderChapters[comicReaderChapIdx]?.pages || [];
+            const img    = document.getElementById('comic-reader-img');
+            const prev   = document.getElementById('comic-reader-prev-btn');
+            const next   = document.getElementById('comic-reader-next-btn');
+            const pager  = document.getElementById('comic-reader-pager');
+            const thumbs = document.getElementById('comic-reader-thumb-strip');
+
+            img.classList.add('fading');
+            setTimeout(() => {
+                img.src = pages[comicReaderIndex] || '';
+                img.classList.remove('fading');
+            }, 100);
+
+            const isFirstPage  = comicReaderIndex === 0 && comicReaderChapIdx === 0;
+            const isLastPage   = comicReaderIndex === pages.length - 1 && comicReaderChapIdx === comicReaderChapters.length - 1;
+            prev.disabled = isFirstPage;
+            next.disabled = isLastPage;
+
+            const chapLabel = comicReaderChapters.length > 1
+                ? `${comicReaderChapters[comicReaderChapIdx]?.name || `Ch.${comicReaderChapIdx+1}`} · ` : '';
+            pager.textContent = `${chapLabel}${comicReaderIndex + 1} / ${pages.length}`;
+
+            thumbs.innerHTML = pages.map((url, i) =>
+                `<img class="comic-reader-thumb${i === comicReaderIndex ? ' active' : ''}" src="${escAttr(url)}" alt="p${i+1}" onclick="comicReaderGoTo(${i})">`
+            ).join('');
+            const activeThumb = thumbs.querySelector('.comic-reader-thumb.active');
+            if (activeThumb) activeThumb.scrollIntoView({ inline: 'center', behavior: 'smooth' });
+        }
+
+        // Comic reader keyboard nav
+        document.addEventListener('keydown', (e) => {
+            const reader = document.getElementById('comic-reader');
+            if (!reader.classList.contains('active')) return;
+            if (e.key === 'Escape') { closeComicReader(); return; }
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown')  { e.preventDefault(); comicReaderNext(); }
+            else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); comicReaderPrev(); }
+        });
+
         /* ── Creator dropdown helper ── */
         function populateCreatorDropdown(selectId, catId, selectedId = '') {
             const sel = document.getElementById(selectId);
@@ -3798,6 +5324,7 @@
             document.getElementById('image-url-input').value    = link ? link.url       : '';
             document.getElementById('image-source-input').value = link ? (link.sourceUrl || '') : '';
             populateCreatorDropdown('image-creator-select', categoryId, link ? (link.creatorId || '') : '');
+            populatePersonDropdown('image-person-select',   categoryId, link ? (link.personIds || (link.personId ? [link.personId] : [])) : []);
             initTagInput('image-tag-wrap', 'image-tag-text', link ? (link.tags || []) : []);
             updateImageModalPreview();
             openModal('image-modal');
@@ -3881,6 +5408,7 @@
             const url       = document.getElementById('image-url-input').value.trim();
             const sourceUrl = document.getElementById('image-source-input').value.trim();
             const creatorId = document.getElementById('image-creator-select').value;
+            const personIds  = [...document.getElementById('image-person-select').selectedOptions].map(o => o.value).filter(Boolean);
             const catId     = document.getElementById('image-category-id').value;
             const editId    = document.getElementById('image-edit-id').value;
             const tags      = getTagsFromInput('image-tag-wrap');
@@ -3892,7 +5420,9 @@
 
             const btn = document.getElementById('image-save-btn');
             btn.disabled = true;
-            const data = { name, url, type: 'image', categoryId: catId, sourceUrl: sourceUrl || '', creatorId: creatorId || '', tags };
+            const _detectedPerson = personIds.length ? '' : detectPersonIdFromText(name);
+            const resolvedPersonIds = personIds.length ? personIds : (_detectedPerson ? [_detectedPerson] : []);
+            const data = { name, url, type: 'image', categoryId: catId, sourceUrl: sourceUrl || '', creatorId: creatorId || '', personIds: resolvedPersonIds, personId: resolvedPersonIds[0] || '', tags };
             try {
                 if (editId) {
                     await setDoc(linkDoc(editId), data, { merge: true });
@@ -3942,6 +5472,7 @@
             document.getElementById('video-thumb-input').value  = link ? (link.thumbUrl || '')  : '';
             document.getElementById('video-source-input').value = link ? (link.sourceUrl || '') : '';
             populateCreatorDropdown('video-creator-select', categoryId, link ? (link.creatorId || '') : '');
+            populatePersonDropdown('video-person-select',   categoryId, link ? (link.personIds || (link.personId ? [link.personId] : [])) : []);
             initTagInput('video-tag-wrap', 'video-tag-text', link ? (link.tags || []) : []);
             document.getElementById('video-x-hint').style.display  = 'none';
             document.getElementById('video-url-hint').style.display = '';
@@ -3957,6 +5488,7 @@
             const thumbUrl  = document.getElementById('video-thumb-input').value.trim();
             const sourceUrl = document.getElementById('video-source-input').value.trim();
             const creatorId = document.getElementById('video-creator-select').value;
+            const personIds  = [...document.getElementById('video-person-select').selectedOptions].map(o => o.value).filter(Boolean);
             const catId     = document.getElementById('video-category-id').value;
             const editId    = document.getElementById('video-edit-id').value;
             const tags      = getTagsFromInput('video-tag-wrap');
@@ -3970,7 +5502,9 @@
             const btn = document.getElementById('video-save-btn');
             btn.disabled = true;
 
-            const data = { name, url: url || '', thumbUrl: thumbUrl || '', type: 'video', categoryId: catId, sourceUrl: sourceUrl || '', creatorId: creatorId || '', tags };
+            const _detectedPerson = personIds.length ? '' : detectPersonIdFromText(name);
+            const resolvedPersonIds = personIds.length ? personIds : (_detectedPerson ? [_detectedPerson] : []);
+            const data = { name, url: url || '', thumbUrl: thumbUrl || '', type: 'video', categoryId: catId, sourceUrl: sourceUrl || '', creatorId: creatorId || '', personIds: resolvedPersonIds, personId: resolvedPersonIds[0] || '', tags };
             try {
                 if (editId) {
                     await setDoc(linkDoc(editId), data, { merge: true });
@@ -4045,7 +5579,7 @@
                 urlHint.style.display = '';
             }
 
-            if (!embed) { wrap.classList.remove('visible'); return; }
+            if (!embed || embed.type === 'tweet') { wrap.classList.remove('visible'); return; }
 
             if (embed.type === 'direct') {
                 video.src = embed.src;
