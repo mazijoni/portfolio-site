@@ -109,6 +109,25 @@
         }
         .btn-signout:hover { border-color: var(--danger); color: var(--danger); }
 
+        /* Nav link to other apps */
+        .btn-nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.8rem;
+            padding: 0.4rem 0.9rem;
+            text-decoration: none;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+            white-space: nowrap;
+        }
+        .btn-nav-link:hover { border-color: var(--accent-purple); color: var(--accent-purple); }
+        .btn-nav-link .nav-link-label { display: inline; }
+
         /* ==================== MAIN ==================== */
         main {
             padding: 7rem 5% 4rem;
@@ -1852,6 +1871,9 @@
             .logo { font-size: 1.1rem; }
             .user-chip span { display: none; } /* hide name, keep avatar */
             .btn-signout { font-size: 0.75rem; padding: 0.35rem 0.7rem; }
+            /* Collapse nav link to icon-only on mobile */
+            .btn-nav-link .nav-link-label { display: none; }
+            .btn-nav-link { padding: 0.4rem 0.6rem; }
 
             /* Main */
             main { padding: 5.5rem 4% 3rem; }
@@ -2313,6 +2335,10 @@
         <nav>
             <a href="index.html" class="logo">MAZE<span style="color:var(--accent-purple)">_</span>DASHBOARD</a>
             <div class="nav-right">
+                <a href="mazenote.html" class="btn-nav-link" title="Open MazeNote">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><circle cx="17.5" cy="17.5" r="3.5"/></svg>
+                    <span class="nav-link-label">MazeNote</span>
+                </a>
                 <div class="user-chip">
                     <div class="user-avatar" id="user-avatar">?</div>
                     <span id="user-name">Loading…</span>
