@@ -543,7 +543,7 @@
         // Redirect already-logged-in users
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                const dest = new URLSearchParams(window.location.search).get('redirect') || 'private.html';
+                const dest = new URLSearchParams(window.location.search).get('redirect') || 'workspace.html';
                 window.location.href = dest;
             }
         });
