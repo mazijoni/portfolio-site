@@ -3,7 +3,7 @@
  */
 
 import {
-    onSnapshot, updateDoc, query, getCountFromServer
+    onSnapshot, updateDoc, query, getCountFromServer, collection, where
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
 import { auth, db }                     from "../app.js";
@@ -53,9 +53,10 @@ async function _loadStats() {
     if (!uid) return;
 
     try {
+        const _catId = currentProject.sourceCategoryId || currentProject.id;
         const [tasksSnap, mediaSnap, nodesSnap] = await Promise.all([
             getCountFromServer(refs.kanbanTasks(db, uid, currentProjectId)),
-            getCountFromServer(refs.media(db, uid, currentProjectId)),
+            getCountFromServer(query(collection(db, `users/${auth.currentUser?.uid}/links`), where("categoryId", "==", _catId))),
             getCountFromServer(refs.nodes(db, uid, currentProjectId)),
         ]);
         document.getElementById("stat-tasks").textContent = tasksSnap.data().count;

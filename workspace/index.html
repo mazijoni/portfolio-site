@@ -7,6 +7,7 @@
     <link rel="icon" href="../img/logo.svg" type="image/svg"/>
     <link rel="icon" href="../img/logo_black.svg" type="image/svg" media="(prefers-color-scheme: light)"/>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
     <link rel="stylesheet" href="workspace.css">
 </head>
 <body>
@@ -14,7 +15,12 @@
 <!-- ==================== SITE HEADER ==================== -->
 <header id="site-header">
     <nav>
-        <a href="../index.html" class="logo">MAZE<span>_</span>WORKSPACE</a>
+        <div class="nav-left">
+            <button id="ws-mobile-menu-btn" class="ws-mobile-menu-btn" title="Open sidebar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <a href="../index.html" class="logo">MAZE<span>_</span>WORKSPACE</a>
+        </div>
         <div class="nav-right">
             <div class="user-chip">
                 <div class="user-avatar" id="user-avatar">?</div>
@@ -376,6 +382,19 @@
                 <label for="field-description">Description</label>
                 <textarea id="field-description" placeholder="What is this project about?" rows="3" maxlength="500"></textarea>
             </div>
+            <div class="form-group">
+                <label>Project Icon</label>
+                <div style="display:flex;gap:8px;">
+                    <input type="hidden" id="field-icon" value="">
+                    <button type="button" id="btn-pick-icon" class="ws-btn ws-btn-ghost" style="flex:1; justify-content:flex-start; text-align:left; background:var(--bg-input); border-color:var(--border);">
+                        <span id="btn-pick-icon-display" class="material-symbols-outlined" style="margin-right:8px; font-size:1.1rem; color:var(--text-muted)"></span>
+                        <span id="btn-pick-icon-text">Choose an icon...</span>
+                    </button>
+                    <button type="button" id="btn-clear-icon" class="ws-btn ws-btn-ghost" title="Clear icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+            </div>
             <div class="form-row">
                 <div class="form-group">
                     <label for="field-type">Type</label>
@@ -603,29 +622,52 @@
                         <option value="image">Image</option>
                         <option value="creator">Creator</option>
                         <option value="person">Person</option>
-                        <option value="comic">Comic</option>
                     </select>
                 </div>
             </div>
             <div class="form-group">
                 <label for="ml-field-name">Name</label>
                 <input type="text" id="ml-field-name" placeholder="Display name" maxlength="120">
+                <div id="ml-char-hint" class="form-hint" style="margin-top:0.3rem"></div>
             </div>
             <div class="form-group">
-                <label for="ml-field-url">URL</label>
+                <label id="ml-url-label" for="ml-field-url">URL</label>
                 <input type="url" id="ml-field-url" placeholder="https://&#8230;">
             </div>
             <div class="form-group" id="ml-img-group">
                 <label id="ml-img-label" for="ml-field-img">Custom thumbnail URL</label>
                 <input type="url" id="ml-field-img" placeholder="https://&#8230;">
             </div>
+            <div class="form-group" id="ml-source-group" style="display:none">
+                <label for="ml-field-source">Source URL</label>
+                <input type="url" id="ml-field-source" placeholder="Where did you find it?">
+            </div>
             <div class="form-group" id="ml-desc-group" style="display:none">
                 <label for="ml-field-desc">Description</label>
                 <input type="text" id="ml-field-desc" placeholder="Short bio or note" maxlength="120">
             </div>
-            <div class="form-group" id="ml-color-group" style="display:none">
-                <label for="ml-field-color">Badge colour</label>
-                <input type="color" id="ml-field-color" value="#888888">
+            <div class="form-row" id="ml-badge-row" style="display:none">
+                <div class="form-group">
+                    <label for="ml-field-color">Badge colour</label>
+                    <input type="color" id="ml-field-color" value="#888888">
+                </div>
+                <div class="form-group">
+                    <label for="ml-field-badge">Badge label <span class="form-hint">(overrides auto)</span></label>
+                    <input type="text" id="ml-field-badge" placeholder="e.g. YT, IG..." maxlength="20">
+                </div>
+            </div>
+            <div id="ml-attribution-group" style="display:none">
+                <div class="form-group">
+                    <label for="ml-field-creator">Creator</label>
+                    <select id="ml-field-creator">
+                        <option value="">&#8212; none &#8212;</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="ml-field-person">Person / Character <span class="form-hint">(hold Ctrl/&#x2318; for multi)</span></label>
+                    <select id="ml-field-person" multiple size="3">
+                    </select>
+                </div>
             </div>
             <div class="ws-modal-footer">
                 <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-media-link">Cancel</button>
@@ -694,6 +736,63 @@
             </div>
         </form>
     </div>
+</div>
+
+<!-- Icon Picker Modal -->
+<div id="modal-icon-picker" class="ws-modal-overlay hidden" style="z-index: 2200;">
+    <div class="ws-modal ws-modal--wide">
+        <div class="ws-modal-header" style="border-bottom: 1px solid var(--border); padding: 1rem 1.3rem;">
+            <h2>Select an Icon</h2>
+            <button class="ws-modal-close" data-modal="modal-icon-picker">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="ws-modal-body" style="padding: 0; display:flex; height: 380px;">
+            <div style="width: 180px; border-right: 1px solid var(--border); display:flex; flex-direction:column; padding: 0.5rem 0;">
+                <div id="ip-cats" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:2px; padding: 0 0.5rem;">
+                    <!-- dynamically injected categories -->
+                </div>
+                <div style="padding: 0.8rem 0.5rem 0.5rem;">
+                    <div style="display:flex; align-items:center; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius); padding: 4px 8px;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-muted)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input type="text" id="ip-search" placeholder="Search..." autocomplete="off" style="border:none;background:none;color:var(--text-primary);width:100%;font-size:0.75rem;padding-left:6px;outline:none;">
+                    </div>
+                </div>
+            </div>
+            <div style="flex:1; padding: 1rem; overflow-y:auto; background:var(--bg-card);" id="ip-grid">
+                <!-- dynamically injected icons -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== CREATOR PANEL ==================== -->
+<div class="creator-panel" id="creator-panel">
+    <div class="creator-panel-header">
+        <div class="creator-panel-top">
+            <button class="creator-panel-back" id="cp-back">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                Back
+            </button>
+            <button class="creator-panel-profile-btn ws-btn ws-btn-ghost ws-btn-sm" id="cp-profile-btn" style="display:none">
+                <svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M5.5 1H9v3.5M9 1L4 6M2 3.5H1v5.5h5.5V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Open profile
+            </button>
+        </div>
+        <div class="creator-panel-identity">
+            <img id="cp-avatar" class="creator-panel-avatar" src="" alt="" style="display:none" onerror="this.style.display='none';document.getElementById('cp-avatar-fallback').style.display='flex'">
+            <div class="creator-panel-avatar creator-panel-avatar--fallback" id="cp-avatar-fallback" style="display:none">👤</div>
+            <div class="creator-panel-info">
+                <div class="creator-panel-name" id="cp-name"></div>
+                <div class="creator-panel-meta">
+                    <span id="cp-badge" class="creator-platform-badge" style="display:none"></span>
+                    <span id="cp-username" class="creator-username"></span>
+                </div>
+                <div id="cp-desc" class="creator-desc" style="display:none"></div>
+            </div>
+        </div>
+    </div>
+    <div class="creator-panel-body" id="cp-body"></div>
 </div>
 
 <!-- ==================== TOAST ==================== -->
