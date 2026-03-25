@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workspace | Maze_Development</title>
+    <link rel="icon" href="../img/logo.svg" type="image/svg"/>
+    <link rel="icon" href="../img/logo_black.svg" type="image/svg" media="(prefers-color-scheme: light)"/>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="workspace.css">
+</head>
+<body>
+
+<!-- ==================== SITE HEADER ==================== -->
+<header id="site-header">
+    <nav>
+        <a href="../index.html" class="logo">MAZE<span>_</span>WORKSPACE</a>
+        <div class="nav-right">
+            <div class="user-chip">
+                <div class="user-avatar" id="user-avatar">?</div>
+                <span id="user-name">Loading&#8230;</span>
+            </div>
+            <button class="btn-signout" id="btn-signout">Sign out</button>
+        </div>
+    </nav>
+</header>
+
+<!-- ==================== WORKSPACE SHELL ==================== -->
+<div id="ws-shell">
+
+    <!-- LEFT SIDEBAR -->
+    <aside id="ws-sidebar">
+
+        <div class="ws-sb-top">
+            <div class="ws-sb-brand">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                <span>Workspace</span>
+            </div>
+            <button id="ws-sidebar-toggle" class="ws-icon-btn" title="Collapse sidebar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+        </div>
+
+        <div class="ws-sb-section-label">Projects</div>
+        <div id="project-list" class="ws-project-list"></div>
+        <button id="btn-new-project" class="ws-new-project-btn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Project
+        </button>
+
+        <div class="ws-sb-divider"></div>
+
+        <div class="ws-sb-section-label">Navigate</div>
+        <a href="../index.html" class="ws-nav-item">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            Portfolio
+        </a>
+
+
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <div id="ws-main">
+
+        <!-- TOP BAR -->
+        <div id="ws-topbar" class="ws-topbar hidden">
+            <div class="ws-topbar-left">
+                <div id="project-type-badge" class="ws-type-badge">game</div>
+                <h1 id="project-title" class="ws-project-title">Project Name</h1>
+                <span id="project-status-badge" class="ws-status-badge">active</span>
+            </div>
+            <div class="ws-topbar-right">
+                <button id="btn-edit-project" class="ws-btn ws-btn-ghost">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Edit
+                </button>
+                <button id="btn-delete-project" class="ws-btn ws-btn-danger">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- SECTION TABS -->
+        <nav id="ws-tabs" class="ws-tabs hidden">
+            <button class="ws-tab active" data-section="overview">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                Overview
+            </button>
+            <button class="ws-tab" data-section="board">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                Board
+            </button>
+            <button class="ws-tab" data-section="nodes">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="19" cy="19" r="2"/><line x1="7" y1="11" x2="17" y2="6"/><line x1="7" y1="13" x2="17" y2="18"/></svg>
+                Nodes
+            </button>
+            <button class="ws-tab" data-section="media">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 19 16 19 16 8"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="1 17 5 12 9 14.5 12 11 16 15"/></svg>
+                Media
+            </button>
+            <button class="ws-tab" data-section="kanban">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="3" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="9" rx="1"/></svg>
+                Kanban
+            </button>
+        </nav>
+
+        <!-- EMPTY STATE -->
+        <section id="section-empty" class="ws-section active">
+            <div class="ws-empty-state">
+                <div class="ws-empty-icon">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                </div>
+                <h2>Select a project</h2>
+                <p>Choose a project from the sidebar, or create a new one to get started.</p>
+                <button id="btn-new-project-empty" class="ws-btn ws-btn-accent">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    New Project
+                </button>
+            </div>
+        </section>
+
+        <!-- OVERVIEW -->
+        <section id="section-overview" class="ws-section">
+            <div class="ws-section-body">
+                <div class="overview-grid">
+                    <div class="overview-card overview-desc-card">
+                        <div class="overview-card-label">Description</div>
+                        <p id="overview-description" class="overview-desc-text">No description.</p>
+                    </div>
+                    <div class="overview-card">
+                        <div class="overview-card-label">Details</div>
+                        <div class="overview-meta-list">
+                            <div class="overview-meta-row">
+                                <span class="meta-key">Type</span>
+                                <span id="meta-type" class="meta-val"></span>
+                            </div>
+                            <div class="overview-meta-row">
+                                <span class="meta-key">Status</span>
+                                <span id="meta-status" class="meta-val"></span>
+                            </div>
+                            <div class="overview-meta-row">
+                                <span class="meta-key">Created</span>
+                                <span id="meta-created" class="meta-val"></span>
+                            </div>
+                            <div class="overview-meta-row">
+                                <span class="meta-key">Updated</span>
+                                <span id="meta-updated" class="meta-val"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="overview-card">
+                        <div class="overview-card-label">Activity</div>
+                        <div class="overview-stats">
+                            <div class="stat-item">
+                                <span class="stat-num" id="stat-tasks">0</span>
+                                <span class="stat-label">Tasks</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-num" id="stat-media">0</span>
+                                <span class="stat-label">Media</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-num" id="stat-nodes">0</span>
+                                <span class="stat-label">Nodes</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="overview-notes-area">
+                    <div class="overview-card-label">Quick Notes</div>
+                    <textarea id="overview-notes" class="overview-notes-input" placeholder="Jot down quick notes for this project&#8230;" rows="6" maxlength="4000"></textarea>
+                    <div class="notes-save-row">
+                        <span id="notes-saved-hint" class="notes-hint"></span>
+                        <button id="btn-save-notes" class="ws-btn ws-btn-accent">Save Notes</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- BOARD -->
+        <section id="section-board" class="ws-section">
+            <div class="ws-section-body">
+                <div class="section-toolbar">
+                    <div class="section-toolbar-title">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                        Visual Board
+                    </div>
+                    <div class="section-toolbar-actions">
+                        <button class="ws-btn ws-btn-ghost" id="btn-add-board-note">+ Note</button>
+                        <button class="ws-btn ws-btn-ghost" id="btn-add-board-link">+ Link</button>
+                        <button class="ws-btn ws-btn-ghost" id="btn-add-board-image">+ Image</button>
+                    </div>
+                </div>
+                <div id="board-canvas" class="board-canvas">
+                    <div id="board-empty" class="board-empty">
+                        <p>Your board is empty.</p>
+                        <p class="board-empty-sub">Add notes, links, or images to start planning visually.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- NODES -->
+        <section id="section-nodes" class="ws-section">
+            <div class="ws-section-body ws-section-body--fill">
+                <div class="section-toolbar">
+                    <div class="section-toolbar-title">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="19" cy="19" r="2"/><line x1="7" y1="11" x2="17" y2="6"/><line x1="7" y1="13" x2="17" y2="18"/></svg>
+                        Node Flow
+                    </div>
+                    <div class="section-toolbar-actions">
+                        <button class="ws-btn ws-btn-ghost" id="btn-add-node">+ Node</button>
+                        <button class="ws-btn ws-btn-ghost" id="btn-clear-nodes">Clear</button>
+                    </div>
+                </div>
+                <div id="nodes-canvas" class="nodes-canvas">
+                    <svg id="nodes-svg" class="nodes-svg"></svg>
+                    <div id="nodes-container" class="nodes-container"></div>
+                    <div id="nodes-empty" class="nodes-empty">
+                        <p>No nodes yet.</p>
+                        <p class="nodes-empty-sub">Add nodes to map out your workflow or system.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MEDIA — mirrors the Dashboard (shared data) -->
+        <section id="section-media" class="ws-section">
+            <div class="ws-section-body ws-section-body--fill">
+                <div class="section-toolbar">
+                    <div class="section-toolbar-title">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 19 16 19 16 8"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="1 17 5 12 9 14.5 12 11 16 15"/></svg>
+                        Media &amp; Links
+                    </div>
+                    <div class="section-toolbar-actions">
+                        <div class="media-search-wrap">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <input type="text" id="media-search" class="media-search-input" placeholder="Search&#8230;" autocomplete="off">
+                        </div>
+                        <button class="ws-btn ws-btn-ghost" id="btn-add-media-project">+ Project</button>
+                    </div>
+                </div>
+                <div id="media-body" class="media-body">
+                    <div id="media-loading" class="ws-placeholder">Loading&#8230;</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- KANBAN -->
+        <section id="section-kanban" class="ws-section">
+            <div class="ws-section-body ws-section-body--fill ws-section-body--kanban">
+                <div class="section-toolbar">
+                    <div class="section-toolbar-title">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="3" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="9" rx="1"/></svg>
+                        Kanban Board
+                    </div>
+                    <div class="section-toolbar-actions">
+                        <button class="ws-btn ws-btn-ghost" id="btn-add-kanban-task">+ Task</button>
+                    </div>
+                </div>
+                <div id="kanban-board" class="kanban-board">
+                    <div class="kanban-col" data-col="backlog">
+                        <div class="kanban-col-header">
+                            <span class="kanban-col-dot dot-backlog"></span>Backlog
+                            <span class="kanban-count" id="count-backlog">0</span>
+                        </div>
+                        <div class="kanban-cards" id="col-backlog"></div>
+                        <button class="kanban-add-inline" data-col="backlog">+ Add task</button>
+                    </div>
+                    <div class="kanban-col" data-col="todo">
+                        <div class="kanban-col-header">
+                            <span class="kanban-col-dot dot-todo"></span>To Do
+                            <span class="kanban-count" id="count-todo">0</span>
+                        </div>
+                        <div class="kanban-cards" id="col-todo"></div>
+                        <button class="kanban-add-inline" data-col="todo">+ Add task</button>
+                    </div>
+                    <div class="kanban-col" data-col="inprogress">
+                        <div class="kanban-col-header">
+                            <span class="kanban-col-dot dot-inprogress"></span>In Progress
+                            <span class="kanban-count" id="count-inprogress">0</span>
+                        </div>
+                        <div class="kanban-cards" id="col-inprogress"></div>
+                        <button class="kanban-add-inline" data-col="inprogress">+ Add task</button>
+                    </div>
+                    <div class="kanban-col" data-col="review">
+                        <div class="kanban-col-header">
+                            <span class="kanban-col-dot dot-review"></span>Review
+                            <span class="kanban-count" id="count-review">0</span>
+                        </div>
+                        <div class="kanban-cards" id="col-review"></div>
+                        <button class="kanban-add-inline" data-col="review">+ Add task</button>
+                    </div>
+                    <div class="kanban-col" data-col="done">
+                        <div class="kanban-col-header">
+                            <span class="kanban-col-dot dot-done"></span>Done
+                            <span class="kanban-count" id="count-done">0</span>
+                        </div>
+                        <div class="kanban-cards" id="col-done"></div>
+                        <button class="kanban-add-inline" data-col="done">+ Add task</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+</div>
+
+<!-- ==================== MODALS ==================== -->
+
+<!-- Project form modal -->
+<div id="modal-project" class="ws-modal-overlay hidden">
+    <div class="ws-modal">
+        <div class="ws-modal-header">
+            <h2 id="modal-project-title">New Project</h2>
+            <button class="ws-modal-close" data-modal="modal-project">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form id="form-project" class="ws-modal-form" autocomplete="off">
+            <input type="hidden" id="project-id-field">
+            <div class="form-group">
+                <label for="field-title">Project Title *</label>
+                <input type="text" id="field-title" placeholder="e.g. Maze Runner Game" maxlength="80" required>
+            </div>
+            <div class="form-group">
+                <label for="field-description">Description</label>
+                <textarea id="field-description" placeholder="What is this project about?" rows="3" maxlength="500"></textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="field-type">Type</label>
+                    <select id="field-type">
+                        <option value="general">General</option>
+                        <option value="game">Game Dev</option>
+                        <option value="animation">Animation</option>
+                        <option value="school">School</option>
+                        <option value="web">Web / IT</option>
+                        <option value="music">Music</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="field-status">Status</label>
+                    <select id="field-status">
+                        <option value="active">Active</option>
+                        <option value="planning">Planning</option>
+                        <option value="paused">Paused</option>
+                        <option value="archived">Archived</option>
+                        <option value="done">Done</option>
+                    </select>
+                </div>
+            </div>
+            <div class="ws-modal-footer">
+                <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-project">Cancel</button>
+                <button type="submit" class="ws-btn ws-btn-accent" id="btn-project-submit">Create Project</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Board item modal -->
+<div id="modal-board-item" class="ws-modal-overlay hidden">
+    <div class="ws-modal">
+        <div class="ws-modal-header">
+            <h2 id="modal-board-item-title">Add Note</h2>
+            <button class="ws-modal-close" data-modal="modal-board-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form id="form-board-item" class="ws-modal-form" autocomplete="off">
+            <input type="hidden" id="board-item-id-field">
+            <input type="hidden" id="board-item-type-field">
+            <div class="form-group" id="board-field-content-group">
+                <label for="board-field-content">Content</label>
+                <textarea id="board-field-content" rows="4" maxlength="1000" placeholder="Write a note&#8230;"></textarea>
+            </div>
+            <div class="form-group" id="board-field-url-group" style="display:none">
+                <label for="board-field-url">URL</label>
+                <input type="url" id="board-field-url" placeholder="https://&#8230;">
+            </div>
+            <div class="form-group" id="board-field-label-group" style="display:none">
+                <label for="board-field-label">Label</label>
+                <input type="text" id="board-field-label" placeholder="Label (optional)" maxlength="60">
+            </div>
+            <div class="form-group">
+                <label>Colour</label>
+                <div class="color-swatches" id="board-color-swatches">
+                    <button type="button" class="color-swatch active" data-color="#1e1e1e" style="background:#1e1e1e"></button>
+                    <button type="button" class="color-swatch" data-color="#1a2a1a" style="background:#1a2a1a"></button>
+                    <button type="button" class="color-swatch" data-color="#1a1a2e" style="background:#1a1a2e"></button>
+                    <button type="button" class="color-swatch" data-color="#2a1a1a" style="background:#2a1a1a"></button>
+                    <button type="button" class="color-swatch" data-color="#2a2a1a" style="background:#2a2a1a"></button>
+                    <button type="button" class="color-swatch" data-color="#1e1e2e" style="background:#1e1e2e"></button>
+                </div>
+            </div>
+            <div class="ws-modal-footer">
+                <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-board-item">Cancel</button>
+                <button type="submit" class="ws-btn ws-btn-accent">Add</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Kanban task modal -->
+<div id="modal-kanban-task" class="ws-modal-overlay hidden">
+    <div class="ws-modal">
+        <div class="ws-modal-header">
+            <h2 id="modal-kanban-title">New Task</h2>
+            <button class="ws-modal-close" data-modal="modal-kanban-task">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form id="form-kanban-task" class="ws-modal-form" autocomplete="off">
+            <input type="hidden" id="kanban-task-id-field">
+            <input type="hidden" id="kanban-task-col-field">
+            <div class="form-group">
+                <label for="kanban-field-title">Task Title *</label>
+                <input type="text" id="kanban-field-title" placeholder="What needs to be done?" maxlength="120" required>
+            </div>
+            <div class="form-group">
+                <label for="kanban-field-desc">Description</label>
+                <textarea id="kanban-field-desc" rows="3" maxlength="500" placeholder="Optional details&#8230;"></textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="kanban-field-priority">Priority</label>
+                    <select id="kanban-field-priority">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="kanban-field-col">Column</label>
+                    <select id="kanban-field-col">
+                        <option value="backlog">Backlog</option>
+                        <option value="todo">To Do</option>
+                        <option value="inprogress">In Progress</option>
+                        <option value="review">Review</option>
+                        <option value="done">Done</option>
+                    </select>
+                </div>
+            </div>
+            <div class="ws-modal-footer">
+                <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-kanban-task">Cancel</button>
+                <button type="submit" class="ws-btn ws-btn-accent">Save Task</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Media project modal -->
+<div id="modal-media-project" class="ws-modal-overlay hidden">
+    <div class="ws-modal ws-modal--sm">
+        <div class="ws-modal-header">
+            <h2 id="modal-media-project-title">New Project</h2>
+            <button class="ws-modal-close" data-modal="modal-media-project">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form id="form-media-project" class="ws-modal-form" autocomplete="off">
+            <div class="form-group">
+                <label for="mp-field-name">Project name *</label>
+                <input type="text" id="mp-field-name" placeholder="e.g. My Videos" maxlength="80" required>
+            </div>
+            <div class="ws-modal-footer">
+                <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-media-project">Cancel</button>
+                <button type="submit" class="ws-btn ws-btn-accent">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Media link modal -->
+<div id="modal-media-link" class="ws-modal-overlay hidden">
+    <div class="ws-modal">
+        <div class="ws-modal-header">
+            <h2 id="modal-media-link-title">Add Link</h2>
+            <button class="ws-modal-close" data-modal="modal-media-link">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form id="form-media-link" class="ws-modal-form" autocomplete="off">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="ml-field-type">Type</label>
+                    <select id="ml-field-type">
+                        <option value="site">Site</option>
+                        <option value="video">Video</option>
+                        <option value="image">Image</option>
+                        <option value="creator">Creator</option>
+                        <option value="person">Person</option>
+                        <option value="comic">Comic</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="ml-field-project">Project</label>
+                    <select id="ml-field-project"></select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="ml-field-name">Name</label>
+                <input type="text" id="ml-field-name" placeholder="Display name" maxlength="120">
+            </div>
+            <div class="form-group">
+                <label for="ml-field-url">URL</label>
+                <input type="url" id="ml-field-url" placeholder="https://&#8230;">
+            </div>
+            <div class="form-group" id="ml-img-group">
+                <label id="ml-img-label" for="ml-field-img">Custom thumbnail URL</label>
+                <input type="url" id="ml-field-img" placeholder="https://&#8230;">
+            </div>
+            <div class="form-group" id="ml-desc-group" style="display:none">
+                <label for="ml-field-desc">Description</label>
+                <input type="text" id="ml-field-desc" placeholder="Short bio or note" maxlength="120">
+            </div>
+            <div class="form-group" id="ml-color-group" style="display:none">
+                <label for="ml-field-color">Badge colour</label>
+                <input type="color" id="ml-field-color" value="#888888">
+            </div>
+            <div class="ws-modal-footer">
+                <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-media-link">Cancel</button>
+                <button type="submit" class="ws-btn ws-btn-accent">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Confirm delete modal -->
+<div id="modal-confirm" class="ws-modal-overlay hidden">
+    <div class="ws-modal ws-modal--sm">
+        <div class="ws-modal-header">
+            <h2>Confirm Delete</h2>
+        </div>
+        <div class="ws-modal-body">
+            <p id="modal-confirm-msg">Are you sure? This action cannot be undone.</p>
+        </div>
+        <div class="ws-modal-footer">
+            <button type="button" class="ws-btn ws-btn-ghost" id="btn-confirm-cancel">Cancel</button>
+            <button type="button" class="ws-btn ws-btn-danger" id="btn-confirm-ok">Delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- Node form modal -->
+<div id="modal-node" class="ws-modal-overlay hidden">
+    <div class="ws-modal">
+        <div class="ws-modal-header">
+            <h2 id="modal-node-title">Add Node</h2>
+            <button class="ws-modal-close" data-modal="modal-node">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form id="form-node" class="ws-modal-form" autocomplete="off">
+            <input type="hidden" id="node-id-field">
+            <div class="form-group">
+                <label for="node-field-label">Node Label *</label>
+                <input type="text" id="node-field-label" placeholder="e.g. Auth Service, Input Handler&#8230;" maxlength="60" required>
+            </div>
+            <div class="form-group">
+                <label for="node-field-type">Node Type</label>
+                <select id="node-field-type">
+                    <option value="process">Process</option>
+                    <option value="decision">Decision</option>
+                    <option value="start">Start</option>
+                    <option value="end">End</option>
+                    <option value="data">Data</option>
+                    <option value="note">Note</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="node-field-note">Note</label>
+                <textarea id="node-field-note" rows="2" maxlength="300" placeholder="Optional description&#8230;"></textarea>
+            </div>
+            <div class="ws-modal-footer">
+                <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-node">Cancel</button>
+                <button type="submit" class="ws-btn ws-btn-accent">Add Node</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ==================== TOAST ==================== -->
+<div id="ws-toast" class="ws-toast"></div>
+
+<!-- ==================== SCRIPTS ==================== -->
+<script type="module" src="js/app.js"></script>
+
+</body>
+</html>
