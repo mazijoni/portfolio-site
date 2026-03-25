@@ -14,7 +14,7 @@ jobs:
 
       - name: Inject Firebase config
         run: |
-          FILES="login.html private.html firebase.js"
+          FILES="login.html firebase.js"
           sed -i "s|%%FIREBASE_API_KEY%%|${{ secrets.FIREBASE_API_KEY }}|g" $FILES
           sed -i "s|%%FIREBASE_AUTH_DOMAIN%%|${{ secrets.FIREBASE_AUTH_DOMAIN }}|g" $FILES
           sed -i "s|%%FIREBASE_PROJECT_ID%%|${{ secrets.FIREBASE_PROJECT_ID }}|g" $FILES
@@ -26,7 +26,7 @@ jobs:
       - name: Verify substitution succeeded
         run: |
           FAIL=0
-          for f in login.html private.html firebase.js; do
+          for f in login.html firebase.js; do
             if grep -q "%%FIREBASE" "$f"; then
               echo "ERROR: Placeholder found in $f — secret may be missing or misspelled."
               FAIL=1

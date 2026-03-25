@@ -1,0 +1,55 @@
+/**
+ * app.js — Entry point. Bootstraps Firebase, auth, and wires everything together.
+ *
+ * Module map:
+ *   app.js          ← you are here (entry, Firebase init, wires)
+ *   auth.js         ← Firebase Auth guard + UI updates
+ *   db.js           ← Firestore helpers (refs, CRUD wrappers)
+ *   projects.js     ← Project list sidebar + CRUD
+ *   sections.js     ← Section/tab switching
+ *   ui.js           ← Shared UI helpers (modal, toast, confirm)
+ *   sections/
+ *     overview.js   ← Overview section
+ *     board.js      ← Visual board section
+ *     nodes.js      ← Node flow section
+ *     media.js      ← Media & links section
+ *     kanban.js     ← Kanban section
+ */
+
+import { initializeApp }   from "https://www.gstatic.com/firebasejs/11.5.0/firebase-app.js";
+import { getAuth }         from "https://www.gstatic.com/firebasejs/11.5.0/firebase-auth.js";
+import { getFirestore }    from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
+
+import { initAuth }        from "./auth.js";
+import { initProjects }    from "./projects.js";
+import { initSections }    from "./sections.js";
+import { initUI }          from "./ui.js";
+
+/* ── Firebase bootstrap ── */
+let firebaseConfig;
+const isLocal =
+    location.hostname === "localhost" ||
+    location.hostname === "127.0.0.1";
+
+if (isLocal) {
+    try { ({ firebaseConfig } = await import("../../firebase.local.js")); }
+    catch { ({ firebaseConfig } = await import("../../firebase.js")); }
+} else {
+    ({ firebaseConfig } = await import("../../firebase.js"));
+}
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+/* ── Export Firebase handles for all modules ── */
+export { auth, db };
+
+/* ── Boot sequence ── */
+initUI();
+initAuth(auth, db, onUserReady);
+
+function onUserReady(user) {
+    initProjects(db, user);
+    initSections();
+}
