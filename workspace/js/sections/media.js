@@ -1,31 +1,38 @@
 /**
- * sections/media.js — Full CRUD for Media Projects.
+ * sections/media.js — Project-scoped Media & Links tab.
  *
- * Firestore collections (shared with original dashboard data):
- *   users/{uid}/categories   — project names + order  (UI calls them "projects")
- *   users/{uid}/links        — site / video / image / comic / creator cards
+ * Firestore:
+ *   users/{uid}/links   — all link documents, field `categoryId` points to
+ *                         the parent "category" (private.html) or project id.
+ *
+ * When the active project was migrated from private.html it carries a
+ * `sourceCategoryId` field.  Links for that project live in
+ *   users/{uid}/links where categoryId === sourceCategoryId
+ *
+ * For newly-created workspace projects (no sourceCategoryId) links are stored
+ * in the same collection with  categoryId === projectId.
  */
 
 import {
-    onSnapshot, collection, query, orderBy,
+    onSnapshot, collection, query, where,
     addDoc, deleteDoc, updateDoc, doc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
 import { auth, db }                from "../app.js";
-import { escHtml, toast, confirm } from "../ui.js";
+import { currentProjectId,
+         currentProject }          from "../projects.js";
+import { escHtml, toast, confirm,
+         openModal, closeModal }    from "../ui.js";
 
-let _uid       = null;
-let _unsubCat  = null;
-let _unsubLnk  = null;
-let _cats      = [];
-let _links     = [];
-let _search    = "";
-let _init      = false;
+let _uid        = null;
+let _unsub      = null;
+let _links      = [];
+let _catId      = null;   // categoryId value to filter links by
+let _search     = "";
+let _init       = false;
 
-// Modal state
-let _editCatId     = null;   // null = new project
-let _editLinkId    = null;   // null = new link
-let _editLinkCatId = null;
+// Link modal state
+let _editLinkId = null;
 
 export function init() {
     if (_init) return;
@@ -36,18 +43,31 @@ export function init() {
         _render();
     });
 
-    document.getElementById("btn-add-media-project").addEventListener("click", () => _openProjectModal(null));
-    document.getElementById("form-media-project").addEventListener("submit", _onProjectSubmit);
-    document.getElementById("form-media-link").addEventListener("submit", _onLinkSubmit);
-    document.getElementById("ml-field-type").addEventListener("change", _updateLinkFields);
+    document.getElementById("btn-add-media-link")
+        .addEventListener("click", () => _openLinkModal(null));
+
+    document.getElementById("form-media-link")
+        .addEventListener("submit", _onLinkSubmit);
+
+    document.getElementById("ml-field-type")
+        .addEventListener("change", _updateLinkFields);
+
+    // Re-subscribe whenever the selected project changes
+    window.addEventListener("projectSelected", () => {
+        _catId = currentProject?.sourceCategoryId ?? currentProjectId ?? null;
+        _subscribe();
+    });
 
     _uid = auth.currentUser?.uid;
-    if (_uid) _subscribe();
-    else {
+    if (_uid) {
+        _catId = currentProject?.sourceCategoryId ?? currentProjectId ?? null;
+        _subscribe();
+    } else {
         const iv = setInterval(() => {
             if (auth.currentUser) {
                 _uid = auth.currentUser.uid;
                 clearInterval(iv);
+                _catId = currentProject?.sourceCategoryId ?? currentProjectId ?? null;
                 _subscribe();
             }
         }, 200);
@@ -55,102 +75,61 @@ export function init() {
 }
 
 function _subscribe() {
-    if (_unsubCat) _unsubCat();
-    if (_unsubLnk) _unsubLnk();
+    if (_unsub) { _unsub(); _unsub = null; }
+    if (!_uid || !_catId) { _render(); return; }
 
-    const catsQ  = query(collection(db, "users", _uid, "categories"),  orderBy("createdAt"));
-    const linksQ = query(collection(db, "users", _uid, "links"),        orderBy("createdAt"));
-
-    let catsReady  = false;
-    let linksReady = false;
-
-    _unsubCat = onSnapshot(catsQ, (snap) => {
-        _cats = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        catsReady = true;
-        if (linksReady) _render();
-    });
-
-    _unsubLnk = onSnapshot(linksQ, (snap) => {
-        _links = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        linksReady = true;
-        if (catsReady) _render();
-    });
+    const q = query(
+        collection(db, "users", _uid, "links"),
+        where("categoryId", "==", _catId)
+    );
+    _unsub = onSnapshot(q,
+        (snap) => {
+            _links = snap.docs
+                .map(d => ({ id: d.id, ...d.data() }))
+                .sort((a, b) => (a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0));
+            _render();
+        },
+        (err) => {
+            console.error("[media] Firestore error:", err);
+            _render();
+        }
+    );
 }
 
-/* ── Rendering ───────────────────────────────────────────────────────────── */
+/* ── Rendering ─────────────────────────────────────────────────────────── */
 
 function _render() {
     const body = document.getElementById("media-body");
     if (!body) return;
 
-    // Remove loading state
     const loading = document.getElementById("media-loading");
     if (loading) loading.remove();
 
-    // Clear previous
     body.innerHTML = "";
 
-    if (_cats.length === 0) {
-        body.innerHTML = `<div class="ws-placeholder">No projects yet. Click <strong>+ Project</strong> to add one.</div>`;
+    if (!_catId) {
+        body.innerHTML = `<div class="ws-placeholder">Select a project from the sidebar to view its media.</div>`;
         return;
     }
 
-    _cats.forEach(cat => {
-        const catLinks = _links.filter(l => l.categoryId === cat.id);
-        body.appendChild(_buildProjectBlock(cat, catLinks));
-    });
-}
+    const visible = _search
+        ? _links.filter(l =>
+            (l.name || "").toLowerCase().includes(_search) ||
+            (l.url  || "").toLowerCase().includes(_search))
+        : _links;
 
-function _buildProjectBlock(cat, links) {
-    // Filter by search
-    const filtered = _search
-        ? links.filter(l =>
-            (l.name  || "").toLowerCase().includes(_search) ||
-            (l.url   || "").toLowerCase().includes(_search))
-        : links;
-
-    const sites    = filtered.filter(l => l.type !== "video" && l.type !== "image" && l.type !== "creator" && l.type !== "person" && l.type !== "comic");
-    const media    = filtered.filter(l => l.type === "video" || l.type === "image");
-    const creators = filtered.filter(l => l.type === "creator" || l.type === "person");
-
-    const block = document.createElement("div");
-    block.className = "db-cat-block";
-
-    const header = document.createElement("div");
-    header.className = "db-cat-header";
-    header.innerHTML = `
-        <span class="db-cat-name">${escHtml(cat.name)}<span class="db-cat-count">${filtered.length}</span></span>
-        <div class="db-cat-actions">
-            <button class="ws-btn ws-btn-ghost db-cat-add-link" title="Add link">+ Link</button>
-            <button class="ws-btn ws-btn-ghost db-cat-edit-btn" title="Rename">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            </button>
-            <button class="ws-btn ws-btn-ghost db-cat-del-btn" title="Delete project">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-            </button>
-        </div>`;
-    header.querySelector(".db-cat-add-link").addEventListener("click", () => _openLinkModal(null, cat.id));
-    header.querySelector(".db-cat-edit-btn").addEventListener("click", () => _openProjectModal(cat));
-    header.querySelector(".db-cat-del-btn").addEventListener("click", () => _confirmDeleteProject(cat));
-    block.appendChild(header);
-
-    if (sites.length) {
-        block.appendChild(_makeSubGroup("Sites", _sitesGrid(sites)));
-    }
-    if (media.length) {
-        block.appendChild(_makeSubGroup("Media", _mediaGrid(media)));
-    }
-    if (creators.length) {
-        block.appendChild(_makeSubGroup("Creators", _creatorsGrid(creators)));
-    }
-    if (!sites.length && !media.length && !creators.length) {
-        const empty = document.createElement("p");
-        empty.className = "db-cat-empty";
-        empty.textContent = _search ? "No matches in this project." : "No links yet — click + Link to add one.";
-        block.appendChild(empty);
+    if (!visible.length) {
+        body.innerHTML = `<div class="ws-placeholder">${_search ? "No matches." : "No links yet — click <strong>+ Link</strong> to add one."}</div>`;
+        return;
     }
 
-    return block;
+    const sites    = visible.filter(l => l.type !== "video" && l.type !== "image" && l.type !== "creator" && l.type !== "person" && l.type !== "comic");
+    const media    = visible.filter(l => l.type === "video" || l.type === "image");
+    const creators = visible.filter(l => l.type === "creator" || l.type === "person");
+
+    if (sites.length)    body.appendChild(_makeSubGroup("Sites",    _sitesGrid(sites)));
+    if (media.length)    body.appendChild(_makeSubGroup("Media",    _mediaGrid(media)));
+    if (creators.length) body.appendChild(_makeSubGroup("Creators", _creatorsGrid(creators)));
 }
 
 /* ── Card action overlay helper ── */
@@ -165,8 +144,8 @@ function _cardActions(link) {
         <button class="db-card-action-btn db-card-del-btn" title="Delete">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
         </button>`;
-    wrap.querySelector(".db-card-action-btn").addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); _openLinkModal(link, link.categoryId); });
-    wrap.querySelector(".db-card-del-btn").addEventListener("click",   (e) => { e.preventDefault(); e.stopPropagation(); _confirmDeleteLink(link); });
+    wrap.querySelector(".db-card-action-btn").addEventListener("click",    (e) => { e.preventDefault(); e.stopPropagation(); _openLinkModal(link); });
+    wrap.querySelector(".db-card-del-btn").addEventListener("click",       (e) => { e.preventDefault(); e.stopPropagation(); _confirmDeleteLink(link); });
     return wrap;
 }
 
@@ -178,7 +157,7 @@ function _makeSubGroup(label, gridEl) {
     return sg;
 }
 
-/* ── Site cards ──────────────────────────────────────────────────────────── */
+/* ── Site cards ─────────────────────────────────────────────────────────── */
 
 function _sitesGrid(links) {
     const grid = document.createElement("div");
@@ -215,7 +194,7 @@ function _buildSiteCard(link) {
     return card;
 }
 
-/* ── Media cards (video / image) ─────────────────────────────────────────── */
+/* ── Media cards (video / image) ────────────────────────────────────────── */
 
 function _mediaGrid(links) {
     const grid = document.createElement("div");
@@ -281,7 +260,7 @@ function _buildImageCard(link) {
     return card;
 }
 
-/* ── Creator cards ───────────────────────────────────────────────────────── */
+/* ── Creator cards ──────────────────────────────────────────────────────── */
 
 function _creatorsGrid(links) {
     const grid = document.createElement("div");
@@ -315,58 +294,10 @@ function _buildCreatorCard(link) {
     return card;
 }
 
-/* ── Project CRUD ─────────────────────────────────────────────────────────── */
+/* ── Link CRUD ──────────────────────────────────────────────────────────── */
 
-function _openProjectModal(cat) {
-    _editCatId = cat ? cat.id : null;
-    document.getElementById("modal-media-project-title").textContent = cat ? "Rename Project" : "New Project";
-    document.getElementById("mp-field-name").value = cat ? (cat.name || "") : "";
-    document.getElementById("modal-media-project").classList.remove("hidden");
-    setTimeout(() => document.getElementById("mp-field-name").focus(), 60);
-}
-
-async function _onProjectSubmit(e) {
-    e.preventDefault();
-    const name = document.getElementById("mp-field-name").value.trim();
-    if (!name) return;
-    try {
-        if (_editCatId) {
-            await updateDoc(doc(db, "users", _uid, "categories", _editCatId), { name });
-        } else {
-            await addDoc(collection(db, "users", _uid, "categories"), { name, createdAt: serverTimestamp() });
-        }
-        document.getElementById("modal-media-project").classList.add("hidden");
-        toast(_editCatId ? "Project renamed" : "Project created", "success");
-    } catch (err) {
-        console.error(err);
-        toast("Error saving project", "error");
-    }
-}
-
-async function _confirmDeleteProject(cat) {
-    const count = _links.filter(l => l.categoryId === cat.id).length;
-    const msg = count > 0
-        ? `Delete "${cat.name}" and its ${count} link${count !== 1 ? "s" : ""}? This cannot be undone.`
-        : `Delete project "${cat.name}"? This cannot be undone.`;
-    const ok = await confirm(msg);
-    if (!ok) return;
-    try {
-        for (const link of _links.filter(l => l.categoryId === cat.id)) {
-            await deleteDoc(doc(db, "users", _uid, "links", link.id));
-        }
-        await deleteDoc(doc(db, "users", _uid, "categories", cat.id));
-        toast("Project deleted", "success");
-    } catch (err) {
-        console.error(err);
-        toast("Error deleting project", "error");
-    }
-}
-
-/* ── Link CRUD ─────────────────────────────────────────────────────────────── */
-
-function _openLinkModal(link, catId) {
-    _editLinkId    = link ? link.id : null;
-    _editLinkCatId = catId;
+function _openLinkModal(link) {
+    _editLinkId = link ? link.id : null;
     document.getElementById("modal-media-link-title").textContent = link ? "Edit Link" : "Add Link";
     document.getElementById("ml-field-type").value  = link?.type || "site";
     document.getElementById("ml-field-name").value  = link?.name || "";
@@ -374,12 +305,8 @@ function _openLinkModal(link, catId) {
     document.getElementById("ml-field-img").value   = link?.imageUrl || link?.thumbUrl || link?.avatarUrl || "";
     document.getElementById("ml-field-desc").value  = link?.desc || "";
     document.getElementById("ml-field-color").value = link?.badgeColor || "#888888";
-    const projSel = document.getElementById("ml-field-project");
-    projSel.innerHTML = _cats.map(c =>
-        `<option value="${escHtml(c.id)}" ${c.id === catId ? "selected" : ""}>${escHtml(c.name)}</option>`
-    ).join("");
     _updateLinkFields();
-    document.getElementById("modal-media-link").classList.remove("hidden");
+    openModal("modal-media-link");
     setTimeout(() => document.getElementById("ml-field-name").focus(), 60);
 }
 
@@ -406,9 +333,8 @@ async function _onLinkSubmit(e) {
     const img   = document.getElementById("ml-field-img").value.trim();
     const desc  = document.getElementById("ml-field-desc").value.trim();
     const color = document.getElementById("ml-field-color").value;
-    const catId = document.getElementById("ml-field-project").value;
     if (!name && !url) return;
-    const data = { type, name, url, categoryId: catId };
+    const data = { type, name, url, categoryId: _catId };
     if      (type === "site")                          { if (img) data.imageUrl  = img; }
     else if (type === "video")                         { if (img) data.thumbUrl  = img; }
     else if (type === "image")                         { if (img) data.imageUrl  = img; }
@@ -424,7 +350,7 @@ async function _onLinkSubmit(e) {
             data.createdAt = serverTimestamp();
             await addDoc(collection(db, "users", _uid, "links"), data);
         }
-        document.getElementById("modal-media-link").classList.add("hidden");
+        closeModal("modal-media-link");
         toast(_editLinkId ? "Link updated" : "Link added", "success");
     } catch (err) {
         console.error(err);
@@ -476,3 +402,4 @@ function _getVideoEmbed(url) {
     } catch { /* noop */ }
     return null;
 }
+

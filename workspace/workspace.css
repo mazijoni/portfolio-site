@@ -382,6 +382,14 @@ body {
 }
 .ws-btn-danger:hover { border-color: var(--danger); color: var(--danger); background: rgba(224,85,85,0.08); }
 
+.ws-btn-sm {
+    font-size: 0.72rem;
+    padding: 3px 10px;
+    height: auto;
+    min-height: 0;
+    line-height: 1.6;
+}
+
 /* ==================== TABS ==================== */
 .ws-tabs {
     display: flex;
@@ -634,12 +642,69 @@ body {
 .notes-hint.visible { opacity: 1; }
 
 /* ==================== BOARD ==================== */
+
+/* ── Layout: palette + canvas side-by-side ── */
+.board-body,
+.nodes-body {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* ── Shared palette strip ── */
+.board-palette,
+.node-palette {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    width: 68px;
+    min-width: 68px;
+    background: var(--bg-sidebar, #111);
+    border-right: 1px solid var(--border);
+    padding: 8px 4px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 20;
+}
+
+.palette-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 56px;
+    padding: 7px 4px 6px;
+    border-radius: 6px;
+    cursor: grab;
+    user-select: none;
+    color: var(--text-muted);
+    transition: background 0.15s, color 0.15s;
+}
+.palette-item:hover {
+    background: var(--bg-hover, rgba(255,255,255,0.06));
+    color: var(--text-primary);
+}
+.palette-item:active { cursor: grabbing; opacity: 0.7; }
+.palette-item span {
+    font-size: 0.6rem;
+    letter-spacing: 0.02em;
+    text-align: center;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
 .board-canvas {
     flex: 1;
     position: relative;
     overflow: hidden;
-    min-height: 400px;
+    min-height: 0;
     cursor: default;
+    background: var(--bg-dark);
+    background-image: radial-gradient(circle, #1e1e1e 1px, transparent 1px);
+    background-size: 28px 28px;
 }
 .board-canvas.canvas-pan-mode { cursor: grab; }
 .board-canvas.canvas-pan-mode:active { cursor: grabbing; }
@@ -690,6 +755,44 @@ body {
     border-color: var(--border-hover);
     box-shadow: 0 4px 24px rgba(0,0,0,0.45);
     z-index: 100;
+}
+.board-card.selected {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 5px var(--accent-dim2);
+    z-index: 200;
+}
+
+/* ── Drag-select rubber-band box ── */
+.board-select-box {
+    position: absolute;
+    border: 1px solid var(--accent);
+    background: var(--accent-dim2);
+    pointer-events: none;
+    z-index: 900;
+}
+
+/* ── Selection bar (floats over canvas) ── */
+.selection-bar {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--accent);
+    border-radius: 20px;
+    padding: 5px 14px;
+    z-index: 500;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    white-space: nowrap;
+}
+.selection-bar .sel-count {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    padding-right: 4px;
 }
 
 /* ── Card actions overlay ── */
@@ -1008,6 +1111,7 @@ body {
     z-index: 10;
 }
 .node-box:hover { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-dim2); }
+.node-box.selected { outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: 0 0 0 5px var(--accent-dim2); z-index: 200; }
 .node-box.selected { border-color: var(--accent); }
 
 .node-box-label {

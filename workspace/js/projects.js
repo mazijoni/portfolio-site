@@ -49,12 +49,22 @@ export function initProjects(db, user) {
     _subscribeProjects();
 }
 
+let _restored = false;
+
 function _subscribeProjects() {
     if (_unsub) _unsub();
     const q = query(refs.projects(_db, _user.uid), orderBy("createdAt", "desc"));
     _unsub = onSnapshot(q, (snap) => {
         _projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         _renderProjectList();
+        // Restore last-open project once on first load
+        if (!_restored) {
+            _restored = true;
+            const savedId = sessionStorage.getItem("ws_project");
+            if (savedId && _projects.find(p => p.id === savedId)) {
+                selectProject(savedId);
+            }
+        }
     });
 }
 
@@ -86,6 +96,7 @@ export function selectProject(id) {
 
     currentProjectId = id;
     currentProject   = project;
+    sessionStorage.setItem("ws_project", id);
 
     // Update sidebar active state
     document.querySelectorAll(".ws-project-item").forEach(el => {
@@ -183,7 +194,8 @@ async function deleteCurrentProject() {
         await deleteDoc(refs.project(_db, _user.uid, currentProjectId));
         currentProjectId = null;
         currentProject   = null;
-        document.getElementById("ws-topbar").classList.add("hidden");
+        sessionStorage.removeItem("ws_project");
+        sessionStorage.removeItem("ws_section");
         document.getElementById("ws-tabs").classList.add("hidden");
         window.dispatchEvent(new CustomEvent("projectDeselected"));
         toast("Project deleted");

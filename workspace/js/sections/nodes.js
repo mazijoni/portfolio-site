@@ -23,6 +23,10 @@ let _unsubEdges = null;
 let _nodes      = {};  // { id: { data, el } }
 let _edges      = [];  // [{ id, data }]
 let _pendingPort = null; // { nodeId, portEl } — first port clicked for edge creation
+let _pendingNodeDrop = null; // { x, y } — drop coordinates for image node modal
+let _editingNodeId = null;  // id of node being edited in the form modal
+let _nodeSel = new Set();   // multiselect
+let _nodeBoxSel = null;     // { startX, startY, el } for drag box-select
 
 export function init() {
     window.addEventListener("projectSelected", ({ detail }) => {
@@ -39,12 +43,143 @@ export function init() {
         }
     });
 
-    document.getElementById("btn-add-node")
-        .addEventListener("click", _openNodeForm);
     document.getElementById("btn-clear-nodes")
         .addEventListener("click", _clearAllNodes);
     document.getElementById("form-node")
         .addEventListener("submit", _onNodeFormSubmit);
+
+    // Reset editing state if node modal is dismissed without submitting
+    document.querySelectorAll("[data-modal='modal-node']").forEach(btn => {
+        btn.addEventListener("click", () => {
+            _editingNodeId = null;
+            document.getElementById("modal-node-title").textContent = "Add Node";
+            document.getElementById("btn-node-submit").textContent = "Add Node";
+        });
+    });
+
+    // Box-select: drag on empty canvas; click on empty space deselects
+    const nodesCanvasEl = document.getElementById("nodes-canvas");
+    nodesCanvasEl.addEventListener("mousedown", (e) => {
+        if (e.button !== 0 || e.target.closest(".node-box")) return;
+        e.preventDefault();
+        const rect = nodesCanvasEl.getBoundingClientRect();
+        const sx   = e.clientX - rect.left;
+        const sy   = e.clientY - rect.top;
+        const boxEl = document.createElement("div");
+        boxEl.className = "board-select-box";
+        boxEl.style.left = sx + "px";
+        boxEl.style.top  = sy + "px";
+        nodesCanvasEl.appendChild(boxEl);
+        _nodeBoxSel = { startX: sx, startY: sy, el: boxEl };
+
+        const onMove = (mv) => {
+            if (!_nodeBoxSel) return;
+            const cx = mv.clientX - rect.left;
+            const cy = mv.clientY - rect.top;
+            boxEl.style.left   = Math.min(cx, _nodeBoxSel.startX) + "px";
+            boxEl.style.top    = Math.min(cy, _nodeBoxSel.startY) + "px";
+            boxEl.style.width  = Math.abs(cx - _nodeBoxSel.startX) + "px";
+            boxEl.style.height = Math.abs(cy - _nodeBoxSel.startY) + "px";
+        };
+        const onUp = (uev) => {
+            document.removeEventListener("mousemove", onMove);
+            document.removeEventListener("mouseup",   onUp);
+            if (!_nodeBoxSel) return;
+            const cx        = uev.clientX - rect.left;
+            const cy        = uev.clientY - rect.top;
+            const selLeft   = Math.min(cx, _nodeBoxSel.startX);
+            const selTop    = Math.min(cy, _nodeBoxSel.startY);
+            const selRight  = selLeft + Math.abs(cx - _nodeBoxSel.startX);
+            const selBottom = selTop  + Math.abs(cy - _nodeBoxSel.startY);
+            boxEl.remove();
+            _nodeBoxSel = null;
+            if (selRight - selLeft < 4 && selBottom - selTop < 4) {
+                _clearNodeSel();
+                return;
+            }
+            _clearNodeSel();
+            document.querySelectorAll(".node-box").forEach(node => {
+                const nr   = node.getBoundingClientRect();
+                const nl_v = nr.left   - rect.left;
+                const nt_v = nr.top    - rect.top;
+                const nR_v = nr.right  - rect.left;
+                const nB_v = nr.bottom - rect.top;
+                if (nR_v > selLeft && nl_v < selRight && nB_v > selTop && nt_v < selBottom) {
+                    _nodeSel.add(node.dataset.id);
+                    node.classList.add("selected");
+                }
+            });
+        };
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup",   onUp);
+    });
+
+    // Delete key removes selected nodes + their edges
+    document.addEventListener("keydown", async (e) => {
+        if (e.key !== "Delete" && e.key !== "Backspace") return;
+        if (!document.getElementById("section-nodes").classList.contains("active")) return;
+        if (e.target.matches("input, textarea, [contenteditable]")) return;
+        if (!_nodeSel.size || !_pid || !_uid) return;
+        e.preventDefault();
+        const ids = [..._nodeSel];
+        _clearNodeSel();
+        const batch = writeBatch(db);
+        ids.forEach(id => {
+            batch.delete(doc(db, "users", _uid, "projects", _pid, "nodes", id));
+            _edges.forEach(edge => {
+                if (edge.data.from === id || edge.data.to === id)
+                    batch.delete(doc(db, "users", _uid, "projects", _pid, "node_edges", edge.id));
+            });
+        });
+        await batch.commit().catch(console.error);
+    });
+
+    // Palette drag-and-drop
+    document.querySelectorAll("#node-palette .palette-item").forEach(item => {
+        item.addEventListener("dragstart", (e) => {
+            e.dataTransfer.setData("text/plain", item.dataset.type);
+            e.dataTransfer.effectAllowed = "copy";
+        });
+    });
+
+    const nodesCanvas = document.getElementById("nodes-canvas");
+    nodesCanvas.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+    });
+    nodesCanvas.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        const type = e.dataTransfer.getData("text/plain");
+        if (!type || !_pid || !_uid) return;
+        const rect = nodesCanvas.getBoundingClientRect();
+        const x = Math.round(e.clientX - rect.left - 60);
+        const y = Math.round(e.clientY - rect.top  - 20);
+        if (type === "image") {
+            // Store drop coords and open the node form pre-set to image type
+            _pendingNodeDrop = { x, y };
+            document.getElementById("form-node").reset();
+            document.getElementById("node-id-field").value = "";
+            document.getElementById("node-field-type").value = "image";
+            _updateNodeFields();
+            openModal("modal-node");
+            setTimeout(() => document.getElementById("node-field-image-url")?.focus(), 60);
+        } else {
+            const typeLabels = {
+                process: "Process", decision: "Decision",
+                io: "I/O", start: "Start", end: "End"
+            };
+            try {
+                await addDoc(refs.nodes(db, _uid, _pid), {
+                    label: typeLabels[type] || type,
+                    type, note: "", imageUrl: "", x, y,
+                    createdAt: serverTimestamp()
+                });
+            } catch (err) {
+                console.error(err);
+                toast("Error adding node", "error");
+            }
+        }
+    });
 
     // Media picker for image nodes
     document.getElementById("btn-node-from-media").addEventListener("click", () => {
@@ -145,6 +280,19 @@ function _createNodeEl(id, data) {
         });
     });
 
+    // Shift+click = toggle selection
+    // (removed in favour of drag box-select)
+
+    // Re-apply selected state after re-render
+    if (_nodeSel.has(id)) el.classList.add("selected");
+
+    // Click node body → open edit form
+    el.addEventListener("click", (e) => {
+        if (e.shiftKey || e.target.closest(".node-port") || e.target.closest(".node-box-del")) return;
+        e.stopPropagation();
+        _openNodeEditForm(id, data);
+    });
+
     _makeDraggable(el, id);
     return el;
 }
@@ -230,23 +378,38 @@ function _makeDraggable(el, id) {
         if (e.target.closest(".node-box-del") || e.target.closest(".node-port")) return;
         e.preventDefault();
 
-        const startX    = e.clientX;
-        const startY    = e.clientY;
-        const startLeft = parseInt(el.style.left) || 0;
-        const startTop  = parseInt(el.style.top)  || 0;
+        const startX = e.clientX;
+        const startY = e.clientY;
+
+        // Group drag: if this node is selected, move all selected nodes together
+        const isGroup = _nodeSel.has(id);
+        const group   = isGroup
+            ? [...document.querySelectorAll(".node-box")].filter(n => _nodeSel.has(n.dataset.id))
+            : [el];
+        const starts  = group.map(n => ({
+            el:   n,
+            id:   n.dataset.id,
+            left: parseInt(n.style.left) || 0,
+            top:  parseInt(n.style.top)  || 0,
+        }));
 
         const onMove = (ev) => {
-            el.style.left = (startLeft + ev.clientX - startX) + "px";
-            el.style.top  = (startTop  + ev.clientY - startY) + "px";
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+            starts.forEach(g => {
+                g.el.style.left = (g.left + dx) + "px";
+                g.el.style.top  = (g.top  + dy) + "px";
+            });
             _redrawEdges();
         };
         const onUp = () => {
             document.removeEventListener("mousemove", onMove);
             document.removeEventListener("mouseup",   onUp);
-            const x = parseInt(el.style.left);
-            const y = parseInt(el.style.top);
-            updateDoc(doc(db, "users", _uid, "projects", _pid, "nodes", id), { x, y })
-                .catch(console.error);
+            starts.forEach(g => {
+                updateDoc(doc(db, "users", _uid, "projects", _pid, "nodes", g.id),
+                    { x: parseInt(g.el.style.left), y: parseInt(g.el.style.top) })
+                    .catch(console.error);
+            });
         };
         document.addEventListener("mousemove", onMove);
         document.addEventListener("mouseup",   onUp);
@@ -267,6 +430,7 @@ async function _createEdge(from, to) {
 }
 
 async function _deleteNode(id) {
+    _nodeSel.delete(id);
     try {
         // Delete node + its connected edges
         const batch = writeBatch(db);
@@ -281,6 +445,23 @@ async function _deleteNode(id) {
         console.error(err);
         toast("Error deleting node", "error");
     }
+}
+
+function _toggleNodeSel(id, el) {
+    if (_nodeSel.has(id)) {
+        _nodeSel.delete(id);
+        el.classList.remove("selected");
+    } else {
+        _nodeSel.add(id);
+        el.classList.add("selected");
+    }
+}
+
+function _clearNodeSel() {
+    _nodeSel.forEach(id => {
+        document.querySelector(`.node-box[data-id="${id}"]`)?.classList.remove("selected");
+    });
+    _nodeSel.clear();
 }
 
 async function _clearAllNodes() {
@@ -304,8 +485,27 @@ async function _clearAllNodes() {
 /* ── Form ── */
 
 function _openNodeForm() {
+    _editingNodeId = null;
     document.getElementById("form-node").reset();
     document.getElementById("node-id-field").value = "";
+    document.getElementById("modal-node-title").textContent = "Add Node";
+    document.getElementById("btn-node-submit").textContent = "Add Node";
+    _updateNodeFields();
+    openModal("modal-node");
+    setTimeout(() => document.getElementById("node-field-label").focus(), 60);
+}
+
+function _openNodeEditForm(id, data) {
+    _editingNodeId = id;
+    document.getElementById("node-id-field").value = id;
+    document.getElementById("node-field-label").value = data.label || "";
+    document.getElementById("node-field-type").value = data.type || "process";
+    if (document.getElementById("node-field-note"))
+        document.getElementById("node-field-note").value = data.note || "";
+    if (document.getElementById("node-field-image-url"))
+        document.getElementById("node-field-image-url").value = data.imageUrl || "";
+    document.getElementById("modal-node-title").textContent = "Edit Node";
+    document.getElementById("btn-node-submit").textContent = "Save";
     _updateNodeFields();
     openModal("modal-node");
     setTimeout(() => document.getElementById("node-field-label").focus(), 60);
@@ -330,19 +530,33 @@ async function _onNodeFormSubmit(e) {
 
     if (!label && type !== "image") return;
 
-    // Place node in a grid pattern
-    const count = Object.keys(_nodes).length;
-    const x = 60 + (count % 4) * 220;
-    const y = 60 + Math.floor(count / 4) * 120;
+    let x, y;
+    if (_pendingNodeDrop) {
+        x = _pendingNodeDrop.x;
+        y = _pendingNodeDrop.y;
+        _pendingNodeDrop = null;
+    } else {
+        const count = Object.keys(_nodes).length;
+        x = 60 + (count % 4) * 220;
+        y = 60 + Math.floor(count / 4) * 120;
+    }
 
     try {
-        await addDoc(refs.nodes(db, _uid, _pid), {
-            label, type, note, imageUrl, x, y, createdAt: serverTimestamp()
-        });
+        if (_editingNodeId) {
+            const eid = _editingNodeId;
+            _editingNodeId = null;
+            await updateDoc(doc(db, "users", _uid, "projects", _pid, "nodes", eid),
+                { label, type, note, imageUrl });
+        } else {
+            await addDoc(refs.nodes(db, _uid, _pid), {
+                label, type, note, imageUrl, x, y, createdAt: serverTimestamp()
+            });
+        }
         closeModal("modal-node");
     } catch (err) {
         console.error(err);
-        toast("Error adding node", "error");
+        toast(_editingNodeId ? "Error updating node" : "Error adding node", "error");
+        _editingNodeId = null;
     }
 }
 
