@@ -288,7 +288,132 @@ Thumb Hover: #c772fe
 
 ---
 
-## 🔧 Technical Notes
+## �️ Workspace App (`workspace/`)
+
+A private, Firebase-authenticated project management tool embedded in the portfolio. Accessible at `workspace/index.html`.
+
+### Layout Structure
+```
+┌─────────────────────────────────────────────────────────┐
+│  Site Header (fixed, 52px)                              │
+├──────────────────┬──────────────────────────────────────┤
+│  Sidebar (240px) │  Topbar (52px)                       │
+│  - Projects list │  - Project title, type, status badge │
+│  - Nav links     │  - Edit / Delete buttons             │
+│                  ├──────────────────────────────────────┤
+│                  │  Tabs (44px) — Overview / Board /    │
+│                  │               Nodes / Media / Kanban │
+│                  ├──────────────────────────────────────┤
+│                  │  Section content (scrollable)        │
+└──────────────────┴──────────────────────────────────────┘
+```
+
+| Variable | Value | Description |
+|----------|-------|-------------|
+| `--header-h` | `52px` | Fixed top header |
+| `--sidebar-w` | `240px` | Collapsible left sidebar |
+| `--topbar-h` | `52px` | Per-project top bar |
+| `--tabs-h` | `44px` | Section tab bar |
+
+### Color System
+The workspace follows the same design tokens as the portfolio:
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--bg-dark` | `#0a0a0a` | Page background |
+| `--bg-secondary` | `#151515` | Sidebar, topbar, toolbar strips |
+| `--bg-card` | `#1a1a1a` | Cards, modals, inputs |
+| `--bg-card-hover` | `#202020` | Card hover state |
+| `--bg-input` | `#141414` | Form inputs |
+| `--text-primary` | `#ffffff` | Headings, main text |
+| `--text-secondary` | `#a0a0a0` | Body text, descriptions |
+| `--text-muted` | `#585858` | Labels, placeholders, disabled |
+| `--accent` | `#c772fe` | Active states, highlights |
+| `--border` | `#2a2a2a` | Default borders |
+| `--border-hover` | `#3a3a3a` | Hovered / focused borders |
+| `--danger` | `#e05555` | Delete, error |
+| `--success` | `#55c87a` | Saved, done |
+| `--warn` | `#e0aa44` | Warning, paused |
+
+### Spacing Scale
+| Usage | Value |
+|-------|-------|
+| Section body padding | `1.5rem` |
+| Toolbar padding | `0.85rem 1.5rem` |
+| Card internal padding | `1.25rem` |
+| Compact card (e.g. site card body) | `0.65rem 0.85rem` |
+| Creator card | `0.85rem 1rem` |
+| Modal form padding | `1.2rem 1.3rem`, gap `1rem` |
+| Kanban board padding | `1.5rem` |
+
+### Sections
+
+#### Overview
+3-column grid of info cards (Description / Details / Activity) + Quick Notes textarea.
+
+#### Board
+Free-form canvas with a collapsible palette sidebar. Drag-and-drop cards (Note, Heading, Link, Image, Todo, Divider). Pan using space+drag or middle mouse.
+
+#### Nodes
+Visual flowchart editor. Node types: Start, End, Decision, Process, Data, Note, Image. Drag from ports to connect with SVG edges.
+
+#### Media
+Pinterest-style masonry grid (`columns: 4 200px`) split into: **Sites** (16:9 thumbnail grid), **Media** (images + videos, natural height), **Creators** (auto-grid, avatar + platform badge), **Persons/Characters** (same layout). Click a creator to open a slide-up panel showing all their linked content.
+
+**Creator/person platform badge auto-detection** (from URL):
+| Domain | Badge class | Label |
+|--------|-------------|-------|
+| youtube.com / youtu.be | `.yt` | YT |
+| twitter.com / x.com | `.tw` | X |
+| instagram.com | `.ig` | IG |
+| tiktok.com | `.ttk` | TikTok |
+| twitch.tv | `.twitch` | Twitch |
+| vimeo.com | `.other` | Vimeo |
+
+Custom badge label + color can override defaults via the edit modal.
+
+**Video embed detection** (from `link.url`):
+- YouTube (`watch?v=`, `/shorts/`, `/embed/`, `/live/`, `youtu.be`) → `youtube-nocookie.com` iframe
+- Vimeo → `player.vimeo.com` iframe
+- Direct `.mp4 / .webm / .ogg / .mov / .m4v` → `<video controls>`
+- Thumbnail only (`thumbUrl`) → click-to-open with play overlay
+- Unrecognized URL → link placeholder
+
+#### Kanban
+5-column board: Backlog / To Do / In Progress / Review / Done. Cards have title, description, priority badge (Low / Medium / High).
+
+### Firestore Data Structure (`workspace/`)
+```
+users/{uid}/projects/{docId}
+  name, type, status, description, notes
+  createdAt, updatedAt
+
+users/{uid}/boards/{projectId}/cards/{cardId}
+  type, x, y, w, h, text, url, imageUrl, items[]
+
+users/{uid}/nodes/{projectId}/nodes/{nodeId}
+  type, x, y, label
+
+users/{uid}/nodes/{projectId}/edges/{edgeId}
+  from, to
+
+users/{uid}/links/{docId}
+  categoryId (= projectId)
+  type       — 'site' | 'video' | 'image' | 'creator' | 'person'
+  name, url, profileUrl
+  imageUrl, thumbUrl, avatarUrl
+  description, badgeLabel, badgeColor
+  creatorId, personId, personIds[]
+  createdAt
+
+users/{uid}/tasks/{projectId}/items/{taskId}
+  title, desc, priority, status
+  createdAt, updatedAt
+```
+
+---
+
+## �🔧 Technical Notes
 
 - **Logo Image:** `img/logo_2.png`
 - **Canvas ID:** `particleCanvas`

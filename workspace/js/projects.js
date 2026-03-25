@@ -17,6 +17,7 @@ import { refs }                    from "./db.js";
 import { openModal, closeModal,
          setModalTitle, toast,
          confirm, escHtml, fmtDate } from "./ui.js";
+import { materialIcons }           from "./icons.js";
 
 /* ── Module state ── */
 let _db          = null;
@@ -44,6 +45,17 @@ export function initProjects(db, user) {
 
     document.getElementById("form-project")
         .addEventListener("submit", onProjectFormSubmit);
+
+    document.getElementById("btn-pick-icon").addEventListener("click", _openIconPicker);
+    document.getElementById("btn-clear-icon").addEventListener("click", () => _setProjectIcon(""));
+    document.getElementById("ip-search").addEventListener("input", (e) => _renderIconPicker(e.target.value));
+    document.getElementById("ip-grid").addEventListener("click", (e) => {
+        const btn = e.target.closest(".ip-icon-btn");
+        if (btn) {
+            _setProjectIcon(btn.dataset.icon);
+            closeModal("modal-icon-picker");
+        }
+    });
 
     // Live project list
     _subscribeProjects();
@@ -81,8 +93,14 @@ function _renderProjectList() {
         const btn = document.createElement("button");
         btn.className = "ws-project-item" + (p.id === currentProjectId ? " active" : "");
         btn.dataset.id = p.id;
+        
+        const iconName = p.icon ? p.icon.trim() : "";
+        const iconHtml = iconName 
+            ? `<span class="material-symbols-outlined ws-project-item-icon">${escHtml(iconName)}</span>`
+            : `<span class="ws-project-item-dot"></span>`;
+
         btn.innerHTML = `
-            <span class="ws-project-item-dot"></span>
+            ${iconHtml}
             <span class="ws-project-item-name">${escHtml(p.title)}</span>`;
         btn.addEventListener("click", () => selectProject(p.id));
         list.appendChild(btn);
@@ -135,11 +153,13 @@ function openProjectForm(editId) {
         document.getElementById("project-id-field").value  = editId;
         document.getElementById("field-title").value       = p.title       || "";
         document.getElementById("field-description").value = p.description || "";
+        _setProjectIcon(p.icon || "");
         document.getElementById("field-type").value        = p.type        || "general";
         document.getElementById("field-status").value      = p.status      || "active";
     } else {
         setModalTitle("modal-project", "New Project");
         document.getElementById("btn-project-submit").textContent = "Create Project";
+        _setProjectIcon("");
     }
 
     openModal("modal-project");
@@ -153,6 +173,7 @@ async function onProjectFormSubmit(e) {
     const data  = {
         title:       document.getElementById("field-title").value.trim(),
         description: document.getElementById("field-description").value.trim(),
+        icon:        document.getElementById("field-icon").value.trim(),
         type:        document.getElementById("field-type").value,
         status:      document.getElementById("field-status").value,
         updatedAt:   serverTimestamp(),
@@ -203,4 +224,55 @@ async function deleteCurrentProject() {
         console.error(err);
         toast("Error deleting project", "error");
     }
+}
+
+/* ── Icon Picker Logic ── */
+let _activeCat = "all";
+
+function _openIconPicker() {
+    openModal("modal-icon-picker");
+    _renderIconPickerCats();
+    document.getElementById("ip-search").value = "";
+    _renderIconPicker("");
+    setTimeout(() => document.getElementById("ip-search").focus(), 60);
+}
+
+function _renderIconPickerCats() {
+    const catsEl = document.getElementById("ip-cats");
+    catsEl.innerHTML = `
+        <button type="button" class="icon-cat-btn${_activeCat === "all" ? " active" : ""}" data-cat="all">All Icons</button>
+        <button type="button" class="icon-cat-btn${_activeCat === "general" ? " active" : ""}" data-cat="general">General</button>
+        <button type="button" class="icon-cat-btn${_activeCat === "files" ? " active" : ""}" data-cat="files">Files / Folders</button>
+        <button type="button" class="icon-cat-btn${_activeCat === "tech" ? " active" : ""}" data-cat="tech">Tech / Code</button>
+        <button type="button" class="icon-cat-btn${_activeCat === "chat" ? " active" : ""}" data-cat="chat">Action</button>
+        <button type="button" class="icon-cat-btn${_activeCat === "media" ? " active" : ""}" data-cat="media">Media</button>
+        <button type="button" class="icon-cat-btn${_activeCat === "objects" ? " active" : ""}" data-cat="objects">Objects / Misc</button>
+    `;
+    
+    catsEl.querySelectorAll(".icon-cat-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            _activeCat = e.target.dataset.cat;
+            catsEl.querySelectorAll(".icon-cat-btn").forEach(b => b.classList.toggle("active", b === e.target));
+            _renderIconPicker(document.getElementById("ip-search").value);
+        });
+    });
+}
+
+function _renderIconPicker(search) {
+    const grid = document.getElementById("ip-grid");
+    const term = search.toLowerCase().trim();
+    
+    const html = materialIcons
+        .filter(i => (_activeCat === "all" || i.cat === _activeCat))
+        .filter(i => i.name.includes(term.replace(' ', '_')))
+        .map(i => `<button type="button" class="ip-icon-btn" title="${escHtml(i.name)}" data-icon="${escHtml(i.name)}"><span class="material-symbols-outlined">${escHtml(i.name)}</span></button>`)
+        .join("");
+        
+    grid.innerHTML = html || "<div class='ws-placeholder'>No icons match.</div>";
+}
+
+function _setProjectIcon(name) {
+    document.getElementById("field-icon").value = name;
+    document.getElementById("btn-pick-icon-display").textContent = name;
+    document.getElementById("btn-pick-icon-text").textContent = name ? name.replace(/_/g, ' ') : "Choose an icon...";
 }

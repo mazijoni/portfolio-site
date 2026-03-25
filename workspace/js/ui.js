@@ -5,6 +5,38 @@
 /* ── Modal ── */
 
 export function initUI() {
+    // ── Sidebar toggle ──
+    const sidebar    = document.getElementById("ws-sidebar");
+    const toggleBtn  = document.getElementById("ws-sidebar-toggle");
+    const mobileBtn  = document.getElementById("ws-mobile-menu-btn");
+    const overlay    = document.getElementById("ws-sidebar-overlay");
+
+    function toggleSidebar() {
+        if (window.innerWidth <= 560) {
+            const isOpen = sidebar.classList.toggle("mobile-open");
+            if (overlay) overlay.classList.toggle("visible", isOpen);
+        } else {
+            const isCollapsed = sidebar.classList.toggle("collapsed");
+            document.body.classList.toggle("sidebar-collapsed", isCollapsed);
+            if (toggleBtn) toggleBtn.classList.toggle("rotated", isCollapsed);
+        }
+    }
+
+    if (toggleBtn) toggleBtn.addEventListener("click", toggleSidebar);
+    if (mobileBtn) mobileBtn.addEventListener("click", toggleSidebar);
+    if (overlay)   overlay.addEventListener("click", () => {
+        sidebar.classList.remove("mobile-open");
+        overlay.classList.remove("visible");
+    });
+
+    // Close mobile sidebar when a project is selected
+    document.addEventListener("click", (e) => {
+        if (e.target.closest(".ws-project-item") && window.innerWidth <= 560) {
+            sidebar.classList.remove("mobile-open");
+            if (overlay) overlay.classList.remove("visible");
+        }
+    });
+
     // Close modal on backdrop click or [data-modal] button click
     document.addEventListener("click", (e) => {
         const trigger = e.target.closest("[data-modal]");
