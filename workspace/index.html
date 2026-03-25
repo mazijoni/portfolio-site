@@ -187,14 +187,18 @@
                     </div>
                     <div class="section-toolbar-actions">
                         <button class="ws-btn ws-btn-ghost" id="btn-add-board-note">+ Note</button>
+                        <button class="ws-btn ws-btn-ghost" id="btn-add-board-todo">+ Todo</button>
+                        <button class="ws-btn ws-btn-ghost" id="btn-add-board-heading">+ Heading</button>
                         <button class="ws-btn ws-btn-ghost" id="btn-add-board-link">+ Link</button>
                         <button class="ws-btn ws-btn-ghost" id="btn-add-board-image">+ Image</button>
                     </div>
                 </div>
                 <div id="board-canvas" class="board-canvas">
-                    <div id="board-empty" class="board-empty">
-                        <p>Your board is empty.</p>
-                        <p class="board-empty-sub">Add notes, links, or images to start planning visually.</p>
+                    <div id="board-canvas-inner" class="board-canvas-inner">
+                        <div id="board-empty" class="board-empty">
+                            <p>Your board is empty.</p>
+                            <p class="board-empty-sub">Add notes, links, images, todos, or headings to start planning visually.</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -359,31 +363,24 @@
     </div>
 </div>
 
-<!-- Board item modal -->
-<div id="modal-board-item" class="ws-modal-overlay hidden">
+<!-- Board: Link modal -->
+<div id="modal-board-link" class="ws-modal-overlay hidden">
     <div class="ws-modal">
         <div class="ws-modal-header">
-            <h2 id="modal-board-item-title">Add Note</h2>
-            <button class="ws-modal-close" data-modal="modal-board-item">
+            <h2>Add Link</h2>
+            <button class="ws-modal-close" data-modal="modal-board-link">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
         </div>
-        <form id="form-board-item" class="ws-modal-form" autocomplete="off">
-            <input type="hidden" id="board-item-id-field">
-            <input type="hidden" id="board-item-type-field">
-            <div class="form-group" id="board-field-content-group">
-                <label for="board-field-content">Content</label>
-                <textarea id="board-field-content" rows="4" maxlength="1000" placeholder="Write a note&#8230;"></textarea>
-            </div>
-            <div class="form-group" id="board-field-url-group" style="display:none">
-                <label for="board-field-url">URL</label>
-                <input type="url" id="board-field-url" placeholder="https://&#8230;">
-            </div>
-            <div class="form-group" id="board-field-label-group" style="display:none">
-                <label for="board-field-label">Label</label>
-                <input type="text" id="board-field-label" placeholder="Label (optional)" maxlength="60">
+        <form id="form-board-link" class="ws-modal-form" autocomplete="off">
+            <div class="form-group">
+                <label for="board-link-url">URL *</label>
+                <input type="url" id="board-link-url-field" placeholder="https://&#8230;" required>
             </div>
             <div class="form-group">
+                <label for="board-link-label">Label</label>
+                <input type="text" id="board-link-label-field" placeholder="Optional label" maxlength="80">
+            </div>            <div class="form-group">
                 <label>Colour</label>
                 <div class="color-swatches" id="board-color-swatches">
                     <button type="button" class="color-swatch active" data-color="#1e1e1e" style="background:#1e1e1e"></button>
@@ -393,12 +390,82 @@
                     <button type="button" class="color-swatch" data-color="#2a2a1a" style="background:#2a2a1a"></button>
                     <button type="button" class="color-swatch" data-color="#1e1e2e" style="background:#1e1e2e"></button>
                 </div>
-            </div>
-            <div class="ws-modal-footer">
-                <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-board-item">Cancel</button>
-                <button type="submit" class="ws-btn ws-btn-accent">Add</button>
+            </div>            <div class="ws-modal-footer">
+                <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-board-link">Cancel</button>
+                <button type="submit" class="ws-btn ws-btn-accent">Add Link</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Board: Image modal -->
+<div id="modal-board-image" class="ws-modal-overlay hidden">
+    <div class="ws-modal">
+        <div class="ws-modal-header">
+            <h2>Add Image</h2>
+            <button class="ws-modal-close" data-modal="modal-board-image">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form id="form-board-image" class="ws-modal-form" autocomplete="off">
+            <div class="form-group">
+                <label for="board-image-url">Image URL *</label>
+                <input type="url" id="board-image-url-field" placeholder="https://&#8230;" required>
+            </div>
+            <div class="form-group">
+                <label for="board-image-label">Caption</label>
+                <input type="text" id="board-image-label-field" placeholder="Optional caption" maxlength="120">
+            </div>
+            <div class="ws-modal-footer">
+                <button type="button" class="ws-btn ws-btn-ghost" id="btn-board-from-media">From Media</button>
+                <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-board-image">Cancel</button>
+                <button type="submit" class="ws-btn ws-btn-accent">Add Image</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Board: Todo editor modal -->
+<div id="modal-board-todo" class="ws-modal-overlay hidden">
+    <div class="ws-modal">
+        <div class="ws-modal-header">
+            <h2 id="modal-board-todo-title">Edit Todo</h2>
+            <button class="ws-modal-close" data-modal="modal-board-todo">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="ws-modal-form">
+            <input type="hidden" id="board-todo-id-field">
+            <div class="form-group">
+                <label for="board-todo-title-field">Title</label>
+                <input type="text" id="board-todo-title-field" placeholder="Todo title&#8230;" maxlength="80">
+            </div>
+            <div class="form-group">
+                <label>Items</label>
+                <div id="board-todo-editor-list" class="todo-editor-list"></div>
+                <button type="button" class="ws-btn ws-btn-ghost ws-btn-sm" id="btn-todo-add-item" style="margin-top:6px">+ Add Item</button>
+            </div>
+            <div class="ws-modal-footer">
+                <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-board-todo">Cancel</button>
+                <button type="button" class="ws-btn ws-btn-accent" id="btn-todo-save">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Board / Nodes: Media picker modal -->
+<div id="modal-board-media" class="ws-modal-overlay hidden">
+    <div class="ws-modal ws-modal--wide">
+        <div class="ws-modal-header">
+            <h2>Pick from Media</h2>
+            <button class="ws-modal-close" data-modal="modal-board-media">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div style="padding:0 20px 10px">
+            <input type="text" id="board-media-search" class="ws-input" placeholder="Search media&#8230;">
+        </div>
+        <div id="board-media-picker-list" class="bmp-grid"></div>
     </div>
 </div>
 
@@ -567,9 +634,17 @@
                     <option value="end">End</option>
                     <option value="data">Data</option>
                     <option value="note">Note</option>
+                    <option value="image">Image</option>
                 </select>
             </div>
-            <div class="form-group">
+            <div class="form-group" id="node-image-group" style="display:none">
+                <label for="node-field-image-url">Image URL</label>
+                <div style="display:flex;gap:6px;align-items:center">
+                    <input type="url" id="node-field-image-url" placeholder="https://&#8230;" style="flex:1">
+                    <button type="button" class="ws-btn ws-btn-ghost ws-btn-sm" id="btn-node-from-media">From Media</button>
+                </div>
+            </div>
+            <div class="form-group" id="node-note-group">
                 <label for="node-field-note">Note</label>
                 <textarea id="node-field-note" rows="2" maxlength="300" placeholder="Optional description&#8230;"></textarea>
             </div>
