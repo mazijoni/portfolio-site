@@ -11,7 +11,7 @@
  * Interactions:
  *   — Drag cards freely on the infinite canvas
  *   — Pan canvas with middle-mouse or Space+drag
- *   — Double-click any card to edit its main text in-place
+ *   — Click card text to edit in-place
  *   — "From Media" picker copies image/site from users/{uid}/links
  */
 
@@ -40,6 +40,15 @@ let _panning = false, _panStart = null;
 // Media picker callback
 let _mediaCb = null;
 
+// Drop position for link/image forms opened via palette drag
+let _pendingDropX = null, _pendingDropY = null;
+
+// Multiselect
+let _boardSel = new Set();
+
+// Box-select state
+let _boxSel = null; // { startX, startY, el } in canvas-relative coords
+
 /* ──────────────────────────────────────────────────────── init ── */
 
 export function init() {
@@ -58,16 +67,38 @@ export function init() {
     });
 
     // Toolbar buttons
-    document.getElementById("btn-add-board-note")
-        .addEventListener("click", () => _addCard("note"));
-    document.getElementById("btn-add-board-link")
-        .addEventListener("click", () => _openLinkForm());
-    document.getElementById("btn-add-board-image")
-        .addEventListener("click", () => _openImageForm());
-    document.getElementById("btn-add-board-todo")
-        .addEventListener("click", () => _addCard("todo"));
-    document.getElementById("btn-add-board-heading")
-        .addEventListener("click", () => _addCard("heading"));
+    // (removed — now using drag-and-drop palette)
+
+    // Palette drag-and-drop
+    document.querySelectorAll("#board-palette .palette-item").forEach(item => {
+        item.addEventListener("dragstart", (e) => {
+            e.dataTransfer.setData("text/plain", item.dataset.type);
+            e.dataTransfer.effectAllowed = "copy";
+        });
+    });
+
+    const canvas = document.getElementById("board-canvas");
+    canvas.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+    });
+    canvas.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const type = e.dataTransfer.getData("text/plain");
+        if (!type) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left - _panX;
+        const y = e.clientY - rect.top  - _panY;
+        if (type === "link") {
+            _pendingDropX = x; _pendingDropY = y;
+            _openLinkForm();
+        } else if (type === "image") {
+            _pendingDropX = x; _pendingDropY = y;
+            _openImageForm();
+        } else {
+            _addCard(type, x, y);
+        }
+    });
 
     // Link form
     document.getElementById("form-board-link")
@@ -94,12 +125,25 @@ export function init() {
             _colorSel = sw.dataset.color;
         });
 
-    // Canvas pan
-    const canvas = document.getElementById("board-canvas");
+    // Canvas pan + box-select
     canvas.addEventListener("mousedown", _onCanvasMouseDown);
     document.addEventListener("mousemove", _onCanvasMouseMove);
     document.addEventListener("mouseup",   _onCanvasMouseUp);
     canvas.addEventListener("wheel", _onCanvasWheel, { passive: false });
+
+    // Delete key removes selected cards
+    document.addEventListener("keydown", (e) => {
+        if (e.key !== "Delete" && e.key !== "Backspace") return;
+        if (!document.getElementById("section-board").classList.contains("active")) return;
+        if (e.target.matches("input, textarea, [contenteditable]")) return;
+        if (!_boardSel.size || !_pid || !_uid) return;
+        e.preventDefault();
+        const ids = [..._boardSel];
+        _clearBoardSel();
+        Promise.all(ids.map(id =>
+            deleteDoc(doc(db, "users", _uid, "projects", _pid, "board_items", id)).catch(console.error)
+        ));
+    });
 
     // Media picker form
     document.getElementById("board-media-search")
@@ -148,18 +192,33 @@ function _renderCard(id, data) {
 
     el.innerHTML = _cardHTML(id, data);
 
+    // Re-apply selected state after re-render
+    if (_boardSel.has(id)) el.classList.add("selected");
+
     // Delete button
     el.querySelector(".board-card-del")?.addEventListener("click", (e) => {
         e.stopPropagation();
         _deleteCard(id);
     });
 
-    // Double-click → in-place edit (note / heading / todo)
-    if (data.type === "note" || data.type === "heading" || data.type === "todo") {
+    // Click to edit
+    if (data.type === "todo") {
+        // Whole card opens editor, except checkboxes / delete / resize
+        el.addEventListener("click", (e) => {
+            if (e.target.closest(".board-todo-check") ||
+                e.target.closest(".board-card-del") ||
+                e.target.closest(".board-card-resize")) return;
+            e.stopPropagation();
+            _openTodoEditor(id, data);
+        });
+    } else if (data.type === "note" || data.type === "heading") {
         const contentEl = el.querySelector(".board-card-text");
         if (contentEl) {
-            // Edit button
             el.querySelector(".board-card-edit")?.addEventListener("click", (e) => {
+                e.stopPropagation();
+                _startEdit(el, id, data);
+            });
+            contentEl.addEventListener("click", (e) => {
                 e.stopPropagation();
                 _startEdit(el, id, data);
             });
@@ -336,8 +395,7 @@ function _openTodoEditor(id, data) {
         listEl.lastElementChild?.querySelector(".te-text")?.focus();
     };
 
-    document.getElementById("form-board-todo").onsubmit = async (e) => {
-        e.preventDefault();
+    document.getElementById("btn-todo-save").onclick = async () => {
         const title = titleEl.value.trim() || "Checklist";
         const todos = items.map(t => ({ text: t.text.trim(), done: t.done }))
                            .filter(t => t.text);
@@ -352,12 +410,18 @@ function _openTodoEditor(id, data) {
 
 /* ────────────────────────────────────────────── actions ── */
 
-async function _addCard(type) {
+async function _addCard(type, dropX, dropY) {
     if (!_pid || !_uid) return;
-    const inner = document.getElementById("board-canvas-inner");
-    const count = inner.querySelectorAll(".board-card").length;
-    const x = 32 + (count % 5) * 250 - _panX;
-    const y = 32 + Math.floor(count / 5) * 160 - _panY;
+    let x, y;
+    if (dropX != null && dropY != null) {
+        x = Math.round(dropX);
+        y = Math.round(dropY);
+    } else {
+        const inner = document.getElementById("board-canvas-inner");
+        const count = inner.querySelectorAll(".board-card").length;
+        x = 32 + (count % 5) * 250 - _panX;
+        y = 32 + Math.floor(count / 5) * 160 - _panY;
+    }
 
     const base = { type, x, y, createdAt: serverTimestamp() };
     if (type === "note")    base.content = "Note";
@@ -399,10 +463,16 @@ async function _onLinkSubmit(e) {
     const url   = document.getElementById("board-link-url-field").value.trim();
     const label = document.getElementById("board-link-label-field").value.trim();
     if (!url) return;
-    const inner = document.getElementById("board-canvas-inner");
-    const count = inner.querySelectorAll(".board-card").length;
-    const x = 32 + (count % 4) * 250 - _panX;
-    const y = 32 + Math.floor(count / 4) * 180 - _panY;
+    let x, y;
+    if (_pendingDropX != null && _pendingDropY != null) {
+        x = _pendingDropX; y = _pendingDropY;
+        _pendingDropX = _pendingDropY = null;
+    } else {
+        const inner = document.getElementById("board-canvas-inner");
+        const count = inner.querySelectorAll(".board-card").length;
+        x = 32 + (count % 4) * 250 - _panX;
+        y = 32 + Math.floor(count / 4) * 180 - _panY;
+    }
     try {
         await addDoc(refs.boardItems(db, _uid, _pid), {
             type: "link", url, label, x, y, createdAt: serverTimestamp()
@@ -428,10 +498,16 @@ async function _onImageSubmit(e) {
     const url   = document.getElementById("board-image-url-field").value.trim();
     const label = document.getElementById("board-image-label-field").value.trim();
     if (!url) return;
-    const inner = document.getElementById("board-canvas-inner");
-    const count = inner.querySelectorAll(".board-card").length;
-    const x = 32 + (count % 4) * 250 - _panX;
-    const y = 32 + Math.floor(count / 4) * 220 - _panY;
+    let x, y;
+    if (_pendingDropX != null && _pendingDropY != null) {
+        x = _pendingDropX; y = _pendingDropY;
+        _pendingDropX = _pendingDropY = null;
+    } else {
+        const inner = document.getElementById("board-canvas-inner");
+        const count = inner.querySelectorAll(".board-card").length;
+        x = 32 + (count % 4) * 250 - _panX;
+        y = 32 + Math.floor(count / 4) * 220 - _panY;
+    }
     try {
         await addDoc(refs.boardItems(db, _uid, _pid), {
             type: "image", url, label, x, y, createdAt: serverTimestamp()
@@ -444,12 +520,30 @@ async function _onImageSubmit(e) {
 }
 
 async function _deleteCard(id) {
+    _boardSel.delete(id);
     try {
         await deleteDoc(doc(db, "users", _uid, "projects", _pid, "board_items", id));
     } catch (err) {
         console.error(err);
         toast("Error deleting card", "error");
     }
+}
+
+function _toggleBoardSel(id, el) {
+    if (_boardSel.has(id)) {
+        _boardSel.delete(id);
+        el.classList.remove("selected");
+    } else {
+        _boardSel.add(id);
+        el.classList.add("selected");
+    }
+}
+
+function _clearBoardSel() {
+    _boardSel.forEach(id => {
+        document.querySelector(`.board-card[data-id="${id}"]`)?.classList.remove("selected");
+    });
+    _boardSel.clear();
 }
 
 async function _toggleTodo(id, idx, done, data) {
@@ -462,41 +556,55 @@ async function _toggleTodo(id, idx, done, data) {
 /* ────────────────────────────────────────────── drag ── */
 
 function _makeDraggable(el, id) {
-    let startX, startY, startLeft, startTop, moved;
-
     el.addEventListener("mousedown", (e) => {
         if (e.target.closest(".board-card-del") ||
             e.target.closest(".board-card-edit") ||
             e.target.closest(".board-card-resize") ||
             e.target.closest(".board-card-textarea") ||
+            e.target.closest(".board-card-text") ||
             e.target.closest("a") ||
             e.target.closest(".board-todo-check") ||
             e.button !== 0) return;
         e.preventDefault();
         e.stopPropagation();
 
-        moved     = false;
-        startX    = e.clientX;
-        startY    = e.clientY;
-        startLeft = parseInt(el.style.left) || 0;
-        startTop  = parseInt(el.style.top)  || 0;
+        const startX = e.clientX;
+        const startY = e.clientY;
+        let moved    = false;
 
-        el.classList.add("dragging");
+        // Group drag: if this card is selected, move all selected cards together
+        const isGroup = _boardSel.has(id);
+        const group   = isGroup
+            ? [...document.querySelectorAll(".board-card")].filter(c => _boardSel.has(c.dataset.id))
+            : [el];
+        const starts  = group.map(c => ({
+            el:   c,
+            id:   c.dataset.id,
+            left: parseInt(c.style.left) || 0,
+            top:  parseInt(c.style.top)  || 0,
+        }));
+
+        group.forEach(c => c.classList.add("dragging"));
 
         const onMove = (ev) => {
             moved = true;
-            el.style.left = (startLeft + ev.clientX - startX) + "px";
-            el.style.top  = (startTop  + ev.clientY - startY) + "px";
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+            starts.forEach(g => {
+                g.el.style.left = (g.left + dx) + "px";
+                g.el.style.top  = (g.top  + dy) + "px";
+            });
         };
         const onUp = () => {
-            el.classList.remove("dragging");
+            group.forEach(c => c.classList.remove("dragging"));
             document.removeEventListener("mousemove", onMove);
             document.removeEventListener("mouseup",   onUp);
             if (!moved) return;
-            const x = parseInt(el.style.left);
-            const y = parseInt(el.style.top);
-            updateDoc(doc(db, "users", _uid, "projects", _pid, "board_items", id), { x, y })
-                .catch(console.error);
+            starts.forEach(g => {
+                updateDoc(doc(db, "users", _uid, "projects", _pid, "board_items", g.id),
+                    { x: parseInt(g.el.style.left), y: parseInt(g.el.style.top) })
+                    .catch(console.error);
+            });
         };
         document.addEventListener("mousemove", onMove);
         document.addEventListener("mouseup",   onUp);
@@ -536,23 +644,89 @@ function _makeResizable(el, handle, id) {
 function _onCanvasMouseDown(e) {
     const isMiddle = e.button === 1;
     const isSpace  = e._spaceDown;
-    if (!isMiddle && !isSpace) return;
-    if (isMiddle) e.preventDefault();
-    _panning  = true;
-    _panStart = { x: e.clientX - _panX, y: e.clientY - _panY };
+    if (isMiddle || isSpace) {
+        // Pan
+        if (isMiddle) e.preventDefault();
+        _panning  = true;
+        _panStart = { x: e.clientX - _panX, y: e.clientY - _panY };
+        return;
+    }
+    if (e.button !== 0) return;
+    // Start box-select only if clicking on empty canvas (not a card)
+    if (e.target.closest(".board-card")) return;
+    e.preventDefault();
+    const canvas = document.getElementById("board-canvas");
+    const rect   = canvas.getBoundingClientRect();
+    const sx     = e.clientX - rect.left;
+    const sy     = e.clientY - rect.top;
+    const boxEl  = document.createElement("div");
+    boxEl.className = "board-select-box";
+    boxEl.style.left = sx + "px";
+    boxEl.style.top  = sy + "px";
+    canvas.appendChild(boxEl);
+    _boxSel = { startX: sx, startY: sy, el: boxEl };
 }
 
 function _onCanvasMouseMove(e) {
-    if (!_panning || !_panStart) return;
-    _panX = e.clientX - _panStart.x;
-    _panY = e.clientY - _panStart.y;
-    document.getElementById("board-canvas-inner").style.transform =
-        `translate(${_panX}px, ${_panY}px)`;
+    if (_panning && _panStart) {
+        _panX = e.clientX - _panStart.x;
+        _panY = e.clientY - _panStart.y;
+        document.getElementById("board-canvas-inner").style.transform =
+            `translate(${_panX}px, ${_panY}px)`;
+        return;
+    }
+    if (!_boxSel) return;
+    const canvas = document.getElementById("board-canvas");
+    const rect   = canvas.getBoundingClientRect();
+    const cx     = e.clientX - rect.left;
+    const cy     = e.clientY - rect.top;
+    const x  = Math.min(cx, _boxSel.startX);
+    const y  = Math.min(cy, _boxSel.startY);
+    const w  = Math.abs(cx - _boxSel.startX);
+    const h  = Math.abs(cy - _boxSel.startY);
+    _boxSel.el.style.left   = x + "px";
+    _boxSel.el.style.top    = y + "px";
+    _boxSel.el.style.width  = w + "px";
+    _boxSel.el.style.height = h + "px";
 }
 
-function _onCanvasMouseUp() {
-    _panning  = false;
-    _panStart = null;
+function _onCanvasMouseUp(e) {
+    if (_panning) {
+        _panning  = false;
+        _panStart = null;
+        return;
+    }
+    if (!_boxSel) return;
+    const canvas    = document.getElementById("board-canvas");
+    const rect      = canvas.getBoundingClientRect();
+    const cx        = e.clientX - rect.left;
+    const cy        = e.clientY - rect.top;
+    const selLeft   = Math.min(cx, _boxSel.startX);
+    const selTop    = Math.min(cy, _boxSel.startY);
+    const selRight  = selLeft + Math.abs(cx - _boxSel.startX);
+    const selBottom = selTop  + Math.abs(cy - _boxSel.startY);
+    _boxSel.el.remove();
+    _boxSel = null;
+
+    // Tiny drag / plain click on empty canvas → deselect
+    if (selRight - selLeft < 4 && selBottom - selTop < 4) {
+        _clearBoardSel();
+        return;
+    }
+    _clearBoardSel();
+
+    // Use bounding rects — automatically handles pan/transform
+    document.querySelectorAll(".board-card").forEach(card => {
+        const cr   = card.getBoundingClientRect();
+        const cl_v = cr.left   - rect.left;
+        const ct_v = cr.top    - rect.top;
+        const cr_v = cr.right  - rect.left;
+        const cb_v = cr.bottom - rect.top;
+        if (cr_v > selLeft && cl_v < selRight && cb_v > selTop && ct_v < selBottom) {
+            _boardSel.add(card.dataset.id);
+            card.classList.add("selected");
+        }
+    });
 }
 
 function _onCanvasWheel(e) {

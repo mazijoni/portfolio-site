@@ -179,25 +179,43 @@
 
         <!-- BOARD -->
         <section id="section-board" class="ws-section">
-            <div class="ws-section-body">
+            <div class="ws-section-body ws-section-body--fill">
                 <div class="section-toolbar">
                     <div class="section-toolbar-title">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
                         Visual Board
                     </div>
-                    <div class="section-toolbar-actions">
-                        <button class="ws-btn ws-btn-ghost" id="btn-add-board-note">+ Note</button>
-                        <button class="ws-btn ws-btn-ghost" id="btn-add-board-todo">+ Todo</button>
-                        <button class="ws-btn ws-btn-ghost" id="btn-add-board-heading">+ Heading</button>
-                        <button class="ws-btn ws-btn-ghost" id="btn-add-board-link">+ Link</button>
-                        <button class="ws-btn ws-btn-ghost" id="btn-add-board-image">+ Image</button>
-                    </div>
+                    <div class="section-toolbar-actions"></div>
                 </div>
-                <div id="board-canvas" class="board-canvas">
-                    <div id="board-canvas-inner" class="board-canvas-inner">
-                        <div id="board-empty" class="board-empty">
-                            <p>Your board is empty.</p>
-                            <p class="board-empty-sub">Add notes, links, images, todos, or headings to start planning visually.</p>
+                <div class="board-body">
+                    <div id="board-palette" class="board-palette">
+                        <div class="palette-item" data-type="note" draggable="true" title="Note">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/></svg>
+                            <span>Note</span>
+                        </div>
+                        <div class="palette-item" data-type="heading" draggable="true" title="Heading">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+                            <span>Heading</span>
+                        </div>
+                        <div class="palette-item" data-type="todo" draggable="true" title="Todo List">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="4" height="4" rx="0.5"/><line x1="10" y1="7" x2="20" y2="7"/><rect x="3" y="12" width="4" height="4" rx="0.5"/><line x1="10" y1="14" x2="20" y2="14"/><polyline points="4 6 4.5 7 6 5"/></svg>
+                            <span>Todo</span>
+                        </div>
+                        <div class="palette-item" data-type="link" draggable="true" title="Link Card">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                            <span>Link</span>
+                        </div>
+                        <div class="palette-item" data-type="image" draggable="true" title="Image Card">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                            <span>Image</span>
+                        </div>
+                    </div>
+                    <div id="board-canvas" class="board-canvas">
+                        <div id="board-canvas-inner" class="board-canvas-inner">
+                            <div id="board-empty" class="board-empty">
+                                <p>Your board is empty.</p>
+                                <p class="board-empty-sub">Drag items from the left panel to start building.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -213,16 +231,43 @@
                         Node Flow
                     </div>
                     <div class="section-toolbar-actions">
-                        <button class="ws-btn ws-btn-ghost" id="btn-add-node">+ Node</button>
                         <button class="ws-btn ws-btn-ghost" id="btn-clear-nodes">Clear</button>
                     </div>
                 </div>
-                <div id="nodes-canvas" class="nodes-canvas">
-                    <svg id="nodes-svg" class="nodes-svg"></svg>
-                    <div id="nodes-container" class="nodes-container"></div>
-                    <div id="nodes-empty" class="nodes-empty">
-                        <p>No nodes yet.</p>
-                        <p class="nodes-empty-sub">Add nodes to map out your workflow or system.</p>
+                <div class="nodes-body">
+                    <div id="node-palette" class="node-palette">
+                        <div class="palette-item" data-type="process" draggable="true" title="Process">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="18" height="10" rx="2"/></svg>
+                            <span>Process</span>
+                        </div>
+                        <div class="palette-item" data-type="decision" draggable="true" title="Decision">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 3 22 12 12 21 2 12"/></svg>
+                            <span>Decision</span>
+                        </div>
+                        <div class="palette-item" data-type="io" draggable="true" title="I/O">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5 7 19 7 20 17 4 17"/></svg>
+                            <span>I / O</span>
+                        </div>
+                        <div class="palette-item" data-type="start" draggable="true" title="Start">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>
+                            <span>Start</span>
+                        </div>
+                        <div class="palette-item" data-type="end" draggable="true" title="End">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="6" fill="none"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+                            <span>End</span>
+                        </div>
+                        <div class="palette-item" data-type="image" draggable="true" title="Image Node">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                            <span>Image</span>
+                        </div>
+                    </div>
+                    <div id="nodes-canvas" class="nodes-canvas">
+                        <svg id="nodes-svg" class="nodes-svg"></svg>
+                        <div id="nodes-container" class="nodes-container"></div>
+                        <div id="nodes-empty" class="nodes-empty">
+                            <p>No nodes yet.</p>
+                            <p class="nodes-empty-sub">Drag node types from the left panel to get started.</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -241,7 +286,7 @@
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                             <input type="text" id="media-search" class="media-search-input" placeholder="Search&#8230;" autocomplete="off">
                         </div>
-                        <button class="ws-btn ws-btn-ghost" id="btn-add-media-project">+ Project</button>
+                        <button class="ws-btn ws-btn-ghost" id="btn-add-media-link">+ Link</button>
                     </div>
                 </div>
                 <div id="media-body" class="media-body">
@@ -561,10 +606,6 @@
                         <option value="comic">Comic</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label for="ml-field-project">Project</label>
-                    <select id="ml-field-project"></select>
-                </div>
             </div>
             <div class="form-group">
                 <label for="ml-field-name">Name</label>
@@ -630,10 +671,9 @@
                 <select id="node-field-type">
                     <option value="process">Process</option>
                     <option value="decision">Decision</option>
+                    <option value="io">I / O</option>
                     <option value="start">Start</option>
                     <option value="end">End</option>
-                    <option value="data">Data</option>
-                    <option value="note">Note</option>
                     <option value="image">Image</option>
                 </select>
             </div>
@@ -650,7 +690,7 @@
             </div>
             <div class="ws-modal-footer">
                 <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-node">Cancel</button>
-                <button type="submit" class="ws-btn ws-btn-accent">Add Node</button>
+                <button type="submit" id="btn-node-submit" class="ws-btn ws-btn-accent">Add Node</button>
             </div>
         </form>
     </div>

@@ -24,6 +24,7 @@ import { initAuth }        from "./auth.js";
 import { initProjects }    from "./projects.js";
 import { initSections }    from "./sections.js";
 import { initUI }          from "./ui.js";
+import { runMigrations }   from "./migrate.js";
 
 /* ── Firebase bootstrap ── */
 let firebaseConfig;
@@ -50,6 +51,7 @@ initUI();
 initAuth(auth, db, onUserReady);
 
 function onUserReady(user) {
+    runMigrations(user.uid);   // auto-import private.html categories as projects
     initProjects(db, user);
     initSections();
 }

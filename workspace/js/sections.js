@@ -18,9 +18,10 @@ export function initSections() {
         });
     });
 
-    // When a project is selected → switch to overview
+    // When a project is selected → restore saved section or default to overview
     window.addEventListener("projectSelected", () => {
-        activateSection("overview");
+        const saved = sessionStorage.getItem("ws_section");
+        activateSection(saved && SECTIONS.includes(saved) && saved !== "empty" ? saved : "overview");
     });
 
     // When project is deselected → show empty state
@@ -48,6 +49,7 @@ export function activateSection(name) {
 
     _showSection(name);
     _activeSection = name;
+    if (name !== "empty") sessionStorage.setItem("ws_section", name);
 
     // Lazy-load section module
     if (!_loaded.has(name)) {
