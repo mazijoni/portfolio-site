@@ -49,6 +49,14 @@ let _boardSel = new Set();
 // Box-select state
 let _boxSel = null; // { startX, startY, el } in canvas-relative coords
 
+// Card data cache id → data (for duplicate, context menu)
+let _cardData = new Map();
+
+// Context menu / color picker state
+let _ctxMenuId  = null;
+let _ctxCanvasX = 0;
+let _ctxCanvasY = 0;
+
 /* ──────────────────────────────────────────────────────── init ── */
 
 export function init() {
@@ -95,6 +103,8 @@ export function init() {
         } else if (type === "image") {
             _pendingDropX = x; _pendingDropY = y;
             _openImageForm();
+        } else if (type === "file") {
+            _openFileCard(x, y);
         } else {
             _addCard(type, x, y);
         }
@@ -149,6 +159,72 @@ export function init() {
     document.getElementById("board-media-search")
         .addEventListener("input", _filterMediaPicker);
 
+    // Board FAB + type picker
+    document.getElementById("board-fab-add")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        document.getElementById("board-type-picker")?.classList.toggle("hidden");
+    });
+    document.querySelectorAll("#board-type-picker .btp-item").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            document.getElementById("board-type-picker")?.classList.add("hidden");
+            const type = btn.dataset.type;
+            const cvs  = document.getElementById("board-canvas");
+            const rect = cvs?.getBoundingClientRect();
+            const cx   = (rect ? rect.width  / 2 : 400) - _panX;
+            const cy   = (rect ? rect.height / 2 : 300) - _panY;
+            if      (type === "link")  { _pendingDropX = cx; _pendingDropY = cy; _openLinkForm(); }
+            else if (type === "image") { _pendingDropX = cx; _pendingDropY = cy; _openImageForm(); }
+            else if (type === "file")  { _openFileCard(cx, cy); }
+            else                       { _addCard(type, cx, cy); }
+        });
+    });
+
+    // Context menu: right-click on canvas or card
+    document.getElementById("board-canvas")?.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        const cardEl = e.target.closest(".board-card");
+        const cvs    = document.getElementById("board-canvas");
+        const rect   = cvs.getBoundingClientRect();
+        _ctxCanvasX  = e.clientX - rect.left - _panX;
+        _ctxCanvasY  = e.clientY - rect.top  - _panY;
+        if (cardEl) {
+            _showCardCtxMenu(cardEl.dataset.id, e.clientX, e.clientY);
+        } else {
+            _showCanvasCtxMenu(e.clientX, e.clientY);
+        }
+    });
+
+    // Code copy button (delegated)
+    document.getElementById("board-canvas")?.addEventListener("click", (e) => {
+        const btn = e.target.closest(".board-code-copy");
+        if (!btn) return;
+        const code = btn.closest(".board-card")?.querySelector("code")?.textContent || "";
+        navigator.clipboard?.writeText(code).then(() => {
+            btn.classList.add("copied");
+            setTimeout(() => btn.classList.remove("copied"), 1500);
+        }).catch(console.error);
+    });
+
+    // Color picker swatches
+    document.getElementById("board-color-picker")?.addEventListener("click", (e) => {
+        const sw = e.target.closest(".bcp-swatch");
+        if (!sw || !_ctxMenuId) return;
+        _setCardColor(_ctxMenuId, sw.dataset.color);
+        _hideCtxMenu();
+    });
+
+    // Close menus on outside click
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest("#board-ctx-menu") &&
+            !e.target.closest("#board-color-picker") &&
+            !e.target.closest("#board-fab-add")) {
+            _hideCtxMenu();
+            if (!e.target.closest("#board-type-picker"))
+                document.getElementById("board-type-picker")?.classList.add("hidden");
+        }
+    });
+
     if (currentProjectId) {
         _pid = currentProjectId;
         _uid = auth.currentUser?.uid;
@@ -168,6 +244,7 @@ function _subscribe() {
         const empty  = document.getElementById("board-empty");
 
         canvas.querySelectorAll(".board-card").forEach(el => el.remove());
+        _cardData.clear();
 
         if (snap.empty) { empty.style.display = ""; return; }
         empty.style.display = "none";
@@ -181,6 +258,7 @@ function _subscribe() {
 function _renderCard(id, data) {
     const inner = document.getElementById("board-canvas-inner");
     const el    = document.createElement("div");
+    _cardData.set(id, data);
 
     el.className     = "board-card board-card--" + (data.type || "note");
     el.dataset.id    = id;
@@ -211,7 +289,7 @@ function _renderCard(id, data) {
             e.stopPropagation();
             _openTodoEditor(id, data);
         });
-    } else if (data.type === "note" || data.type === "heading") {
+    } else if (data.type === "note" || data.type === "heading" || data.type === "quote") {
         const contentEl = el.querySelector(".board-card-text");
         if (contentEl) {
             el.querySelector(".board-card-edit")?.addEventListener("click", (e) => {
@@ -223,6 +301,43 @@ function _renderCard(id, data) {
                 _startEdit(el, id, data);
             });
         }
+    } else if (data.type === "code") {
+        el.addEventListener("click", (e) => {
+            if (e.target.closest(".board-card-del") ||
+                e.target.closest(".board-card-dup") ||
+                e.target.closest(".board-code-copy") ||
+                e.target.closest(".board-card-resize")) return;
+            e.stopPropagation();
+            _openCodeEditor(id, _cardData.get(id) || data);
+        });
+    } else if (data.type === "tag") {
+        el.addEventListener("click", (e) => {
+            if (e.target.closest(".board-card-del")) return;
+            e.stopPropagation();
+            const textEl2 = el.querySelector(".board-tag-text");
+            if (!textEl2 || textEl2.tagName === "INPUT") return;
+            const prev2 = data.content || "";
+            const inp = document.createElement("input");
+            inp.type = "text"; inp.value = prev2; inp.className = "board-tag-input";
+            textEl2.replaceWith(inp); inp.focus(); inp.select();
+            const saveTag = async () => {
+                const val2 = inp.value.trim() || prev2;
+                inp.replaceWith(Object.assign(document.createElement("span"), {
+                    className: "board-tag-text", textContent: val2
+                }));
+                if (val2 !== prev2) {
+                    data.content = val2;
+                    _cardData.set(id, data);
+                    await updateDoc(doc(db, "users", _uid, "projects", _pid, "board_items", id),
+                        { content: val2 }).catch(console.error);
+                }
+            };
+            inp.addEventListener("blur", saveTag);
+            inp.addEventListener("keydown", (ev) => {
+                if (ev.key === "Enter")  { ev.preventDefault(); inp.blur(); }
+                if (ev.key === "Escape") { inp.value = prev2;   inp.blur(); }
+            });
+        });
     }
 
     // Checkbox toggles (todo)
@@ -234,27 +349,36 @@ function _renderCard(id, data) {
     const resizeHandle = el.querySelector(".board-card-resize");
     if (resizeHandle) _makeResizable(el, resizeHandle, id);
 
+    // Duplicate button
+    el.querySelector(".board-card-dup")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        _duplicateCard(id, data);
+    });
+
     _makeDraggable(el, id);
     inner.appendChild(el);
 }
 
 function _cardHTML(id, data) {
     const type = data.type || "note";
-    const del  = `<button class="board-card-del" title="Delete">
+    const del = `<button class="board-card-del" title="Delete">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>`;
     const editBtn = `<button class="board-card-edit" title="Edit">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
     </button>`;
+    const dupBtn = `<button class="board-card-dup" title="Duplicate">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    </button>`;
     const resize = `<div class="board-card-resize"></div>`;
 
     if (type === "heading") {
-        return `<div class="board-card-actions">${editBtn}${del}</div>
+        return `<div class="board-card-actions">${editBtn}${dupBtn}${del}</div>
             <div class="board-card-text board-heading-text">${escHtml(data.content || "Heading")}</div>`;
     }
 
     if (type === "note") {
-        return `<div class="board-card-actions">${editBtn}${del}</div>
+        return `<div class="board-card-actions">${editBtn}${dupBtn}${del}</div>
             <div class="board-card-text">${escHtml(data.content || "").replace(/\n/g, "<br>")}</div>
             ${resize}`;
     }
@@ -264,7 +388,7 @@ function _cardHTML(id, data) {
         const thumbSrc   = data.imageUrl || _getScreenshot(data.url);
         const pretty     = _prettyUrl(data.url);
         const fbId       = "bfb_" + id;
-        return `<div class="board-card-actions">${del}</div>
+        return `<div class="board-card-actions">${dupBtn}${del}</div>
             <a class="board-link-inner" href="${escHtml(data.url || "#")}" target="_blank" rel="noopener noreferrer">
                 <div class="board-link-thumb">
                     <img class="board-link-thumb-img" src="${escHtml(thumbSrc)}" alt=""
@@ -281,7 +405,7 @@ function _cardHTML(id, data) {
     }
 
     if (type === "image") {
-        return `<div class="board-card-actions">${del}</div>
+        return `<div class="board-card-actions">${dupBtn}${del}</div>
             <div class="board-image-wrap">
                 ${data.url
                     ? `<img src="${escHtml(data.url)}" alt="${escHtml(data.label || "")}">`
@@ -298,10 +422,64 @@ function _cardHTML(id, data) {
                 <input type="checkbox" class="board-todo-check" data-idx="${i}" ${t.done ? "checked" : ""}>
                 <span class="${t.done ? "board-todo-done" : ""}">${escHtml(t.text || "")}</span>
             </label>`).join("");
-        return `<div class="board-card-actions">${editBtn}${del}</div>
+        return `<div class="board-card-actions">${editBtn}${dupBtn}${del}</div>
             <div class="board-card-text board-todo-title">${escHtml(data.content || "Checklist")}</div>
             <div class="board-todo-list">${rows}</div>
             ${resize}`;
+    }
+
+    if (type === "code") {
+        return `<div class="board-card-actions">${editBtn}${dupBtn}${del}</div>
+            <div class="board-code-header">
+                <span class="board-code-lang">${escHtml(data.lang || "code")}</span>
+                <button class="board-code-copy" title="Copy code">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </button>
+            </div>
+            <pre class="board-code-pre"><code>${escHtml(data.content || "")}</code></pre>
+            ${resize}`;
+    }
+
+    if (type === "quote") {
+        return `<div class="board-card-actions">${editBtn}${dupBtn}${del}</div>
+            <div class="board-quote-accent"></div>
+            <div class="board-card-text board-quote-text">${escHtml(data.content || "Quote…").replace(/\n/g, "<br>")}</div>
+            ${data.author ? `<div class="board-quote-author">— ${escHtml(data.author)}</div>` : ""}
+            ${resize}`;
+    }
+
+    if (type === "divider") {
+        return `<div class="board-card-actions">${dupBtn}${del}</div>
+            <div class="board-divider-inner">
+                ${data.label ? `<span class="board-divider-label">${escHtml(data.label)}</span>` : ""}
+                <div class="board-divider-line"></div>
+            </div>`;
+    }
+
+    if (type === "file") {
+        const ext   = _getExt(data.url || "");
+        const thumb = data.imageUrl || "";
+        const thumbHtml = thumb
+            ? `<img src="${escHtml(thumb)}" alt="">`
+            : `<div class="board-file-ext-badge">${escHtml(ext)}</div>`;
+        return `<div class="board-card-actions">${dupBtn}${del}</div>
+            <a class="board-file-inner" href="${escHtml(data.url || "#")}" target="_blank" rel="noopener noreferrer">
+                <div class="board-file-thumb">${thumbHtml}</div>
+                <div class="board-file-meta">
+                    <div class="board-file-name">${escHtml(data.label || "File")}</div>
+                    <div class="board-file-url">${escHtml(_prettyUrl(data.url || ""))}</div>
+                </div>
+            </a>`;
+    }
+
+    if (type === "tag") {
+        return `<div class="board-tag-inner">
+            <div class="board-tag-dot"></div>
+            <span class="board-tag-text">${escHtml(data.content || "Tag")}</span>
+            <button class="board-card-del board-tag-del" title="Delete">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>`;
     }
 
     return `<div class="board-card-content">${escHtml(data.content || "")}</div>${del}`;
@@ -427,13 +605,19 @@ async function _addCard(type, dropX, dropY) {
     if (type === "note")    base.content = "Note";
     if (type === "heading") base.content = "Heading";
     if (type === "todo")    { base.content = "Checklist"; base.todos = []; }
+    if (type === "code")    { base.content = "// code"; base.lang = ""; }
+    if (type === "quote")   { base.content = "A great quote goes here."; }
+    if (type === "divider") { base.label = ""; base.w = 300; base.h = 32; }
+    if (type === "tag")     { base.content = "Tag"; }
 
     try {
         const ref = await addDoc(refs.boardItems(db, _uid, _pid), base);
-        // Open editor right away for todo
+        // Open editor right away for todo / code
         if (type === "todo") {
             setTimeout(() => _openTodoEditor(ref.id, base), 150);
-        } else {
+        } else if (type === "code") {
+            setTimeout(() => _openCodeEditor(ref.id, { ...base }), 200);
+        } else if (type !== "divider" && type !== "tag" && type !== "quote" && type !== "file") {
             // Brief flash then start editing
             setTimeout(() => {
                 const newEl = document.querySelector(`.board-card[data-id="${ref.id}"]`);
@@ -551,6 +735,135 @@ async function _toggleTodo(id, idx, done, data) {
     if (todos[idx]) todos[idx] = { ...todos[idx], done };
     await updateDoc(doc(db, "users", _uid, "projects", _pid, "board_items", id),
         { todos }).catch(console.error);
+}
+
+/* ─────────────────────────────────────────── duplicate ── */
+
+async function _duplicateCard(id, data) {
+    if (!_pid || !_uid || !data) return;
+    const { createdAt: _, ...rest } = data;
+    await addDoc(refs.boardItems(db, _uid, _pid), {
+        ...rest,
+        x: (rest.x || 0) + 24,
+        y: (rest.y || 0) + 24,
+        createdAt: serverTimestamp()
+    }).catch(console.error);
+}
+
+/* ───────────────────────────────────────── code editor ── */
+
+function _openCodeEditor(id, data) {
+    document.getElementById("board-code-content-field").value = data.content || "";
+    document.getElementById("board-code-lang-field").value   = data.lang    || "";
+    document.getElementById("btn-code-save").onclick = async () => {
+        const content = document.getElementById("board-code-content-field").value;
+        const lang    = document.getElementById("board-code-lang-field").value.trim() || "code";
+        await updateDoc(doc(db, "users", _uid, "projects", _pid, "board_items", id),
+            { content, lang }).catch(console.error);
+        closeModal("modal-board-code");
+    };
+    openModal("modal-board-code");
+    setTimeout(() => document.getElementById("board-code-content-field").focus(), 60);
+}
+
+/* ────────────────────────────────────────── file picker ── */
+
+function _openFileCard(dropX, dropY) {
+    _openMediaPicker((link) => {
+        if (!_pid || !_uid) return;
+        addDoc(refs.boardItems(db, _uid, _pid), {
+            type:     "file",
+            url:      link.url      || "",
+            label:    link.name     || link.url || "File",
+            imageUrl: link.imageUrl || link.thumbUrl || "",
+            x:        Math.round(dropX ?? 100),
+            y:        Math.round(dropY ?? 100),
+            createdAt: serverTimestamp()
+        }).catch(console.error);
+    });
+}
+
+/* ──────────────────────────────── color / context menus ── */
+
+async function _setCardColor(id, color) {
+    if (!_pid || !_uid || !id) return;
+    await updateDoc(doc(db, "users", _uid, "projects", _pid, "board_items", id),
+        { color }).catch(console.error);
+}
+
+function _showCanvasCtxMenu(screenX, screenY) {
+    const types = [
+        "note", "heading", "todo", "code", "quote",
+        "divider", "link", "image", "file", "tag"
+    ];
+    const menu = document.getElementById("board-ctx-menu");
+    menu.innerHTML = `<div class="ctx-menu-label">Add here</div>` +
+        types.map(t => `<button class="ctx-menu-item" data-type="${t}">${t.charAt(0).toUpperCase() + t.slice(1)}</button>`).join("");
+    menu.querySelectorAll("[data-type]").forEach(btn => {
+        btn.addEventListener("click", () => {
+            _hideCtxMenu();
+            const type = btn.dataset.type;
+            if      (type === "link")  { _pendingDropX = _ctxCanvasX; _pendingDropY = _ctxCanvasY; _openLinkForm(); }
+            else if (type === "image") { _pendingDropX = _ctxCanvasX; _pendingDropY = _ctxCanvasY; _openImageForm(); }
+            else if (type === "file")  { _openFileCard(_ctxCanvasX, _ctxCanvasY); }
+            else                       { _addCard(type, _ctxCanvasX, _ctxCanvasY); }
+        });
+    });
+    _positionCtxMenu(menu, screenX, screenY);
+}
+
+function _showCardCtxMenu(id, screenX, screenY) {
+    const menu = document.getElementById("board-ctx-menu");
+    menu.innerHTML = `
+        <button class="ctx-menu-item" data-action="dup">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Duplicate
+        </button>
+        <button class="ctx-menu-item" data-action="color">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+            Change Color
+        </button>
+        <div class="ctx-menu-sep"></div>
+        <button class="ctx-menu-item ctx-menu-item--danger" data-action="del">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+            Delete
+        </button>`;
+    menu.querySelector("[data-action='dup']").addEventListener("click", () => {
+        _hideCtxMenu();
+        _duplicateCard(id, _cardData.get(id));
+    });
+    menu.querySelector("[data-action='color']").addEventListener("click", () => {
+        _hideCtxMenu();
+        _ctxMenuId = id;
+        const cardEl = document.querySelector(`.board-card[data-id="${id}"]`);
+        const rect   = cardEl?.getBoundingClientRect();
+        const picker = document.getElementById("board-color-picker");
+        if (rect) {
+            picker.style.top  = (rect.bottom + 6) + "px";
+            picker.style.left = rect.left + "px";
+        }
+        picker.classList.remove("hidden");
+    });
+    menu.querySelector("[data-action='del']").addEventListener("click", () => {
+        _hideCtxMenu();
+        _deleteCard(id);
+    });
+    _positionCtxMenu(menu, screenX, screenY);
+}
+
+function _positionCtxMenu(menu, x, y) {
+    menu.classList.remove("hidden");
+    requestAnimationFrame(() => {
+        const mw = menu.offsetWidth  || 170;
+        const mh = menu.offsetHeight || 200;
+        menu.style.left = Math.max(4, Math.min(x, window.innerWidth  - mw - 8)) + "px";
+        menu.style.top  = Math.max(4, Math.min(y, window.innerHeight - mh - 8)) + "px";
+    });
+}
+
+function _hideCtxMenu() {
+    document.getElementById("board-ctx-menu")?.classList.add("hidden");
+    document.getElementById("board-color-picker")?.classList.add("hidden");
 }
 
 /* ────────────────────────────────────────────── drag ── */
@@ -827,4 +1140,12 @@ function _getScreenshot(url) {
 function _prettyUrl(url) {
     try { const u = new URL(url); return (u.hostname + u.pathname).replace(/\/$/, ""); }
     catch { return url || ""; }
+}
+
+function _getExt(url) {
+    try {
+        const path = new URL(url).pathname;
+        const ext  = path.split(".").pop()?.toUpperCase();
+        return ext && ext.length <= 5 ? ext : "FILE";
+    } catch { return "FILE"; }
 }
