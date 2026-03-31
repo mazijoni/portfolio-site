@@ -30,6 +30,7 @@ let _links      = [];
 let _catId      = null;   // categoryId value to filter links by
 let _search     = "";
 let _init       = false;
+let _layout     = localStorage.getItem("mediaLayout") || "grid";
 
 // Link modal state
 let _editLinkId = null;
@@ -38,8 +39,31 @@ export function init() {
     if (_init) return;
     _init = true;
 
+    // Apply saved layout on load
+    _applyLayout(_layout);
+
+    // Layout toggle buttons
+    document.getElementById("btn-layout-grid").addEventListener("click", () => _applyLayout("grid"));
+    document.getElementById("btn-layout-list").addEventListener("click", () => _applyLayout("list"));
+
     document.getElementById("media-search").addEventListener("input", (e) => {
         _search = e.target.value.trim().toLowerCase();
+        _render();
+    });
+
+    // Search icon toggle
+    const toolbar   = document.getElementById("media-toolbar");
+    const searchInput = document.getElementById("media-search");
+
+    document.getElementById("btn-media-search").addEventListener("click", () => {
+        toolbar.classList.add("searching");
+        searchInput.focus();
+    });
+
+    document.getElementById("btn-media-search-close").addEventListener("click", () => {
+        toolbar.classList.remove("searching");
+        searchInput.value = "";
+        _search = "";
         _render();
     });
 
@@ -105,6 +129,20 @@ function _subscribe() {
             _render();
         }
     );
+}
+
+/* ── Layout ──────────────────────────────────────────────────────────── */
+
+function _applyLayout(layout) {
+    _layout = layout;
+    localStorage.setItem("mediaLayout", layout);
+    const body = document.getElementById("media-body");
+    if (body) {
+        body.classList.toggle("layout-list", layout === "list");
+    }
+    document.querySelectorAll(".media-layout-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.layout === layout);
+    });
 }
 
 /* ── Rendering ─────────────────────────────────────────────────────────── */

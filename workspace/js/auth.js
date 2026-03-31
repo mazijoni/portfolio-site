@@ -23,6 +23,25 @@ export function initAuth(auth, db, onReady) {
             window.location.href = "../login.html";
         });
 
+        // Avatar popup (mobile sign-out)
+        const avatarEl  = document.getElementById("user-avatar");
+        const popupEl   = document.getElementById("avatar-popup");
+        const popupSignout = document.getElementById("avatar-popup-signout");
+
+        avatarEl.addEventListener("click", (e) => {
+            e.stopPropagation();
+            popupEl.classList.toggle("open");
+        });
+
+        popupSignout.addEventListener("click", async () => {
+            await signOut(auth);
+            window.location.href = "../login.html";
+        });
+
+        document.addEventListener("click", () => {
+            popupEl.classList.remove("open");
+        });
+
         onReady(user);
     });
 }
