@@ -1465,7 +1465,10 @@ body {
     padding: 0.45rem 0.75rem;
 }
 .media-body.layout-list .image-card-person,
-.media-body.layout-list .image-card-creator { padding: 0 0.75rem 0.35rem; }
+.media-body.layout-list .image-card-creator { display: none; }
+
+.media-body.layout-list .image-type-badge,
+.media-body.layout-list .video-type-badge   { display: none; }
 .media-body.layout-list .video-iframe-wrap {
     width: 80px;
     flex-shrink: 0;
@@ -2545,6 +2548,48 @@ body {
 }
 .color-swatch:hover { transform: scale(1.15); }
 .color-swatch.active { border-color: var(--accent); }
+
+/* ==================== LIGHTBOX ==================== */
+.ws-lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 4000;
+    background: rgba(0, 0, 0, 0.88);
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    cursor: zoom-out;
+}
+.ws-lightbox.open {
+    display: flex;
+}
+.ws-lightbox-img {
+    max-width: 100%;
+    max-height: calc(100vh - 2rem);
+    object-fit: contain;
+    border-radius: 4px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+    cursor: default;
+    user-select: none;
+}
+.ws-lightbox-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(20,20,20,0.85);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #fff;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background var(--transition);
+}
+.ws-lightbox-close:hover { background: rgba(60,60,60,0.9); }
 
 /* ==================== TOAST ==================== */
 .ws-toast {
