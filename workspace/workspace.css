@@ -778,6 +778,7 @@ body {
     flex: 1;
     overflow: hidden;
     min-height: 0;
+    position: relative;
 }
 
 /* ── Shared palette strip ── */
@@ -934,6 +935,7 @@ body {
 .board-card:hover .board-card-actions { opacity: 1; }
 
 .board-card-edit,
+.board-card-dup,
 .board-card-del {
     background: rgba(10,10,10,0.85);
     border: 1px solid #333;
@@ -945,7 +947,8 @@ body {
     transition: border-color var(--transition), color var(--transition);
 }
 .board-card-edit:hover { border-color: var(--accent); color: var(--accent); }
-.board-card-del:hover { border-color: var(--danger); color: var(--danger); }
+.board-card-dup:hover  { border-color: var(--accent); color: var(--accent); }
+.board-card-del:hover  { border-color: var(--danger); color: var(--danger); }
 
 /* ── Resize handle ── */
 .board-card-resize {
@@ -2801,3 +2804,346 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
         display: none;
     }
 }
+
+/* ==================== BOARD — NEW CARD TYPES ==================== */
+
+/* ── Code card ── */
+.board-card--code { padding: 0; overflow: hidden; }
+.board-code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 10px;
+    background: rgba(0,0,0,0.35);
+    border-bottom: 1px solid var(--border);
+}
+.board-code-lang {
+    font-size: 0.65rem;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+}
+.board-code-copy {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px 5px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    transition: color var(--transition), background var(--transition);
+}
+.board-code-copy:hover { color: var(--text-primary); background: var(--bg-hover); }
+.board-code-copy.copied { color: var(--accent); }
+.board-code-pre {
+    margin: 0;
+    padding: 0.6rem 0.75rem;
+    overflow: auto;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.75rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+    tab-size: 2;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 240px;
+    background: transparent;
+}
+.board-code-pre code { font-family: inherit; background: none; }
+.board-code-textarea {
+    width: 100%;
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.8rem;
+    padding: 10px 12px;
+    resize: vertical;
+    outline: none;
+    box-sizing: border-box;
+    min-height: 240px;
+}
+.board-code-textarea:focus { border-color: var(--accent); }
+
+/* ── Quote card ── */
+.board-card--quote {
+    padding: 0.75rem 0.8rem 0.75rem 1.2rem;
+    position: relative;
+}
+.board-quote-accent {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--accent);
+    border-radius: var(--radius) 0 0 var(--radius);
+}
+.board-quote-text {
+    font-size: 0.82rem;
+    font-style: italic;
+    line-height: 1.65;
+    color: var(--text-secondary);
+    word-break: break-word;
+    white-space: pre-wrap;
+    min-height: 48px;
+}
+.board-quote-author {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+    text-align: right;
+}
+
+/* ── Divider card ── */
+.board-card--divider {
+    background: transparent;
+    border-color: transparent;
+    min-height: 32px;
+    min-width: 120px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    cursor: grab;
+}
+.board-card--divider:hover { border-color: var(--border); }
+.board-divider-inner {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 8px;
+}
+.board-divider-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border-hover);
+}
+.board-divider-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ── File card ── */
+.board-card--file { padding: 0; overflow: hidden; min-height: unset; min-width: 200px; }
+.board-file-inner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.65rem 0.75rem;
+    text-decoration: none;
+    color: inherit;
+}
+.board-file-inner:hover .board-file-name { color: var(--accent); }
+.board-file-thumb {
+    width: 40px; height: 40px;
+    flex-shrink: 0;
+    border-radius: 5px;
+    overflow: hidden;
+    background: var(--bg-dark);
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border);
+}
+.board-file-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.board-file-ext-badge {
+    font-size: 0.58rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+}
+.board-file-meta { flex: 1; min-width: 0; }
+.board-file-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: color var(--transition);
+}
+.board-file-url {
+    font-size: 0.66rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 2px;
+}
+
+/* ── Tag card ── */
+.board-card--tag {
+    border-radius: 20px;
+    min-height: unset;
+    min-width: unset;
+    padding: 0;
+    overflow: hidden;
+    cursor: pointer;
+    width: auto !important;
+    height: auto !important;
+}
+.board-card--tag:hover { border-color: var(--accent); }
+.board-tag-inner {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px 5px 8px;
+    user-select: none;
+}
+.board-tag-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+}
+.board-tag-text {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    min-width: 20px;
+}
+.board-tag-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.75rem;
+    color: var(--text-primary);
+    width: 80px;
+}
+.board-tag-del {
+    background: none !important;
+    border: none !important;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 1px 2px;
+    display: flex;
+    opacity: 0;
+    transition: opacity var(--transition), color var(--transition);
+}
+.board-card--tag:hover .board-tag-del { opacity: 1; }
+.board-tag-del:hover { color: var(--danger) !important; }
+
+/* ==================== BOARD FAB + TYPE PICKER ==================== */
+.board-add-fab-wrap {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: flex-end;
+    gap: 8px;
+}
+.board-fab-btn {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.55);
+    transition: transform var(--transition), background var(--transition);
+    flex-shrink: 0;
+}
+.board-fab-btn:hover { transform: scale(1.1); background: var(--accent-hover, #b55ef0); }
+.board-type-picker {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 3px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.65);
+    min-width: 148px;
+}
+.board-type-picker.hidden { display: none; }
+.btp-item {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    color: var(--text-secondary);
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.71rem;
+    padding: 6px 7px;
+    cursor: pointer;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+.btp-item:hover { background: var(--bg-hover); border-color: var(--border); color: var(--text-primary); }
+.btp-item svg { flex-shrink: 0; }
+
+/* ==================== BOARD CONTEXT MENU ==================== */
+.board-ctx-menu {
+    position: fixed;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 4px;
+    z-index: 2000;
+    min-width: 158px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.65);
+}
+.board-ctx-menu.hidden { display: none; }
+.ctx-menu-label {
+    font-size: 0.63rem;
+    color: var(--text-muted);
+    padding: 4px 10px 3px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    user-select: none;
+}
+.ctx-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.78rem;
+    padding: 6px 10px;
+    cursor: pointer;
+    text-align: left;
+    border-radius: 4px;
+    transition: background var(--transition), color var(--transition);
+}
+.ctx-menu-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.ctx-menu-item--danger { color: var(--danger); }
+.ctx-menu-item--danger:hover { background: rgba(255,60,60,0.1); color: var(--danger); }
+.ctx-menu-sep { height: 1px; background: var(--border); margin: 3px 4px; }
+
+/* ==================== BOARD COLOR PICKER ==================== */
+.board-color-picker {
+    position: fixed;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px;
+    z-index: 2001;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    width: 130px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.65);
+}
+.board-color-picker.hidden { display: none; }
+.bcp-swatch {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: border-color var(--transition), transform var(--transition);
+}
+.bcp-swatch:hover { border-color: var(--accent); transform: scale(1.18); }

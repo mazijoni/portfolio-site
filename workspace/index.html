@@ -241,6 +241,26 @@
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                             <span>Image</span>
                         </div>
+                        <div class="palette-item" data-type="code" draggable="true" title="Code Snippet">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                            <span>Code</span>
+                        </div>
+                        <div class="palette-item" data-type="quote" draggable="true" title="Quote">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/></svg>
+                            <span>Quote</span>
+                        </div>
+                        <div class="palette-item" data-type="divider" draggable="true" title="Divider">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="8" x2="6" y2="8"/><line x1="18" y1="8" x2="22" y2="8"/><line x1="2" y1="16" x2="6" y2="16"/><line x1="18" y1="16" x2="22" y2="16"/></svg>
+                            <span>Divider</span>
+                        </div>
+                        <div class="palette-item" data-type="file" draggable="true" title="File / Asset">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+                            <span>File</span>
+                        </div>
+                        <div class="palette-item" data-type="tag" draggable="true" title="Tag">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                            <span>Tag</span>
+                        </div>
                     </div>
                     <div id="board-canvas" class="board-canvas">
                         <div id="board-canvas-inner" class="board-canvas-inner">
@@ -249,6 +269,24 @@
                                 <p class="board-empty-sub">Drag items from the left panel to start building.</p>
                             </div>
                         </div>
+                    </div>
+                    <!-- Board FAB + type picker -->
+                    <div class="board-add-fab-wrap">
+                        <div id="board-type-picker" class="board-type-picker hidden">
+                            <button class="btp-item" data-type="note"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/></svg>Note</button>
+                            <button class="btp-item" data-type="heading"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="12" y1="4" x2="12" y2="20"/></svg>Heading</button>
+                            <button class="btp-item" data-type="todo"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="4" height="4" rx="0.5"/><line x1="10" y1="7" x2="20" y2="7"/><rect x="3" y="12" width="4" height="4" rx="0.5"/><line x1="10" y1="14" x2="20" y2="14"/></svg>Todo</button>
+                            <button class="btp-item" data-type="code"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>Code</button>
+                            <button class="btp-item" data-type="quote"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/></svg>Quote</button>
+                            <button class="btp-item" data-type="divider"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="12" x2="22" y2="12"/></svg>Divider</button>
+                            <button class="btp-item" data-type="link"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Link</button>
+                            <button class="btp-item" data-type="image"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>Image</button>
+                            <button class="btp-item" data-type="file"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>File</button>
+                            <button class="btp-item" data-type="tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>Tag</button>
+                        </div>
+                        <button id="board-fab-add" class="board-fab-btn" title="Add card">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -408,6 +446,21 @@
 <!-- Sidebar overlay -->
 <div id="ws-sidebar-overlay"></div>
 
+<!-- Board: Right-click context menu -->
+<div id="board-ctx-menu" class="board-ctx-menu hidden"></div>
+
+<!-- Board: Card color picker -->
+<div id="board-color-picker" class="board-color-picker hidden">
+    <button class="bcp-swatch" data-color="#1e1e1e" style="background:#1e1e1e" title="Default"></button>
+    <button class="bcp-swatch" data-color="#1a2a1a" style="background:#1a2a1a" title="Green"></button>
+    <button class="bcp-swatch" data-color="#1a1a2e" style="background:#1a1a2e" title="Blue"></button>
+    <button class="bcp-swatch" data-color="#2a1a1a" style="background:#2a1a1a" title="Red"></button>
+    <button class="bcp-swatch" data-color="#2a2a1a" style="background:#2a2a1a" title="Yellow"></button>
+    <button class="bcp-swatch" data-color="#1e2a2a" style="background:#1e2a2a" title="Teal"></button>
+    <button class="bcp-swatch" data-color="#2a1a2e" style="background:#2a1a2e" title="Purple"></button>
+    <button class="bcp-swatch" data-color="#252525" style="background:#252525" title="Gray"></button>
+</div>
+
 <!-- ==================== MODALS ==================== -->
 
 <!-- Project form modal -->
@@ -559,6 +612,32 @@
             <div class="ws-modal-footer">
                 <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-board-todo">Cancel</button>
                 <button type="button" class="ws-btn ws-btn-accent" id="btn-todo-save">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Board: Code editor modal -->
+<div id="modal-board-code" class="ws-modal-overlay hidden">
+    <div class="ws-modal ws-modal--wide">
+        <div class="ws-modal-header">
+            <h2>Code Snippet</h2>
+            <button class="ws-modal-close" data-modal="modal-board-code">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="ws-modal-form">
+            <div class="form-group">
+                <label for="board-code-lang-field">Language</label>
+                <input type="text" id="board-code-lang-field" placeholder="javascript, python, css&#8230;" maxlength="40">
+            </div>
+            <div class="form-group">
+                <label for="board-code-content-field">Code</label>
+                <textarea id="board-code-content-field" class="board-code-textarea" placeholder="// Your code here&#8230;" rows="12" spellcheck="false"></textarea>
+            </div>
+            <div class="ws-modal-footer">
+                <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-board-code">Cancel</button>
+                <button type="button" class="ws-btn ws-btn-accent" id="btn-code-save">Save</button>
             </div>
         </div>
     </div>
