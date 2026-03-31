@@ -438,7 +438,10 @@ function _buildImageCard(link) {
         ${_persons.length ? `<div class="image-card-person" title="Click to view: ${escHtml(_persons.map(p => p.name).join(", "))}"><svg width="10" height="10" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="2.5" stroke="#55ccbb" stroke-width="1.3"/><path d="M1 13c0-2.761 2.686-5 6-5s6 2.239 6 5" stroke="#55ccbb" stroke-width="1.3" stroke-linecap="round"/></svg><span class="image-card-person-name">${escHtml(_persons.map(p => p.name).join(", "))}</span></div>` : ""}`;
 
     const imgEl = card.querySelector(".image-card-img");
-    if (imgEl && src) imgEl.addEventListener("click", () => window.open(src, "_blank", "noopener,noreferrer"));
+    if (imgEl && src) imgEl.addEventListener("click", (e) => {
+        e.stopPropagation();
+        _openLightbox(src);
+    });
 
     const creatorDiv = card.querySelector(".image-card-creator");
     const personDiv  = card.querySelector(".image-card-person");
@@ -553,6 +556,33 @@ function _getPlatformBadge(link) {
     }
 
     return { cls, label: lbl || defaultLabel, color: col, isCustom: !!lbl };
+}
+
+/* ── Lightbox ───────────────────────────────────────────────────────────── */
+
+let _lightboxInited = false;
+
+function _openLightbox(src) {
+    const lb    = document.getElementById("ws-lightbox");
+    const img   = document.getElementById("ws-lightbox-img");
+    if (!lb || !img) return;
+
+    img.src = src;
+    lb.classList.add("open");
+
+    if (!_lightboxInited) {
+        _lightboxInited = true;
+        document.getElementById("ws-lightbox-close").addEventListener("click", _closeLightbox);
+        lb.addEventListener("click", (e) => { if (e.target === lb) _closeLightbox(); });
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape") _closeLightbox(); });
+    }
+}
+
+function _closeLightbox() {
+    const lb  = document.getElementById("ws-lightbox");
+    const img = document.getElementById("ws-lightbox-img");
+    if (lb)  lb.classList.remove("open");
+    if (img) img.src = "";
 }
 
 /* ── Creator attribution helpers ────────────────────────────────────────── */
