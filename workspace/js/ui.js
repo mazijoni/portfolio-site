@@ -29,6 +29,61 @@ export function initUI() {
         overlay.classList.remove("visible");
     });
 
+    // "Browse Projects" button in empty state opens sidebar on mobile
+    const btnBrowse = document.getElementById("btn-empty-open-projects");
+    if (btnBrowse) btnBrowse.addEventListener("click", () => {
+        if (window.innerWidth <= 560) {
+            sidebar.classList.add("mobile-open");
+            if (overlay) overlay.classList.add("visible");
+        }
+    });
+
+    // ── Topbar overflow menu ──
+    const topbarMoreBtn   = document.getElementById("btn-topbar-more");
+    const topbarMorePopup = document.getElementById("topbar-more-popup");
+    const btnTopbarEdit   = document.getElementById("btn-topbar-edit");
+    const btnTopbarDelete = document.getElementById("btn-topbar-delete");
+
+    if (topbarMoreBtn && topbarMorePopup) {
+        topbarMoreBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            topbarMorePopup.classList.toggle("open");
+        });
+
+        btnTopbarEdit && btnTopbarEdit.addEventListener("click", () => {
+            topbarMorePopup.classList.remove("open");
+            document.getElementById("btn-edit-project")?.click();
+        });
+
+        btnTopbarDelete && btnTopbarDelete.addEventListener("click", () => {
+            topbarMorePopup.classList.remove("open");
+            document.getElementById("btn-delete-project")?.click();
+        });
+
+        document.addEventListener("click", (e) => {
+            if (!topbarMorePopup.contains(e.target) && e.target !== topbarMoreBtn) {
+                topbarMorePopup.classList.remove("open");
+            }
+        });
+    }
+
+    // ── Kanban accordion (mobile) ──
+    document.getElementById("kanban-board")?.addEventListener("click", (e) => {
+        if (window.innerWidth > 560) return;
+        const header = e.target.closest(".kanban-col-header");
+        if (header) {
+            header.closest(".kanban-col")?.classList.toggle("collapsed");
+        }
+    });
+
+    // ── FAB: new project shortcut ──
+    const fab = document.getElementById("btn-fab-new");
+    if (fab) {
+        fab.addEventListener("click", () => {
+            document.getElementById("btn-new-project-empty")?.click();
+        });
+    }
+
     // Close mobile sidebar when a project is selected
     document.addEventListener("click", (e) => {
         if (e.target.closest(".ws-project-item") && window.innerWidth <= 560) {
