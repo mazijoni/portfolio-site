@@ -18,7 +18,7 @@ export function initAuth(auth, db, onReady) {
 
         _updateHeaderUI(user);
 
-        document.getElementById("btn-signout").addEventListener("click", async () => {
+        document.getElementById("btn-signout")?.addEventListener("click", async () => {
             await signOut(auth);
             window.location.href = "../login.html";
         });

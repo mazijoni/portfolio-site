@@ -240,13 +240,20 @@ function _openIconPicker() {
 function _renderIconPickerCats() {
     const catsEl = document.getElementById("ip-cats");
     catsEl.innerHTML = `
-        <button type="button" class="icon-cat-btn${_activeCat === "all" ? " active" : ""}" data-cat="all">All Icons</button>
+        <button type="button" class="icon-cat-btn${_activeCat === "all" ? " active" : ""}" data-cat="all">All</button>
         <button type="button" class="icon-cat-btn${_activeCat === "general" ? " active" : ""}" data-cat="general">General</button>
-        <button type="button" class="icon-cat-btn${_activeCat === "files" ? " active" : ""}" data-cat="files">Files / Folders</button>
-        <button type="button" class="icon-cat-btn${_activeCat === "tech" ? " active" : ""}" data-cat="tech">Tech / Code</button>
-        <button type="button" class="icon-cat-btn${_activeCat === "chat" ? " active" : ""}" data-cat="chat">Action</button>
+        <button type="button" class="icon-cat-btn${_activeCat === "files" ? " active" : ""}" data-cat="files">Files</button>
+        <button type="button" class="icon-cat-btn${_activeCat === "tech" ? " active" : ""}" data-cat="tech">Tech</button>
+        <button type="button" class="icon-cat-btn${_activeCat === "chat" ? " active" : ""}" data-cat="chat">Communicate</button>
         <button type="button" class="icon-cat-btn${_activeCat === "media" ? " active" : ""}" data-cat="media">Media</button>
-        <button type="button" class="icon-cat-btn${_activeCat === "objects" ? " active" : ""}" data-cat="objects">Objects / Misc</button>
+        <button type="button" class="icon-cat-btn${_activeCat === "objects" ? " active" : ""}" data-cat="objects">Objects</button>
+        <button type="button" class="icon-cat-btn${_activeCat === "actions" ? " active" : ""}" data-cat="actions">Actions</button>
+        <button type="button" class="icon-cat-btn${_activeCat === "activities" ? " active" : ""}" data-cat="activities">Activities</button>
+        <button type="button" class="icon-cat-btn${_activeCat === "business" ? " active" : ""}" data-cat="business">Business</button>
+        <button type="button" class="icon-cat-btn${_activeCat === "home" ? " active" : ""}" data-cat="home">Home</button>
+        <button type="button" class="icon-cat-btn${_activeCat === "maps" ? " active" : ""}" data-cat="maps">Maps</button>
+        <button type="button" class="icon-cat-btn${_activeCat === "social" ? " active" : ""}" data-cat="social">Social</button>
+        <button type="button" class="icon-cat-btn${_activeCat === "text" ? " active" : ""}" data-cat="text">Text</button>
     `;
     
     catsEl.querySelectorAll(".icon-cat-btn").forEach(btn => {

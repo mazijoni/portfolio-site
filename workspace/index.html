@@ -12,32 +12,51 @@
 </head>
 <body>
 
-<!-- ==================== SITE HEADER ==================== -->
-<header id="site-header">
-    <nav>
-        <div class="nav-left">
-            <button id="ws-mobile-menu-btn" class="ws-mobile-menu-btn" title="Open sidebar">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-            </button>
-            <a href="../index.html" class="logo">MAZE<span>_</span>WORKSPACE</a>
-        </div>
-        <div class="nav-right">
-            <div class="user-chip">
-                <div class="user-avatar-wrap">
-                    <div class="user-avatar" id="user-avatar" role="button" tabindex="0" title="Account">?</div>
-                    <div class="avatar-popup" id="avatar-popup">
-                        <button class="avatar-popup-signout" id="avatar-popup-signout">Sign out</button>
-                    </div>
-                </div>
-                <span id="user-name">Loading&#8230;</span>
+<!-- ==================== HUB NAV ==================== -->
+<nav id="hub-nav">
+    <div class="hub-nav-logo">
+        <a href="../index.html" class="hub-logo-link" title="Go to Portfolio">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        </a>
+    </div>
+    <div class="hub-apps">
+        <button class="hub-app-btn active" data-app="workspace" title="Workspace">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </button>
+        <button class="hub-app-btn" data-app="links" title="Link Gallery">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </button>
+        <button class="hub-app-btn" data-app="gmail" title="Gmail Contacts">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>
+        </button>
+    </div>
+    <div class="hub-nav-footer">
+        <div class="user-avatar-wrap">
+            <div class="user-avatar" id="user-avatar" role="button" tabindex="0" title="Account">?</div>
+            <div class="avatar-popup" id="avatar-popup">
+                <div class="avatar-popup-name" id="user-name">Loading&#8230;</div>
+                <button class="avatar-popup-signout" id="avatar-popup-signout">Sign out</button>
             </div>
-            <button class="btn-signout" id="btn-signout">Sign out</button>
         </div>
-    </nav>
-</header>
+        <!-- hidden, kept for auth.js compat -->
+        <button id="btn-signout" style="display:none" aria-hidden="true"></button>
+    </div>
+</nav>
 
-<!-- ==================== WORKSPACE SHELL ==================== -->
-<div id="ws-shell">
+<!-- ==================== HUB CONTENT ==================== -->
+<div id="hub-content">
+
+<!-- ── APP: WORKSPACE ── -->
+<div id="app-workspace" class="hub-app active">
+    <!-- Mobile topbar shown only on small screens -->
+    <div class="ws-mobile-topbar">
+        <button id="ws-mobile-menu-btn" class="ws-mobile-menu-btn ws-icon-btn" title="Open sidebar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <a href="../index.html" class="logo" style="font-size:0.85rem;">MAZE<span>_</span>WS</a>
+    </div>
+    <!-- ==================== WORKSPACE SHELL ==================== -->
+    <div id="ws-shell">
 
     <!-- LEFT SIDEBAR -->
     <aside id="ws-sidebar">
@@ -436,15 +455,60 @@
         </section>
 
     </div>
-</div>
+        <!-- Sidebar overlay (scoped to workspace app) -->
+        <div id="ws-sidebar-overlay"></div>
+    </div><!-- /ws-shell -->
+</div><!-- /app-workspace -->
+
+<!-- ── APP: LINKS ── -->
+<div id="app-links" class="hub-app">
+    <div class="links-header">
+        <div class="links-header-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            <span>Link Gallery</span>
+        </div>
+        <div class="links-toolbar-right">
+            <input type="text" id="links-search" class="links-search-input" placeholder="Search&#8230;" autocomplete="off">
+            <select id="links-sort-select" class="links-sort-select" title="Sort order">
+                <option value="manual">Manual</option>
+                <option value="a-z">A → Z</option>
+                <option value="z-a">Z → A</option>
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+            </select>
+            <button id="btn-add-link" class="ws-btn ws-btn-accent">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Link
+            </button>
+        </div>
+    </div>
+    <div id="links-cat-bar" class="links-cats">
+        <!-- category buttons rendered by JS -->
+    </div>
+    <div id="links-body" class="links-body">
+        <div class="ws-placeholder">Loading&#8230;</div>
+    </div>
+</div><!-- /app-links -->
+
+<!-- ==================== GMAIL APP ==================== -->
+<div id="app-gmail" class="hub-app">
+    <div class="gmail-header">
+        <div class="gmail-header-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>
+            <span>Gmail</span>
+        </div>
+    </div>
+    <div id="gmail-body" class="gmail-body">
+        <div class="ws-placeholder">Loading&#8230;</div>
+    </div>
+</div><!-- /app-gmail -->
+
+</div><!-- /hub-content -->
 
 <!-- FAB: Mobile new project shortcut -->
 <button id="btn-fab-new" class="ws-fab" title="New Project" aria-label="New Project">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 </button>
-
-<!-- Sidebar overlay -->
-<div id="ws-sidebar-overlay"></div>
 
 <!-- Board: Right-click context menu -->
 <div id="board-ctx-menu" class="board-ctx-menu hidden"></div>
@@ -931,6 +995,52 @@
     </button>
     <img id="ws-lightbox-img" class="ws-lightbox-img" src="" alt="">
 </div></div>
+
+<!-- Link Gallery: Add / Edit modal -->
+<div id="modal-link" class="ws-modal-overlay hidden">
+    <div class="ws-modal">
+        <div class="ws-modal-header">
+            <h2 id="modal-link-title">Add Link</h2>
+            <button class="ws-modal-close" data-modal="modal-link">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form id="form-add-link" class="ws-modal-form" autocomplete="off">
+            <input type="hidden" id="link-id-field">
+            <div class="form-group">
+                <label for="link-url-field">URL *</label>
+                <input type="url" id="link-url-field" placeholder="https://&#8230;" required>
+            </div>
+            <div class="form-group">
+                <label for="link-title-field">Title</label>
+                <input type="text" id="link-title-field" placeholder="Display name" maxlength="120">
+            </div>
+            <div class="form-group">
+                <label for="link-type-field">Type <span id="link-type-hint" class="link-type-hint"></span></label>
+                <select id="link-type-field">
+                    <option value="website">Website</option>
+                    <option value="youtube-channel">YouTube Channel</option>
+                    <option value="youtube-playlist">YouTube Playlist</option>
+                    <option value="youtube-video">YouTube Video</option>
+                    <option value="streaming-service">Streaming Service</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="link-cat-field">Category</label>
+                <select id="link-cat-field"></select>
+            </div>
+            <div class="form-group">
+                <label for="link-desc-field">Note</label>
+                <input type="text" id="link-desc-field" placeholder="Optional note" maxlength="200">
+            </div>
+            <div class="ws-modal-footer">
+                <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-link">Cancel</button>
+                <button type="submit" class="ws-btn ws-btn-accent" id="btn-link-submit">Add Link</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <!-- ==================== SCRIPTS ==================== -->
 <script type="module" src="js/app.js"></script>
