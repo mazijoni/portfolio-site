@@ -1,7 +1,7 @@
 // Firebase config — placeholders are substituted by GitHub Actions at deploy time.
 // For local development, values come from firebase.local.js instead.
-export const googleClientId = "%%GOOGLE_CLIENT_ID%%";
-export const tmdbKey = "%%TMDB_API_KEY%%";
+export const googleClientId = "916157389366-krgmg7v3liikq3r441u4kkp5kslcdd0f.apps.googleusercontent.com";
+export const tmdbKey = "572f096d27468f3af5c98d6271d0fe0f";
 
 export const firebaseConfig = {
   apiKey: "AIzaSyAUK1Qxac2KWSJB42h1swtmkqxQI3AYRHI",
