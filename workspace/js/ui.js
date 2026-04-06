@@ -76,11 +76,16 @@ export function initUI() {
         }
     });
 
-    // ── FAB: new project shortcut ──
+    // ── FAB: context-aware shortcut ──
     const fab = document.getElementById("btn-fab-new");
     if (fab) {
         fab.addEventListener("click", () => {
-            document.getElementById("btn-new-project-empty")?.click();
+            const app = document.body.dataset.hubApp || "workspace";
+            if (app === "links") {
+                document.getElementById("btn-add-link")?.click();
+            } else {
+                document.getElementById("btn-new-project-empty")?.click();
+            }
         });
     }
 

@@ -231,6 +231,7 @@ body {
     transition: transform var(--transition), box-shadow var(--transition);
 }
 .ws-fab:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(199,114,254,0.55); }
+body[data-hub-app="gmail"] .ws-fab { display: none !important; }
 
 /* ==================== WORKSPACE SHELL ==================== */
 #ws-shell {
@@ -2762,7 +2763,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     .ws-empty-mobile-btn { display: flex; }
 
     /* ── FAB ── */
-    .ws-fab { display: flex; }
+    .ws-fab { display: flex; bottom: calc(56px + 1.5rem); }
 
     /* ── Notes textarea height ── */
     .overview-notes-input { min-height: 120px; height: auto; }
@@ -3895,6 +3896,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 @media (max-width: 480px) {
     .links-header-title span { display: none; }
     .links-grid { grid-template-columns: 1fr 1fr; }
+    #btn-add-link { display: none; }
 }
 
 /* ══════════ LINK GALLERY — NEW ELEMENTS ══════════ */
