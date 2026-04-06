@@ -1,4 +1,4 @@
-/**
+﻿/**
  * apps/links.js — Link Gallery app.
  *
  * Completely standalone from the Workspace (uses users/{uid}/gallery-links,
@@ -29,6 +29,9 @@ const TYPES = {
     "youtube-playlist":   { label: "YT Playlist",       icon: "playlist_play" },
     "youtube-video":      { label: "YT Video",          icon: "play_circle" },
     "streaming-service":  { label: "Streaming Service", icon: "smart_display" },
+    "image":              { label: "Image",             icon: "image" },
+    "3d-model":           { label: "3D Model",          icon: "view_in_ar" },
+    "file":               { label: "File",              icon: "attach_file" },
     "other":              { label: "Other",             icon: "link" },
 };
 
@@ -42,6 +45,7 @@ let _sortMode    = "manual";
 let _editId      = null;
 let _editCatId   = null;
 let _dragId      = null;
+const _mediaThumbs = {}; // url → imgUrl | null  (undefined = not yet tried)
 
 let _cats = [];   // [{ id, name, icon }]
 const _CATS_KEY = () => `linksCats_${_user?.uid}`;
@@ -229,6 +233,18 @@ function _renderCatsGrid(body) {
             <div class="link-cat-card-footer"></div>
         </div>` : "";
     body.innerHTML = `<div class="link-cats-grid">${catCards}${uncatCard}</div>`;
+}
+
+function _domain(url) {
+    try { return new URL(url).hostname.replace(/^www\./, ""); }
+    catch { return ""; }
+}
+
+function _isSafeUrl(url) {
+    try {
+        const u = new URL(url);
+        return u.protocol === "https:" || u.protocol === "http:";
+    } catch { return false; }
 }
 
 const _serviceLabel = link => link.title || _domain(link.url) || "Service";
@@ -521,7 +537,8 @@ function _render() {
 /* ── Card ── */
 function _card(link) {
     const el = document.createElement("div");
-    el.className = "link-card" + (link.pinned ? " link-card--pinned" : "");
+    const _cardType = link.type || "website";
+    el.className = "link-card" + (link.pinned ? " link-card--pinned" : "") + ((_cardType === "image" || _cardType === "3d-model") ? " link-card--media" : "");
     el.dataset.id = link.id;
     el.draggable = _sortMode === "manual";
 
@@ -550,13 +567,65 @@ function _card(link) {
     const typeInfo = TYPES[type] || TYPES.other;
     const safeHref = _isSafeUrl(link.url) ? escHtml(link.url) : "#";
 
+    const isMedia  = (type === "image" || type === "3d-model");
+    const isImage  = type === "image" && _isSafeUrl(link.url);
+    // Resolve banner image: explicit thumbUrl > image URL itself > nothing
+    const thumbSrc = (link.thumbUrl && _isSafeUrl(link.thumbUrl))
+        ? link.thumbUrl
+        : (isImage ? link.url : null);
+
+    if (isMedia) {
+        // ── Media card (image / 3d-model): banner at top ──
+        const faviconSrc = domain
+            ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`
+            : null;
+        const faviconHtml = faviconSrc
+            ? `<img class="link-card-favicon" src="${escHtml(faviconSrc)}" alt="" loading="lazy" onerror="this.style.display='none'">`
+            : `<span class="material-symbols-outlined link-card-favicon-fb">${typeInfo.icon}</span>`;
+        const bannerContent = thumbSrc
+            ? `<img class="link-card-banner-img" src="${escHtml(thumbSrc)}" alt="" loading="lazy" onerror="this.parentElement.classList.add('link-card-banner--error')">`
+            : `<span class="material-symbols-outlined link-card-banner-icon">${typeInfo.icon}</span>`;
+        el.innerHTML = `
+        <div class="link-card-drag-handle" title="Drag to reorder">
+            <svg width="10" height="14" viewBox="0 0 10 16" fill="currentColor"><circle cx="2.5" cy="2.5" r="1.5"/><circle cx="7.5" cy="2.5" r="1.5"/><circle cx="2.5" cy="8" r="1.5"/><circle cx="7.5" cy="8" r="1.5"/><circle cx="2.5" cy="13.5" r="1.5"/><circle cx="7.5" cy="13.5" r="1.5"/></svg>
+        </div>
+        <a class="link-card-banner" href="${safeHref}" target="_blank" rel="noopener noreferrer">
+            ${bannerContent}
+        </a>
+        <a class="link-card-main link-card-main--compact" href="${safeHref}" target="_blank" rel="noopener noreferrer">
+            <div class="link-card-favicon-wrap">${faviconHtml}</div>
+            <div class="link-card-info">
+                <div class="link-card-title">${escHtml(link.title || domain || link.url)}</div>
+                <div class="link-card-url">${escHtml(_shortUrl(link.url))}</div>
+                ${link.description ? `<div class="link-card-desc">${escHtml(link.description)}</div>` : ""}
+            </div>
+            <span class="material-symbols-outlined link-type-badge link-type-badge--${escHtml(type)}" title="${typeInfo.label}">${typeInfo.icon}</span>
+        </a>
+        <div class="link-card-footer">
+            ${link.category ? `<span class="link-card-cat">${escHtml(link.category)}</span>` : `<span></span>`}
+            <div class="link-card-actions">
+                <button class="link-card-action-btn${link.pinned ? " active" : ""}" data-action="pin" title="${link.pinned ? "Unpin" : "Pin"}">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="${link.pinned ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                </button>
+                <button class="link-card-action-btn" data-action="edit" title="Edit">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button class="link-card-action-btn link-card-action-btn--danger" data-action="delete" title="Delete">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                </button>
+            </div>
+        </div>`;
+        return el;
+    }
+
+    // ── Standard card ──
     const faviconSrc = type.startsWith("youtube-")
         ? "https://www.google.com/s2/favicons?domain=youtube.com&sz=32"
         : domain
             ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`
             : null;
     const faviconHtml = faviconSrc
-        ? `<img class="link-card-favicon" src="${faviconSrc}" alt="" loading="lazy" onerror="this.style.display='none'">`
+        ? `<img class="link-card-favicon" src="${escHtml(faviconSrc)}" alt="" loading="lazy" onerror="this.style.display='none'">`
         : `<span class="material-symbols-outlined link-card-favicon-fb">${typeInfo.icon}</span>`;
 
     el.innerHTML = `
@@ -714,6 +783,7 @@ function _ensureCatModal() {
             <form id="form-link-cat" class="ws-modal-form" autocomplete="off">
                 <input type="hidden" id="link-cat-id-field">
                 <input type="hidden" id="link-cat-prefab-field" value="">
+                <input type="hidden" id="link-cat-icon-field" value="folder">
                 <div class="form-group" id="link-cat-prefab-group">
                     <label>Type</label>
                     <div class="lc-prefabs" id="link-cat-prefabs">
@@ -764,6 +834,7 @@ function _ensureCatModal() {
             if (!document.getElementById("link-cat-name-field").value.trim())
                 document.getElementById("link-cat-name-field").value = "Streaming";
             document.getElementById("link-cat-icon-ms").textContent = "smart_display";
+            document.getElementById("link-cat-icon-field").value = "smart_display";
             // visually select smart_display swatch if grid is rendered
             overlay.querySelectorAll(".link-cat-icon-swatch").forEach(s =>
                 s.classList.toggle("selected", s.dataset.icon === "smart_display"));
@@ -785,7 +856,9 @@ function _ensureCatModal() {
     overlay.querySelector("#link-cat-icon-grid").addEventListener("click", e => {
         const sw = e.target.closest(".link-cat-icon-swatch");
         if (!sw) return;
-        document.getElementById("link-cat-icon-ms").textContent = sw.dataset.icon;
+        const iconName = sw.dataset.icon;
+        document.getElementById("link-cat-icon-ms").textContent = iconName;
+        document.getElementById("link-cat-icon-field").value = iconName;
         overlay.querySelectorAll(".link-cat-icon-swatch").forEach(s => s.classList.toggle("selected", s === sw));
     });
 
@@ -826,6 +899,8 @@ function _openCatForm(editId) {
             b.classList.toggle("active", b.dataset.prefab === ""));
     }
     document.getElementById("link-cat-icon-ms").textContent = selectedIcon;
+    const _iconFieldEl = document.getElementById("link-cat-icon-field");
+    if (_iconFieldEl) _iconFieldEl.value = selectedIcon;
     _renderLinkCatIconGrid("");
     openModal("modal-link-cat");
     setTimeout(() => document.getElementById("link-cat-name-field").focus(), 60);
@@ -835,7 +910,8 @@ function _onCatFormSubmit(e) {
     e.preventDefault();
     const name = document.getElementById("link-cat-name-field").value.trim();
     if (!name) { toast("Enter a category name", "error"); return; }
-    const icon   = document.getElementById("link-cat-icon-ms")?.textContent.trim() || "folder";
+    const icon   = (document.getElementById("link-cat-icon-field")?.value ||
+                   document.getElementById("link-cat-icon-ms")?.textContent || "folder").trim() || "folder";
     const editId = document.getElementById("link-cat-id-field").value;
 
     let prefab = document.getElementById("link-cat-prefab-field")?.value || "";
@@ -902,6 +978,7 @@ function _openForm(editId) {
         document.getElementById("link-type-field").value       = link.type        || "website";
         _populateCatSelect(link.category || "");
         document.getElementById("link-desc-field").value       = link.description || "";
+        document.getElementById("link-thumb-field").value      = link.thumbUrl    || "";
         _updateTypeHint(link.type || "website");
     } else {
         setModalTitle("modal-link", "Add Link");
@@ -939,6 +1016,11 @@ function _autoDetectType() {
         type = "youtube-video";
     } else if (_STREAMING_DOMAINS.some(d => url.includes(d))) {
         type = "streaming-service";
+    } else if (/\.(jpg|jpeg|png|gif|webp|svg|avif|bmp)(\?|#|$)/.test(url)) {
+        type = "image";
+    } else if (/\.(3mf|stl|obj|step|gltf|glb)(\?|#|$)/.test(url) ||
+               /makerworld\.bambulab\.com|printables\.com|thingiverse\.com|thangs\.com/.test(url)) {
+        type = "3d-model";
     }
     document.getElementById("link-type-field").value = type;
     _updateTypeHint(type);
@@ -950,6 +1032,8 @@ function _updateTypeHint(type) {
     const info = TYPES[type] || TYPES.other;
     hint.innerHTML = `<span class="material-symbols-outlined" style="font-size:0.85em;vertical-align:middle;margin-right:2px">${escHtml(info.icon)}</span>${escHtml(info.label)}`;
     hint.style.display = "inline";
+    const thumbGroup = document.getElementById("link-thumb-group");
+    if (thumbGroup) thumbGroup.style.display = (type === "image" || type === "3d-model") ? "" : "none";
 }
 
 function _extractTitleFromUrl(url) {
@@ -965,6 +1049,25 @@ function _extractTitleFromUrl(url) {
     } catch { return ""; }
 }
 
+async function _fetchTitleFromStreamingPage(url) {
+    try {
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+        const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(7000) });
+        if (!res.ok) return null;
+        const json = await res.json();
+        const html = json.contents || "";
+        if (!html) return null;
+        // og:title (two attribute orderings)
+        const og = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)
+                || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
+        if (og) return og[1].replace(/\s*[|\u2013\u2014].*$/, "").trim();
+        // <title> fallback — strip " | Netflix" suffix etc.
+        const t = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+        if (t) return t[1].replace(/\s*[|\u2013\u2014-].*$/, "").trim();
+        return null;
+    } catch { return null; }
+}
+
 async function _onFormSubmit(e) {
     e.preventDefault();
     const url = document.getElementById("link-url-field").value.trim();
@@ -977,6 +1080,7 @@ async function _onFormSubmit(e) {
         type:        document.getElementById("link-type-field").value || "website",
         category:    document.getElementById("link-cat-field").value.trim(),
         description: document.getElementById("link-desc-field").value.trim(),
+        thumbUrl:    (() => { const v = document.getElementById("link-thumb-field")?.value.trim(); return (v && _isSafeUrl(v)) ? v : ""; })(),
         updatedAt:   serverTimestamp(),
     };
     const editId = document.getElementById("link-id-field").value;
@@ -1010,33 +1114,58 @@ async function _fetchTmdbMeta(urlStr, title, type) {
     if (!key) return null;
     const kind = type === "series" ? "tv" : "movie";
     try {
+        let tvId = null;
+        let basicTitle = "", basicPoster = null;
+
         // 1. If a direct TMDB URL was pasted, use the ID lookup
         const m = urlStr && urlStr.match(/themoviedb\.org\/(movie|tv)\/(\d+)/);
         if (m) {
+            const itemKind = m[1] === "tv" ? "tv" : "movie";
             const res = await fetch(
-                `https://api.themoviedb.org/3/${m[1] === "tv" ? "tv" : "movie"}/${m[2]}?api_key=${encodeURIComponent(key)}&language=en-US`
+                `https://api.themoviedb.org/3/${itemKind}/${m[2]}?api_key=${encodeURIComponent(key)}&language=en-US`
             );
             if (res.ok) {
                 const data = await res.json();
-                return {
-                    title:     data.title || data.name || "",
-                    posterUrl: data.poster_path ? `https://image.tmdb.org/t/p/w200${data.poster_path}` : null,
-                };
+                basicTitle  = data.title || data.name || "";
+                basicPoster = data.poster_path ? `https://image.tmdb.org/t/p/w200${data.poster_path}` : null;
+                if (itemKind === "tv") tvId = parseInt(m[2], 10);
             }
         }
+
         // 2. Fall back to title search
-        if (!title) return null;
-        const res = await fetch(
-            `https://api.themoviedb.org/3/search/${kind}?api_key=${encodeURIComponent(key)}&query=${encodeURIComponent(title)}&language=en-US&page=1`
-        );
-        if (!res.ok) return null;
-        const data = await res.json();
-        const hit  = (data.results || [])[0];
-        if (!hit) return null;
-        return {
-            title:     hit.title || hit.name || "",
-            posterUrl: hit.poster_path ? `https://image.tmdb.org/t/p/w200${hit.poster_path}` : null,
-        };
+        if (!basicTitle && !tvId) {
+            if (!title) return null;
+            const res = await fetch(
+                `https://api.themoviedb.org/3/search/${kind}?api_key=${encodeURIComponent(key)}&query=${encodeURIComponent(title)}&language=en-US&page=1`
+            );
+            if (!res.ok) return null;
+            const data = await res.json();
+            const hit  = (data.results || [])[0];
+            if (!hit) return null;
+            basicTitle  = hit.title || hit.name || "";
+            basicPoster = hit.poster_path ? `https://image.tmdb.org/t/p/w200${hit.poster_path}` : null;
+            if (kind === "tv") tvId = hit.id;
+        }
+
+        const result = { title: basicTitle, posterUrl: basicPoster };
+
+        // 3. For series, fetch full season/episode breakdown
+        if (kind === "tv" && tvId) {
+            try {
+                const tvRes = await fetch(
+                    `https://api.themoviedb.org/3/tv/${tvId}?api_key=${encodeURIComponent(key)}&language=en-US`
+                );
+                if (tvRes.ok) {
+                    const tvData = await tvRes.json();
+                    result.seasons = (tvData.seasons || [])
+                        .filter(s => s.season_number > 0 && s.episode_count > 0)
+                        .map(s => ({ s: s.season_number, eps: s.episode_count, watched: [] }));
+                    if (!result.title) result.title = tvData.name || "";
+                }
+            } catch {}
+        }
+
+        return result;
     } catch { return null; }
 }
 
@@ -1052,12 +1181,12 @@ async function _loadStreamItems(linkId) {
     return items;
 }
 
-async function _saveStreamItem(linkId, type, title, itemUrl, posterUrl) {
+async function _saveStreamItem(linkId, type, title, itemUrl, posterUrl, seasons) {
     const item = {
         title, type, watched: false, addedAt: Date.now(),
         ...(itemUrl   ? { url: itemUrl }            : {}),
         ...(posterUrl ? { posterUrl }               : {}),
-        ...(type === "series" ? { seasons: [] }     : {}),
+        ...(type === "series" ? { seasons: (seasons?.length ? seasons : []) } : {}),
     };
     const ref = await addDoc(_streamRef(linkId), item);
     _streamCache[linkId] = [...(_streamCache[linkId] || []), { id: ref.id, ...item }];
@@ -1089,13 +1218,21 @@ function _openHubItemForm(services) {
             const linkId = document.getElementById("sh-iaf-service").value;
             const rawUrl = document.getElementById("sh-iaf-url").value.trim();
             let   title  = document.getElementById("sh-iaf-title").value.trim();
-            if (!title && rawUrl) title = _extractTitleFromUrl(rawUrl) || rawUrl;
+            if (!title && rawUrl) title = _extractTitleFromUrl(rawUrl) || "";
             if (!title || !linkId) { toast("Enter a title and select a service", "error"); return; }
-            const itemUrl   = rawUrl && _isSafeUrl(rawUrl) ? rawUrl : null;
+            const itemUrl = rawUrl && _isSafeUrl(rawUrl) ? rawUrl : null;
             const rawPoster = document.getElementById("sh-iaf-poster-val").value || "";
-            const posterUrl = rawPoster && _isSafeUrl(rawPoster) ? rawPoster : null;
+            let   posterUrl = rawPoster && _isSafeUrl(rawPoster) ? rawPoster : null;
+            let   seasons   = [];
+            if (type === "series") {
+                const meta = await _fetchTmdbMeta(rawUrl || null, title, "series");
+                if (meta) {
+                    if (!posterUrl && meta.posterUrl) posterUrl = meta.posterUrl;
+                    if (meta.seasons?.length) seasons = meta.seasons;
+                }
+            }
             try {
-                await _saveStreamItem(linkId, type, title, itemUrl, posterUrl);
+                await _saveStreamItem(linkId, type, title, itemUrl, posterUrl, seasons);
                 form.classList.add("sd-hidden");
                 const svcs = _links.filter(l => l.category === _shCatName);
                 _renderHubContent(document.getElementById("sh-content"), _buildHubItems(svcs));
@@ -1193,6 +1330,7 @@ function _ensureStreamingDrawer() {
                     <input type="text" id="sd-add-title" class="sd-add-input" placeholder="Search title…" maxlength="120" autocomplete="off">
                     <input type="url" id="sd-add-url" class="sd-add-input sd-add-url" placeholder="Link (optional)…" autocomplete="off">
                     <input type="hidden" id="sd-add-poster" value="">
+                    <div id="sd-search-results" class="sd-search-results sd-hidden"></div>
                 </div>
                 <div class="sd-add-type-btns">
                     <button type="button" id="sd-add-save-movie" class="sd-save-btn sd-type-btn"><span class="material-symbols-outlined">movie</span>Movie</button>
@@ -1214,73 +1352,204 @@ function _ensureStreamingDrawer() {
         _renderLibrary();
     });
 
-    let _pendingType = null;
+
+    let _pendingType    = null;
+    let _selectedResult = null;
+
+    function _hideSearchResults() {
+        const el = document.getElementById("sd-search-results");
+        if (el) { el.innerHTML = ""; el.classList.add("sd-hidden"); }
+    }
+
+    function _pickResult(result) {
+        _selectedResult = result;
+        const titleInp = document.getElementById("sd-add-title");
+        const prevImg  = document.getElementById("sd-add-poster-preview");
+        titleInp.value = result.title;
+        document.getElementById("sd-add-poster").value = result.posterUrl || "";
+        if (prevImg) {
+            if (result.posterUrl) { prevImg.src = result.posterUrl; prevImg.style.display = ""; }
+            else { prevImg.src = ""; prevImg.style.display = "none"; }
+        }
+        _hideSearchResults();
+    }
+
+    async function _searchTmdbMulti(query) {
+        const key = _getTmdbKey();
+        if (!key || !query) return [];
+        try {
+            const [mvRes, tvRes] = await Promise.all([
+                fetch(`https://api.themoviedb.org/3/search/movie?api_key=${encodeURIComponent(key)}&query=${encodeURIComponent(query)}&language=en-US&page=1`),
+                fetch(`https://api.themoviedb.org/3/search/tv?api_key=${encodeURIComponent(key)}&query=${encodeURIComponent(query)}&language=en-US&page=1`),
+            ]);
+            const mvData = mvRes.ok ? (await mvRes.json()).results || [] : [];
+            const tvData = tvRes.ok ? (await tvRes.json()).results || [] : [];
+            const movies = mvData.slice(0, 5).map(r => ({
+                title:      r.title || "",
+                year:       r.release_date?.slice(0, 4) || "",
+                posterUrl:  r.poster_path ? `https://image.tmdb.org/t/p/w92${r.poster_path}` : null,
+                kind:       "movie",
+                tmdbId:     r.id,
+                popularity: r.popularity || 0,
+            }));
+            const shows = tvData.slice(0, 5).map(r => ({
+                title:      r.name || "",
+                year:       r.first_air_date?.slice(0, 4) || "",
+                posterUrl:  r.poster_path ? `https://image.tmdb.org/t/p/w92${r.poster_path}` : null,
+                kind:       "series",
+                tmdbId:     r.id,
+                popularity: r.popularity || 0,
+            }));
+            return [...movies, ...shows]
+                .sort((a, b) => b.popularity - a.popularity)
+                .slice(0, 8);
+        } catch { return []; }
+    }
+
+    let _searchTimer = null;
+    function _triggerSearch() {
+        clearTimeout(_searchTimer);
+        const titleInp = document.getElementById("sd-add-title");
+        const query = titleInp.value.trim();
+        if (!query) { _hideSearchResults(); return; }
+        if (_selectedResult && _selectedResult.title === query) return;
+        _selectedResult = null;
+        document.getElementById("sd-add-poster").value = "";
+        const prevImg = document.getElementById("sd-add-poster-preview");
+        if (prevImg) { prevImg.src = ""; prevImg.style.display = "none"; }
+        _searchTimer = setTimeout(async () => {
+            const results = await _searchTmdbMulti(query);
+            const el = document.getElementById("sd-search-results");
+            if (!el) return;
+            if (!results.length) { _hideSearchResults(); return; }
+            el.innerHTML = results.map((r, i) => `
+                <button class="sd-sr-item" data-sr-idx="${i}" type="button">
+                    ${r.posterUrl
+                        ? `<img class="sd-sr-poster" src="${escHtml(r.posterUrl)}" alt="" loading="lazy">`
+                        : `<div class="sd-sr-poster sd-sr-poster--empty"><span class="material-symbols-outlined">${r.kind === "series" ? "tv" : "movie"}</span></div>`
+                    }
+                    <div class="sd-sr-info">
+                        <span class="sd-sr-title">${escHtml(r.title)}</span>
+                        <span class="sd-sr-meta">${r.year ? escHtml(r.year) + " \u00b7 " : ""}${r.kind === "series" ? "Series" : "Movie"}</span>
+                    </div>
+                </button>
+            `).join("");
+            el.classList.remove("sd-hidden");
+            el._results = results;
+        }, 500);
+    }
+
     function showAddForm() {
+        _pendingType    = null;
+        _selectedResult = null;
         document.getElementById("sd-add-form").classList.remove("sd-hidden");
         const titleInp = document.getElementById("sd-add-title");
         const prevImg  = document.getElementById("sd-add-poster-preview");
         document.getElementById("sd-add-url").value   = "";
         titleInp.value = "";
         document.getElementById("sd-add-poster").value = "";
+        _hideSearchResults();
         if (prevImg) { prevImg.src = ""; prevImg.style.display = "none"; }
-        titleInp.placeholder = "Search title…";
+        titleInp.placeholder = "Search title\u2026";
         titleInp.focus();
     }
-    let _posterTimer = null;
-    function _triggerPosterFetch() {
-        clearTimeout(_posterTimer);
-        const url      = document.getElementById("sd-add-url").value.trim();
-        const titleInp = document.getElementById("sd-add-title");
-        const prevImg  = document.getElementById("sd-add-poster-preview");
-        const title    = titleInp.value.trim();
-        if (!url && !title) {
-            document.getElementById("sd-add-poster").value = "";
-            if (prevImg) { prevImg.src = ""; prevImg.style.display = "none"; }
-            return;
-        }
-        _posterTimer = setTimeout(async () => {
-            const meta = await _fetchTmdbMeta(url || null, title, _pendingType || "movie");
-            if (!meta) return;
-            if (meta.title) titleInp.value = meta.title;
-            document.getElementById("sd-add-poster").value = meta.posterUrl || "";
-            if (prevImg) {
-                if (meta.posterUrl) { prevImg.src = meta.posterUrl; prevImg.style.display = ""; }
-                else { prevImg.src = ""; prevImg.style.display = "none"; }
-            }
-        }, 700);
-    }
-    document.getElementById("sd-add-title").addEventListener("input", _triggerPosterFetch);
+    document.getElementById("sd-add-title").addEventListener("input", _triggerSearch);
+    let _pageTitleTimer = null;
     document.getElementById("sd-add-url").addEventListener("input", () => {
         const url      = document.getElementById("sd-add-url").value.trim();
         const titleInp = document.getElementById("sd-add-title");
         if (url && !titleInp.value.trim()) {
             const ex = _extractTitleFromUrl(url);
-            if (ex) titleInp.value = ex;
+            if (ex) {
+                titleInp.value = ex;
+                _triggerSearch();
+            } else if (_isSafeUrl(url)) {
+                titleInp.placeholder = "Fetching title\u2026";
+                clearTimeout(_pageTitleTimer);
+                _pageTitleTimer = setTimeout(async () => {
+                    const fetched = await _fetchTitleFromStreamingPage(url);
+                    if (fetched && !titleInp.value.trim()) {
+                        titleInp.value = fetched;
+                        titleInp.placeholder = "Search title\u2026";
+                        _triggerSearch();
+                    } else if (!titleInp.value.trim()) {
+                        titleInp.placeholder = "Type title to search\u2026";
+                    }
+                }, 400);
+            }
         }
-        _triggerPosterFetch();
     });
+    document.getElementById("sd-add-title").addEventListener("focus", () => {
+        document.getElementById("sd-add-title").placeholder = "Search title\u2026";
+    });
+    document.getElementById("sd-search-results").addEventListener("click", e => {
+        const btn = e.target.closest(".sd-sr-item");
+        if (!btn) return;
+        const idx = parseInt(btn.dataset.srIdx, 10);
+        const results = document.getElementById("sd-search-results")._results;
+        if (!results?.[idx]) return;
+        _pickResult(results[idx]);
+        _pendingType = results[idx].kind;
+    });
+
     document.getElementById("sd-add-fab").addEventListener("click", showAddForm);
     document.getElementById("sd-add-cancel").addEventListener("click", () => {
         document.getElementById("sd-add-form").classList.add("sd-hidden");
-        _pendingType = null;
+        _pendingType    = null;
+        _selectedResult = null;
+        _hideSearchResults();
     });
 
     async function saveItem(type) {
         _pendingType = type;
+        _hideSearchResults();
         const rawUrl = document.getElementById("sd-add-url").value.trim();
         let   title  = document.getElementById("sd-add-title").value.trim();
-        if (!title && rawUrl) title = _extractTitleFromUrl(rawUrl) || rawUrl;
-        if (!title || !_openDrawerLinkId) return;
-        const itemUrl   = rawUrl && _isSafeUrl(rawUrl) ? rawUrl : null;
-        const rawPoster = document.getElementById("sd-add-poster")?.value || "";
-        const posterUrl = rawPoster && _isSafeUrl(rawPoster) ? rawPoster : null;
+        if (!title && rawUrl) title = _extractTitleFromUrl(rawUrl) || "";
+        if (!title) { toast("Enter a title to search", "error"); return; }
+        if (!_openDrawerLinkId) return;
+        const itemUrl = rawUrl && _isSafeUrl(rawUrl) ? rawUrl : null;
+        let   posterUrl = null;
+        let   seasons   = [];
+        if (_selectedResult) {
+            posterUrl = _selectedResult.posterUrl || null;
+            title     = _selectedResult.title || title;
+            if (type === "series" && _selectedResult.tmdbId) {
+                const meta = await _fetchTmdbMeta(
+                    `https://www.themoviedb.org/tv/${_selectedResult.tmdbId}`, title, "series"
+                );
+                if (meta) {
+                    if (meta.posterUrl) posterUrl = meta.posterUrl;
+                    if (meta.seasons?.length) seasons = meta.seasons;
+                }
+            }
+        } else {
+            const rawPoster = document.getElementById("sd-add-poster")?.value || "";
+            posterUrl = rawPoster && _isSafeUrl(rawPoster) ? rawPoster : null;
+            if (type === "series") {
+                const meta = await _fetchTmdbMeta(rawUrl || null, title, "series");
+                if (meta) {
+                    if (!posterUrl && meta.posterUrl) posterUrl = meta.posterUrl;
+                    if (meta.seasons?.length) seasons = meta.seasons;
+                }
+            } else {
+                const meta = await _fetchTmdbMeta(rawUrl || null, title, "movie");
+                if (meta) {
+                    if (!posterUrl && meta.posterUrl) posterUrl = meta.posterUrl;
+                }
+            }
+        }
         try {
-            await _saveStreamItem(_openDrawerLinkId, type, title, itemUrl, posterUrl);
+            await _saveStreamItem(_openDrawerLinkId, type, title, itemUrl, posterUrl, seasons);
             document.getElementById("sd-add-form").classList.add("sd-hidden");
-            _pendingType = null;
+            _pendingType    = null;
+            _selectedResult = null;
             _renderLibrary();
         } catch (err) { console.error(err); toast("Error adding item", "error"); }
     }
+    const _setHint = type => { _pendingType = type; };
+    document.getElementById("sd-add-save-movie").addEventListener("mouseenter", () => _setHint("movie"));
+    document.getElementById("sd-add-save-series").addEventListener("mouseenter", () => _setHint("series"));
     document.getElementById("sd-add-save-movie").addEventListener("click",  () => saveItem("movie"));
     document.getElementById("sd-add-save-series").addEventListener("click", () => saveItem("series"));
     document.getElementById("sd-add-title").addEventListener("keydown", e => {
@@ -1292,292 +1561,261 @@ function _ensureStreamingDrawer() {
     document.getElementById("sd-body").addEventListener("click", _onLibraryBodyClick);
 }
 
+/* ══════════ LIBRARY OPEN / CLOSE / RENDER ══════════ */
+
 async function _openLibrary(linkId) {
-    _ensureStreamingDrawer();
     _openDrawerLinkId = linkId;
+    _ensureStreamingDrawer();
+    const link = _links.find(l => l.id === linkId);
+    if (!link) return;
 
-    const link   = _links.find(l => l.id === linkId);
-    const title  = link?.title || _domain(link?.url || "") || "Streaming";
-    const domain = _domain(link?.url || "");
+    const titleEl  = document.getElementById("sd-title");
+    const faviconEl = document.getElementById("sd-favicon");
+    const visitBtn = document.getElementById("sd-visit-btn");
+    if (titleEl)  titleEl.textContent = link.title || _domain(link.url) || "Streaming";
+    if (faviconEl) {
+        const d = _domain(link.url);
+        faviconEl.src = d ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=64` : "";
+        faviconEl.style.display = d ? "" : "none";
+    }
+    if (visitBtn && _isSafeUrl(link.url)) visitBtn.href = link.url;
 
-    document.getElementById("sd-title").textContent = title;
-    const fav = document.getElementById("sd-favicon");
-    if (domain) { fav.src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`; fav.style.display = ""; }
-    else        { fav.style.display = "none"; }
-
-    const visitEl = document.getElementById("sd-visit-btn");
-    if (link?.url && _isSafeUrl(link.url)) visitEl.href = link.url; else visitEl.removeAttribute("href");
-
-    document.getElementById("sd-add-form").classList.add("sd-hidden");
-    document.getElementById("sd-body").innerHTML = `<div class="sd-loading">Loading…</div>`;
-    document.getElementById("sd-stats").textContent = "";
     _sdActiveTab = "all";
-    document.getElementById("streaming-drawer").querySelectorAll(".sd-tab").forEach(t =>
+    const drawer = document.getElementById("streaming-drawer");
+    drawer.querySelectorAll(".sd-tab").forEach(t =>
         t.classList.toggle("sd-tab-active", t.dataset.sdTab === "all")
     );
-
-    const drawer = document.getElementById("streaming-drawer");
     drawer.classList.remove("sd-closed");
     requestAnimationFrame(() => drawer.classList.add("sd-open"));
+    document.body.style.overflow = "hidden";
 
     await _loadStreamItems(linkId);
-    if (_openDrawerLinkId === linkId) _renderLibrary();
+    _renderLibrary();
 }
 
 function _closeLibrary() {
-    const el = document.getElementById("streaming-drawer");
-    if (!el) return;
-    el.classList.remove("sd-open");
-    el.addEventListener("transitionend", () => {
-        if (!el.classList.contains("sd-open")) el.classList.add("sd-closed");
-    }, { once: true });
+    const drawer = document.getElementById("streaming-drawer");
+    if (drawer) { drawer.classList.remove("sd-open"); drawer.classList.add("sd-closed"); }
+    document.body.style.overflow = "";
     _openDrawerLinkId = null;
 }
 
 function _renderLibrary() {
-    const linkId = _openDrawerLinkId;
-    if (!linkId) return;
-    const items  = _streamCache[linkId] || [];
-    const movies = items.filter(i => i.type === "movie");
-    const series = items.filter(i => i.type === "series");
-    const mDone  = movies.filter(i => i.watched).length;
-    let totalEps = 0, doneEps = 0;
-    series.forEach(s => (s.seasons || []).forEach(se => { totalEps += se.eps || 0; doneEps += (se.watched || []).length; }));
+    const body = document.getElementById("sd-body");
+    if (!body || !_openDrawerLinkId) return;
+    const items   = _streamCache[_openDrawerLinkId] || [];
+    const movies  = items.filter(i => i.type !== "series");
+    const series  = items.filter(i => i.type === "series");
 
-    const totalTracked = movies.length + totalEps;
-    const doneTracked  = mDone + doneEps;
-    const pctOverall   = totalTracked ? Math.round(doneTracked / totalTracked * 100) : 0;
+    const totalMovies = movies.length;
+    const watchedMov  = movies.filter(m => m.watched).length;
+    const totalEps    = series.reduce((a, s) => a + (s.seasons || []).reduce((b, se) => b + (se.eps || 0), 0), 0);
+    const watchedEps  = series.reduce((a, s) => a + (s.seasons || []).reduce((b, se) => b + (se.watched?.length || 0), 0), 0);
 
-    const parts = [];
-    if (movies.length) parts.push(`${mDone}/${movies.length} movies`);
-    if (series.length) parts.push(`${doneEps}/${totalEps} eps`);
-    document.getElementById("sd-stats").textContent = parts.join(" · ") || "Nothing tracked yet";
-    const fill = document.getElementById("sd-progress-fill");
-    if (fill) fill.style.width = `${pctOverall}%`;
+    const statsEl = document.getElementById("sd-stats");
+    if (statsEl) {
+        const parts = [];
+        if (totalMovies) parts.push(`${watchedMov}/${totalMovies} movie${totalMovies !== 1 ? "s" : ""}`);
+        if (series.length) parts.push(`${watchedEps}/${totalEps} ep${totalEps !== 1 ? "s" : ""}`);
+        statsEl.textContent = parts.join(" · ");
+    }
+    const progFill = document.getElementById("sd-progress-fill");
+    if (progFill) {
+        const total = totalMovies + totalEps;
+        const done  = watchedMov + watchedEps;
+        progFill.style.width = total ? `${Math.round(done / total * 100)}%` : "0%";
+    }
+
+    if (!items.length) {
+        body.innerHTML = `<div class="sh-empty"><span class="material-symbols-outlined">video_library</span><p>No movies or series added yet.</p></div>`;
+        return;
+    }
 
     const showMovies = _sdActiveTab === "all" || _sdActiveTab === "movie";
     const showSeries = _sdActiveTab === "all" || _sdActiveTab === "series";
-
-    const body = document.getElementById("sd-body");
-    if (!items.length) {
-        body.innerHTML = `<div class="sd-empty"><span class="material-symbols-outlined" style="font-size:2.5rem;opacity:.18">video_library</span><span>Add movies and series to track.</span></div>`;
-        return;
-    }
-
     let html = "";
 
     if (showMovies && movies.length) {
-        html += `<div class="sd-section">
-            <div class="sd-section-hdr"><span class="material-symbols-outlined">movie</span>Movies<span class="sd-section-count">${mDone}/${movies.length}</span></div>
-            <div class="sd-movies-grid">` +
-        movies.map(m => {
-            const rawUrl   = m.url && _isSafeUrl(m.url) ? m.url : (m.title && _isSafeUrl(m.title) ? m.title : null);
-            const safeUrl  = rawUrl ? escHtml(rawUrl) : null;
-            const dispTitle = m.title && !_isSafeUrl(m.title)
-                ? m.title
-                : (rawUrl ? _extractTitleFromUrl(rawUrl) || rawUrl : m.title || "");
-            return `
-            <div class="sd-movie-card${m.watched ? " sd-movie-watched" : ""}">
-                ${safeUrl
-                    ? `<a class="sd-movie-poster" href="${safeUrl}" target="_blank" rel="noopener noreferrer">`
-                    : `<div class="sd-movie-poster">`}
-                    ${m.posterUrl && _isSafeUrl(m.posterUrl)
-                        ? `<img class="sd-movie-poster-img" src="${escHtml(m.posterUrl)}" alt="" loading="lazy">`
-                        : `<span class="material-symbols-outlined sd-movie-icon">movie</span>`}
+        html += `<div class="sh-section"><div class="sh-section-hdr"><span class="material-symbols-outlined">movie</span>Movies<span class="sh-section-count">${watchedMov}/${totalMovies}</span></div><div class="sd-movies-grid">`;
+        html += movies.map(m => {
+            const rawUrl    = m.url && _isSafeUrl(m.url) ? m.url : null;
+            const safeUrl   = rawUrl ? escHtml(rawUrl) : null;
+            const dispTitle = m.title || (rawUrl ? _extractTitleFromUrl(rawUrl) || rawUrl : "");
+            return `<div class="sd-movie-card${m.watched ? " sd-movie-watched" : ""}" data-sd-item-id="${escHtml(m.id)}">
+                ${safeUrl ? `<a class="sd-movie-poster" href="${safeUrl}" target="_blank" rel="noopener noreferrer">` : `<div class="sd-movie-poster">`}
+                    ${m.posterUrl && _isSafeUrl(m.posterUrl) ? `<img class="sd-movie-poster-img" src="${escHtml(m.posterUrl)}" alt="" loading="lazy">` : `<span class="material-symbols-outlined sd-movie-icon">movie</span>`}
                     <div class="sd-movie-watched-overlay"><span class="material-symbols-outlined">check_circle</span></div>
                 ${safeUrl ? `</a>` : `</div>`}
-                <button class="sd-watched-toggle" data-item-action="toggle-movie" data-item-id="${escHtml(m.id)}" title="${m.watched ? "Mark unwatched" : "Mark watched"}">
+                <button class="sd-watched-toggle" data-toggle-watched data-sd-item-id="${escHtml(m.id)}" title="${m.watched ? "Mark unwatched" : "Mark watched"}">
                     <span class="material-symbols-outlined">${m.watched ? "check_circle" : "radio_button_unchecked"}</span>
                 </button>
                 <div class="sd-movie-info">
-                    ${safeUrl
-                        ? `<a class="sd-movie-title sd-movie-title-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${escHtml(dispTitle)}">${escHtml(dispTitle)}</a>`
-                        : `<span class="sd-movie-title" title="${escHtml(dispTitle)}">${escHtml(dispTitle)}</span>`}
-                    <button class="sd-del-btn" data-item-action="delete" data-item-id="${escHtml(m.id)}" title="Remove">
-                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    </button>
+                    ${safeUrl ? `<a class="sd-movie-title sd-movie-title-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${escHtml(dispTitle)}">${escHtml(dispTitle)}</a>` : `<span class="sd-movie-title" title="${escHtml(dispTitle)}">${escHtml(dispTitle)}</span>`}
                 </div>
-            </div>`;}).join("") +
-        `</div></div>`;
+                <button class="sd-icon-btn sd-icon-btn--danger sd-del-btn" data-delete-item="${escHtml(m.id)}" title="Remove">
+                    <span class="material-symbols-outlined" style="font-size:13px">delete</span>
+                </button>
+            </div>`;
+        }).join("");
+        html += `</div></div>`;
     }
 
     if (showSeries && series.length) {
-        const seriesEpsDone  = series.reduce((a, s) => a + (s.seasons || []).reduce((b, se) => b + (se.watched || []).length, 0), 0);
-        const seriesEpsTotal = series.reduce((a, s) => a + (s.seasons || []).reduce((b, se) => b + (se.eps || 0), 0), 0);
-        html += `<div class="sd-section">
-            <div class="sd-section-hdr"><span class="material-symbols-outlined">tv</span>Series<span class="sd-section-count">${seriesEpsDone}/${seriesEpsTotal} eps</span></div>
-            <div class="sd-movies-grid">` +
-        series.map(s => {
+        html += `<div class="sh-section"><div class="sh-section-hdr"><span class="material-symbols-outlined">tv</span>Series<span class="sh-section-count">${series.length}</span></div><div class="sd-movies-grid">`;
+        html += series.map(s => {
             const tot  = (s.seasons || []).reduce((a, se) => a + (se.eps || 0), 0);
-            const done = (s.seasons || []).reduce((a, se) => a + (se.watched || []).length, 0);
+            const done = (s.seasons || []).reduce((a, se) => a + (se.watched?.length || 0), 0);
             const pct  = tot ? Math.round(done / tot * 100) : 0;
-            const sRawUrl = s.url && _isSafeUrl(s.url) ? s.url : (s.title && _isSafeUrl(s.title) ? s.title : null);
-            const sDisp = s.title && !_isSafeUrl(s.title) ? s.title : (sRawUrl ? _extractTitleFromUrl(sRawUrl) || sRawUrl : s.title || "");
-            const seasonsHtml = (s.seasons || []).map((se, idx) => {
-                const eps     = se.eps || 0;
-                const wSet    = new Set(se.watched || []);
-                const allDone = wSet.size === eps && eps > 0;
-                const bubbles = Array.from({ length: eps }, (_, i) => i + 1)
-                    .map(ep => `<button class="sd-ep${wSet.has(ep) ? " sd-ep-done" : ""}" data-item-action="toggle-ep" data-item-id="${escHtml(s.id)}" data-season="${idx}" data-ep="${ep}" title="S${se.s}E${ep}">${ep}</button>`)
-                    .join("");
-                return `
-                    <div class="sd-season-row">
-                        <span class="sd-s-label${allDone ? " sd-s-done" : ""}">S${se.s}</span>
-                        <div class="sd-ep-wrap">${bubbles}</div>
-                        <span class="sd-ep-count">${wSet.size}/${eps}</span>
+            const rawUrl    = s.url && _isSafeUrl(s.url) ? s.url : null;
+            const safeUrl   = rawUrl ? escHtml(rawUrl) : null;
+            const dispTitle = s.title || (rawUrl ? _extractTitleFromUrl(rawUrl) || rawUrl : "");
+            const isExpanded = _sdExpandedIds.has(s.id);
+            const allDone    = tot > 0 && done === tot;
+            const seasonsHtml = s.seasons?.length
+                ? `<div class="sd-seasons">${s.seasons.map((se, si) => {
+                    const sDone    = (se.watched || []).length;
+                    const sAllDone = sDone === se.eps;
+                    const epBubbles = Array.from({ length: se.eps }, (_, ei) => {
+                        const ep      = ei + 1;
+                        const watched = (se.watched || []).includes(ep);
+                        return `<button class="sd-ep${watched ? " sd-ep-done" : ""}" data-sd-item-id="${escHtml(s.id)}" data-season-idx="${si}" data-ep-n="${ep}" title="E${ep}">${ep}</button>`;
+                    }).join("");
+                    return `<div class="sd-season-row">
+                        <button class="sd-s-label${sAllDone ? " sd-s-done" : ""}" data-toggle-season data-sd-item-id="${escHtml(s.id)}" data-season-idx="${si}" title="Toggle season ${se.s}">S${se.s}</button>
+                        <div class="sd-ep-wrap">${epBubbles}</div>
+                        <span class="sd-ep-count">${sDone}/${se.eps}</span>
                     </div>`;
-            }).join("");
-            return `
-            <div class="sd-movie-card sd-series-tile" data-item-id="${escHtml(s.id)}">
-                <button class="sd-movie-poster" data-item-action="expand-series" data-item-id="${escHtml(s.id)}">
-                    ${s.posterUrl && _isSafeUrl(s.posterUrl)
-                        ? `<img class="sd-movie-poster-img" src="${escHtml(s.posterUrl)}" alt="" loading="lazy">`
-                        : `<span class="material-symbols-outlined sd-movie-icon">tv</span>`}
+                }).join("")}</div>`
+                : `<div class="sd-no-seasons">No season data</div>`;
+
+            return `<div class="sd-movie-card sd-series-tile" data-sd-item-id="${escHtml(s.id)}">
+                ${safeUrl ? `<a class="sd-movie-poster" href="${safeUrl}" target="_blank" rel="noopener noreferrer">` : `<div class="sd-movie-poster">`}
+                    ${s.posterUrl && _isSafeUrl(s.posterUrl) ? `<img class="sd-movie-poster-img" src="${escHtml(s.posterUrl)}" alt="" loading="lazy">` : `<span class="material-symbols-outlined sd-movie-icon">tv</span>`}
                     ${tot > 0 ? `<div class="sd-tile-prog"><div class="sd-tile-prog-fill" style="width:${pct}%"></div></div>` : ""}
                     ${s.seasons?.length ? `<div class="sd-season-badge">${s.seasons.length} S</div>` : ""}
-                </button>
+                ${safeUrl ? `</a>` : `</div>`}
                 <div class="sd-movie-info">
-                    <span class="sd-movie-title" title="${escHtml(sDisp)}">${escHtml(sDisp)}</span>
-                    <button class="sd-del-btn" data-item-action="delete" data-item-id="${escHtml(s.id)}" title="Remove">
-                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    ${safeUrl ? `<a class="sd-movie-title sd-movie-title-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${escHtml(dispTitle)}">${escHtml(dispTitle)}</a>` : `<span class="sd-movie-title" title="${escHtml(dispTitle)}">${escHtml(dispTitle)}</span>`}
+                    <button class="sd-expand-toggle" data-toggle-expand="${escHtml(s.id)}" title="${isExpanded ? "Collapse" : "Expand seasons"}">
+                        <span class="material-symbols-outlined">${isExpanded ? "expand_less" : "expand_more"}</span>
                     </button>
                 </div>
-                <div class="sd-series-expand sd-hidden">
-                    ${seasonsHtml ? `<div class="sd-seasons">${seasonsHtml}</div>` : ""}
-                    ${!s.seasons?.length ? `<div class="sd-no-seasons">No seasons yet.</div>` : ""}
-                    <button class="sd-sf-add-btn" data-item-action="add-season" data-item-id="${escHtml(s.id)}">
-                        <span class="material-symbols-outlined" style="font-size:11px">add</span>Season
-                    </button>
+                <div class="sd-series-expand${isExpanded ? "" : " sd-hidden"}">
+                    <div class="sd-expand-hdr">
+                        <button class="sd-toggle-show${allDone ? " sd-toggle-show--done" : ""}" data-toggle-show data-sd-item-id="${escHtml(s.id)}" title="${allDone ? "Unwatch all" : "Watch all"}">
+                            <span class="material-symbols-outlined" style="font-size:14px">${allDone ? "remove_done" : "done_all"}</span>
+                            ${allDone ? "Unwatch all" : "Watch all"}
+                        </button>
+                    </div>
+                    ${seasonsHtml}
                 </div>
+                <button class="sd-icon-btn sd-icon-btn--danger sd-del-btn" data-delete-item="${escHtml(s.id)}" title="Remove">
+                    <span class="material-symbols-outlined" style="font-size:13px">delete</span>
+                </button>
             </div>`;
-        }).join("") +
-        `</div></div>`;
+        }).join("");
+        html += `</div></div>`;
     }
 
     if (!html) {
-        const typeName = _sdActiveTab === "movie" ? "movies" : "series";
-        html = `<div class="sd-empty"><span class="material-symbols-outlined" style="font-size:2.5rem;opacity:.18">${_sdActiveTab === "movie" ? "movie" : "tv"}</span><span>No ${typeName} tracked yet.</span></div>`;
+        const label = _sdActiveTab === "movie" ? "movies" : "series";
+        html = `<div class="sh-empty"><span class="material-symbols-outlined">${_sdActiveTab === "movie" ? "movie" : "tv"}</span><p>No ${label} tracked yet.</p></div>`;
     }
-
     body.innerHTML = html;
-
-    // Restore expanded series tiles
-    _sdExpandedIds.forEach(id => {
-        const tile = body.querySelector(`.sd-series-tile[data-item-id="${id}"]`);
-        tile?.querySelector(".sd-series-expand")?.classList.remove("sd-hidden");
-    });
 }
 
 async function _onLibraryBodyClick(e) {
-    const btn    = e.target.closest("[data-item-action]");
-    if (!btn) return;
-    const action = btn.dataset.itemAction;
-    const itemId = btn.dataset.itemId;
-    const linkId = _openDrawerLinkId;
-    if (!linkId || !itemId) return;
-    if (action === "expand-series") {
-        const tile = btn.closest(".sd-series-tile");
-        const exp  = tile?.querySelector(".sd-series-expand");
-        if (!exp) return;
-        const id = tile.dataset.itemId;
-        exp.classList.toggle("sd-hidden");
-        exp.classList.contains("sd-hidden") ? _sdExpandedIds.delete(id) : _sdExpandedIds.add(id);
+    // Toggle watched (movie)
+    const toggleWatched = e.target.closest("[data-toggle-watched]");
+    if (toggleWatched) {
+        const itemId = toggleWatched.dataset.sdItemId;
+        const item   = (_streamCache[_openDrawerLinkId] || []).find(i => i.id === itemId);
+        if (!item) return;
+        item.watched = !item.watched;
+        try {
+            await updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", itemId), { watched: item.watched });
+            _renderLibrary();
+        } catch (err) { console.error(err); item.watched = !item.watched; }
         return;
     }
-    const items = _streamCache[linkId] || [];
-    const item  = items.find(i => i.id === itemId);
-    if (!item) return;
 
-    if (action === "toggle-movie") {
-        item.watched = !item.watched;
-        try { await updateDoc(doc(_db, "users", _user.uid, "gallery-links", linkId, "streaming-items", itemId), { watched: item.watched }); }
-        catch (err) { console.error(err); }
-        _renderLibrary();
-
-    } else if (action === "toggle-ep") {
-        const sIdx = parseInt(btn.dataset.season, 10);
-        const ep   = parseInt(btn.dataset.ep, 10);
-        const se   = item.seasons?.[sIdx];
-        if (!se) return;
-        const wSet = new Set(se.watched || []);
-        wSet.has(ep) ? wSet.delete(ep) : wSet.add(ep);
-        se.watched = [...wSet].sort((a, b) => a - b);
-        try { await updateDoc(doc(_db, "users", _user.uid, "gallery-links", linkId, "streaming-items", itemId), { seasons: item.seasons }); }
-        catch (err) { console.error(err); }
-        _renderLibrary();
-
-    } else if (action === "add-season") {
-        const expand = btn.closest(".sd-series-expand");
-        if (!expand || expand.querySelector(".sd-season-form")) return;
-        const nextS = (item.seasons?.length || 0) + 1;
-        const form  = document.createElement("div");
-        form.className = "sd-season-form";
-        form.innerHTML = `
-            <span class="sd-sf-label">S${nextS} eps:</span>
-            <input type="number" class="sd-sf-input" min="1" max="99" placeholder="?" autocomplete="off">
-            <button type="button" class="sd-save-btn sd-sf-ok">Add</button>
-            <button type="button" class="sd-cancel-btn sd-sf-x">✕</button>`;
-        expand.insertBefore(form, btn);
-        form.querySelector(".sd-sf-input").focus();
-        form.querySelector(".sd-sf-x").addEventListener("click", () => form.remove());
-        const doAdd = async () => {
-            const eps = parseInt(form.querySelector(".sd-sf-input").value, 10);
-            if (!eps || eps < 1 || eps > 99) { form.querySelector(".sd-sf-input").style.borderColor = "var(--danger)"; return; }
-            item.seasons = [...(item.seasons || []), { s: nextS, eps, watched: [] }];
-            form.remove();
-            _sdExpandedIds.add(itemId); // keep expanded after re-render
-            try { await updateDoc(doc(_db, "users", _user.uid, "gallery-links", linkId, "streaming-items", itemId), { seasons: item.seasons }); }
-            catch (err) { console.error(err); }
-            _renderLibrary();
-        };
-        form.querySelector(".sd-sf-ok").addEventListener("click", doAdd);
-        form.querySelector(".sd-sf-input").addEventListener("keydown", e => {
-            if (e.key === "Enter")  doAdd();
-            if (e.key === "Escape") form.remove();
-        });
-
-    } else if (action === "delete") {
-        const ok = await confirm(`Remove "${item.title}"?`);
-        if (!ok) return;
+    // Toggle single episode
+    const epBtn = e.target.closest(".sd-ep");
+    if (epBtn) {
+        const itemId = epBtn.dataset.sdItemId;
+        const si     = parseInt(epBtn.dataset.seasonIdx, 10);
+        const ep     = parseInt(epBtn.dataset.epN, 10);
+        const item   = (_streamCache[_openDrawerLinkId] || []).find(i => i.id === itemId);
+        if (!item || !item.seasons?.[si]) return;
+        const watched = [...(item.seasons[si].watched || [])];
+        const idx = watched.indexOf(ep);
+        if (idx === -1) watched.push(ep); else watched.splice(idx, 1);
+        item.seasons[si].watched = watched;
         try {
-            await deleteDoc(doc(_db, "users", _user.uid, "gallery-links", linkId, "streaming-items", itemId));
-            _streamCache[linkId] = _streamCache[linkId].filter(i => i.id !== itemId);
-        } catch (err) { console.error(err); toast("Error removing", "error"); return; }
-        _renderLibrary();
+            await updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", itemId), { seasons: item.seasons });
+            _renderLibrary();
+        } catch (err) { console.error(err); }
+        return;
     }
-}
 
-function _showReturnPrompt(linkId, serviceTitle) {
-    document.getElementById("sd-return-prompt")?.remove();
-    const el = document.createElement("div");
-    el.id = "sd-return-prompt";
-    el.className = "sd-return-prompt";
-    el.innerHTML = `
-        <span class="material-symbols-outlined" style="font-size:1rem;flex-shrink:0;opacity:.7">smart_display</span>
-        <span>Back from <strong>${escHtml(serviceTitle)}</strong>? Update your library.</span>
-        <button id="sd-rp-open" class="ws-btn ws-btn-accent ws-btn-sm">Open</button>
-        <button id="sd-rp-dismiss" class="link-card-action-btn" title="Dismiss">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>`;
-    document.body.appendChild(el);
-    requestAnimationFrame(() => el.classList.add("visible"));
-    const dismiss = () => { el.classList.remove("visible"); setTimeout(() => el.remove(), 220); };
-    document.getElementById("sd-rp-open").addEventListener("click", () => { dismiss(); _openLibrary(linkId); });
-    document.getElementById("sd-rp-dismiss").addEventListener("click", dismiss);
-    setTimeout(dismiss, 10000);
-}
+    // Toggle season (all eps in one season)
+    const seasonToggle = e.target.closest("[data-toggle-season]");
+    if (seasonToggle) {
+        const itemId = seasonToggle.dataset.sdItemId;
+        const si     = parseInt(seasonToggle.dataset.seasonIdx, 10);
+        const item   = (_streamCache[_openDrawerLinkId] || []).find(i => i.id === itemId);
+        if (!item || !item.seasons?.[si]) return;
+        const se      = item.seasons[si];
+        const allDone = (se.watched || []).length === se.eps;
+        se.watched    = allDone ? [] : Array.from({ length: se.eps }, (_, i) => i + 1);
+        try {
+            await updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", itemId), { seasons: item.seasons });
+            _renderLibrary();
+        } catch (err) { console.error(err); }
+        return;
+    }
 
-/* ══════════ HELPERS ══════════ */
+    // Toggle show (all seasons)
+    const showToggle = e.target.closest("[data-toggle-show]");
+    if (showToggle) {
+        const itemId = showToggle.dataset.sdItemId;
+        const item   = (_streamCache[_openDrawerLinkId] || []).find(i => i.id === itemId);
+        if (!item) return;
+        const tot     = (item.seasons || []).reduce((a, se) => a + (se.eps || 0), 0);
+        const done    = (item.seasons || []).reduce((a, se) => a + (se.watched?.length || 0), 0);
+        const allDone = tot > 0 && done === tot;
+        item.seasons  = (item.seasons || []).map(se => ({
+            ...se, watched: allDone ? [] : Array.from({ length: se.eps }, (_, i) => i + 1),
+        }));
+        try {
+            await updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", itemId), { seasons: item.seasons });
+            _renderLibrary();
+        } catch (err) { console.error(err); }
+        return;
+    }
 
-function _isSafeUrl(url) {
-    try { const u = new URL(url); return u.protocol === "http:" || u.protocol === "https:"; }
-    catch { return false; }
-}
-function _domain(url) { try { return new URL(url).hostname; } catch { return null; } }
-function _shortUrl(url) {
-    try {
-        const u = new URL(url);
-        const p = u.pathname !== "/" ? u.pathname.replace(/\/$/, "") : "";
-        return u.hostname + (p.length > 32 ? p.slice(0, 32) + "…" : p);
-    } catch { return url; }
+    // Expand/collapse series seasons
+    const expandToggle = e.target.closest("[data-toggle-expand]");
+    if (expandToggle) {
+        const itemId = expandToggle.dataset.toggleExpand;
+        if (_sdExpandedIds.has(itemId)) _sdExpandedIds.delete(itemId);
+        else _sdExpandedIds.add(itemId);
+        _renderLibrary();
+        return;
+    }
+
+    // Delete item
+    const delBtn = e.target.closest("[data-delete-item]");
+    if (delBtn) {
+        const itemId = delBtn.dataset.deleteItem;
+        const items  = _streamCache[_openDrawerLinkId] || [];
+        const item   = items.find(i => i.id === itemId);
+        if (!await confirm(`Remove "${item?.title || "this item"}"?`)) return;
+        try {
+            await deleteDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", itemId));
+            _streamCache[_openDrawerLinkId] = items.filter(i => i.id !== itemId);
+            _sdExpandedIds.delete(itemId);
+            _renderLibrary();
+        } catch (err) { console.error(err); toast("Error removing item", "error"); }
+    }
 }
