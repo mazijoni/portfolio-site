@@ -33,16 +33,8 @@ import { initGmail }       from "./apps/gmail.js";
 let firebaseConfig;
 let googleClientId = "";
 let tmdbKey = "";
-const isLocal =
-    location.hostname === "localhost" ||
-    location.hostname === "127.0.0.1";
-
-if (isLocal) {
-    try { ({ firebaseConfig, googleClientId, tmdbKey } = await import("../../firebase.local.js")); }
-    catch { ({ firebaseConfig, googleClientId, tmdbKey } = await import("../../firebase.js")); }
-} else {
-    ({ firebaseConfig, googleClientId, tmdbKey } = await import("../../firebase.js"));
-}
+try { ({ firebaseConfig, googleClientId, tmdbKey } = await import("../../firebase.local.js")); }
+catch { ({ firebaseConfig, googleClientId, tmdbKey } = await import("../../firebase.js")); }
 
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
