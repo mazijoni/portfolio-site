@@ -3324,6 +3324,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 @media (max-width: 600px) {
     body {
         flex-direction: column;
+        height: 100dvh;
     }
     #hub-nav {
         order: 2;
