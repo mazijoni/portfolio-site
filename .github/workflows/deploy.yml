@@ -22,12 +22,14 @@ jobs:
           sed -i "s|%%FIREBASE_MESSAGING_SENDER_ID%%|${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}|g" $FILES
           sed -i "s|%%FIREBASE_APP_ID%%|${{ secrets.FIREBASE_APP_ID }}|g" $FILES
           sed -i "s|%%FIREBASE_MEASUREMENT_ID%%|${{ secrets.FIREBASE_MEASUREMENT_ID }}|g" $FILES
+          sed -i "s|%%GOOGLE_CLIENT_ID%%|${{ secrets.GOOGLE_CLIENT_ID }}|g" firebase.js
+          sed -i "s|%%TMDB_API_KEY%%|${{ secrets.TMDB_API_KEY }}|g" firebase.js
 
       - name: Verify substitution succeeded
         run: |
           FAIL=0
           for f in login.html firebase.js; do
-            if grep -q "%%FIREBASE" "$f"; then
+            if grep -qE "%%[A-Z_]+%%" "$f"; then
               echo "ERROR: Placeholder found in $f — secret may be missing or misspelled."
               FAIL=1
             else

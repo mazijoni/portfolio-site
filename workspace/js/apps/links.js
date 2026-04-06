@@ -48,6 +48,16 @@ const _CATS_KEY = () => `linksCats_${_user?.uid}`;
 function _loadCats() {
     try { _cats = JSON.parse(localStorage.getItem(_CATS_KEY()) || "[]"); }
     catch { _cats = []; }
+    // Migrate: auto-apply streaming prefab to any existing "Streaming" category
+    let migrated = false;
+    _cats = _cats.map(c => {
+        if (c.name.toLowerCase() === "streaming" && !c.prefab) {
+            migrated = true;
+            return { ...c, prefab: "streaming", icon: "smart_display" };
+        }
+        return c;
+    });
+    if (migrated) _saveCats();
 }
 function _saveCats() {
     try { localStorage.setItem(_CATS_KEY(), JSON.stringify(_cats)); } catch {}
