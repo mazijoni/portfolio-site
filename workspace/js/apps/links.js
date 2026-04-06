@@ -57,7 +57,8 @@ function _syncCatsFromLinks() {
     let changed = false;
     _links.forEach(l => {
         if (l.category && !known.has(l.category)) {
-            _cats.push({ id: `cat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name: l.category, icon: "folder" });
+            const isStreaming = l.category.toLowerCase() === "streaming";
+            _cats.push({ id: `cat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name: l.category, icon: isStreaming ? "smart_display" : "folder", ...(isStreaming ? { prefab: "streaming" } : {}) });
             known.add(l.category);
             changed = true;
         }
@@ -827,11 +828,12 @@ function _onCatFormSubmit(e) {
     const icon   = document.getElementById("link-cat-icon-ms")?.textContent.trim() || "folder";
     const editId = document.getElementById("link-cat-id-field").value;
 
-    const prefab = document.getElementById("link-cat-prefab-field")?.value || "";
+    let prefab = document.getElementById("link-cat-prefab-field")?.value || "";
+    if (!prefab && name.toLowerCase() === "streaming") prefab = "streaming";
     if (editId) {
         const old = _cats.find(c => c.id === editId);
         const oldName = old?.name;
-        _cats = _cats.map(c => c.id === editId ? { ...c, name, icon } : c);
+        _cats = _cats.map(c => c.id === editId ? { ...c, name, icon, ...(prefab ? { prefab } : (c.prefab ? { prefab: c.prefab } : {})) } : c);
         if (oldName && oldName !== name) {
             const toUpdate = _links.filter(l => l.category === oldName);
             Promise.all(toUpdate.map(l =>
@@ -844,6 +846,7 @@ function _onCatFormSubmit(e) {
         if (_cats.some(c => c.name.toLowerCase() === name.toLowerCase())) {
             toast("Category already exists", "error"); return;
         }
+        if (!prefab && name.toLowerCase() === "streaming") prefab = "streaming";
         _cats.push({ id: `cat-${Date.now()}`, name, icon, ...(prefab ? { prefab } : {}) });
         toast("Category created", "success");
     }
