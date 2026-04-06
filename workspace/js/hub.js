@@ -26,5 +26,6 @@ export function switchApp(appName) {
     const appEl = document.getElementById("app-" + appName);
     if (appEl) appEl.classList.add("active");
 
+    document.body.dataset.hubApp = appName;
     sessionStorage.setItem("hub_app", appName);
 }
