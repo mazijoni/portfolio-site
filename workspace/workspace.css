@@ -3800,6 +3800,56 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     object-fit: contain;
 }
 
+/* ── Media card (image / 3d-model) ── */
+.link-card--media {
+    /* banner makes the card naturally taller; no span needed for auto rows */
+}
+.link-card-banner {
+    display: block;
+    width: 100%;
+    height: 160px;
+    background: var(--bg-sidebar);
+    overflow: hidden;
+    position: relative;
+    text-decoration: none;
+    flex-shrink: 0;
+}
+.link-card-banner:hover { opacity: 0.9; }
+.link-card-banner-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.2s ease;
+}
+.link-card-banner:hover .link-card-banner-img { transform: scale(1.03); }
+.link-card-banner--error .link-card-banner-img { display: none; }
+.link-card-banner--error::after {
+    content: "broken_image";
+    font-family: "Material Symbols Outlined";
+    font-size: 2rem;
+    color: var(--text-muted);
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.35;
+}
+.link-card-banner-icon {
+    font-size: 3rem !important;
+    color: var(--text-muted);
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.4;
+}
+.link-card-main--compact {
+    padding: 0.6rem 0.85rem;
+}
+
 .link-card-info { flex: 1; min-width: 0; }
 
 .link-card-title {
@@ -4757,7 +4807,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-cancel-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
 
 /* ── Body ── */
-.sd-body { flex: 1; overflow-y: auto; background: #111; }
+.sd-body { flex: 1; overflow-y: auto; background: #111; padding: 1rem 0.85rem 1.5rem; }
 .sd-body::-webkit-scrollbar { width: 4px; }
 .sd-body::-webkit-scrollbar-track { background: transparent; }
 .sd-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
@@ -4787,7 +4837,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     gap: 0.55rem;
 }
 .sd-movie-card {
-    border-radius: 4px; overflow: hidden;
+    border-radius: 4px; overflow: hidden; position: relative;
     background: #1a1a1a; border: 1px solid rgba(255,255,255,0.06);
     transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
 }
@@ -4859,22 +4909,46 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-icon-btn--danger:hover { color: #e50914; background: rgba(229,9,20,0.1); }
 
 /* ── Season rows ── */
-.sd-seasons { display: flex; flex-direction: column; gap: 0.3rem; }
-.sd-season-row { display: flex; align-items: center; gap: 0.4rem; }
-.sd-s-label { font-size: 0.61rem; font-weight: 600; color: rgba(255,255,255,0.28); width: 20px; flex-shrink: 0; }
+.sd-seasons { display: flex; flex-direction: column; gap: 0.5rem; }
+.sd-season-row { display: flex; align-items: center; gap: 0.55rem; }
+.sd-s-label { font-size: 0.74rem; font-weight: 700; color: rgba(255,255,255,0.35); width: 26px; flex-shrink: 0; background: none; border: none; padding: 0; font-family: inherit; cursor: pointer; }
+.sd-s-label:hover { color: rgba(255,255,255,0.8); }
 .sd-s-label.sd-s-done { color: #e50914; }
-.sd-ep-wrap { display: flex; flex-wrap: wrap; gap: 2px; flex: 1; }
+.sd-s-label.sd-s-done:hover { color: #ff3d3d; }
+.sd-expand-hdr { display: flex; justify-content: flex-end; margin-bottom: 0.35rem; }
+.sd-toggle-show {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: none; border: none; color: rgba(255,255,255,0.35);
+    cursor: pointer; font-size: 0.74rem; font-family: inherit;
+    padding: 0.2rem 0.35rem; border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+}
+.sd-toggle-show:hover { color: #fff; background: rgba(255,255,255,0.07); }
+.sd-toggle-show--done { color: #e50914; }
+.sd-toggle-show--done:hover { color: #e50914; background: rgba(229,9,20,0.08); }
+.sd-ep-wrap { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
 .sd-ep {
-    width: 18px; height: 18px; border-radius: 3px;
-    border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
-    color: rgba(255,255,255,0.28); font-size: 0.52rem;
+    width: 26px; height: 26px; border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.13); background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.4); font-size: 0.68rem;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
     transition: all 0.12s; padding: 0; font-family: inherit; flex-shrink: 0;
 }
-.sd-ep:hover { border-color: #e50914; color: #e50914; }
+.sd-ep:hover { border-color: #e50914; color: #e50914; background: rgba(229,9,20,0.08); }
 .sd-ep.sd-ep-done { background: #e50914; border-color: #e50914; color: #fff; }
-.sd-ep-count { font-size: 0.59rem; color: rgba(255,255,255,0.2); min-width: 28px; text-align: right; flex-shrink: 0; }
-.sd-no-seasons { font-size: 0.71rem; color: rgba(255,255,255,0.22); padding: 0.1rem 0; }
+.sd-ep-count { font-size: 0.72rem; color: rgba(255,255,255,0.3); min-width: 32px; text-align: right; flex-shrink: 0; }
+.sd-no-seasons { font-size: 0.78rem; color: rgba(255,255,255,0.25); padding: 0.25rem 0; }
+
+/* ── Expand/collapse seasons toggle ── */
+.sd-expand-toggle {
+    flex-shrink: 0; width: 22px; height: 22px; border-radius: 4px;
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.5); cursor: pointer; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.sd-expand-toggle:hover { background: rgba(229,9,20,0.18); border-color: rgba(229,9,20,0.45); color: #e50914; }
+.sd-expand-toggle .material-symbols-outlined { font-size: 14px; }
 
 /* ── Season add form ── */
 .sd-season-form {
@@ -4943,7 +5017,39 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-series-thumb--sm { width: 30px; height: 45px; border-radius: 2px; }
 
 /* ── Poster preview in add form ── */
-.sd-add-form-fields { flex: 1; display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+.sd-add-form-fields { flex: 1; display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; position: relative; }
+
+/* ── Search results picker ── */
+.sd-search-results {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
+    background: #1e1e1e; border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px; overflow: hidden;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.7);
+    max-height: 280px; overflow-y: auto;
+}
+.sd-search-results.sd-hidden { display: none; }
+.sd-sr-item {
+    display: flex; align-items: center; gap: 0.6rem;
+    width: 100%; padding: 0.45rem 0.6rem;
+    background: none; border: none; border-bottom: 1px solid rgba(255,255,255,0.05);
+    cursor: pointer; text-align: left; color: #fff; font-family: inherit;
+    transition: background 0.12s;
+}
+.sd-sr-item:last-child { border-bottom: none; }
+.sd-sr-item:hover { background: rgba(255,255,255,0.06); }
+.sd-sr-poster {
+    width: 34px; height: 51px; object-fit: cover;
+    border-radius: 3px; flex-shrink: 0;
+}
+.sd-sr-poster--empty {
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.25);
+}
+.sd-sr-poster--empty .material-symbols-outlined { font-size: 16px; }
+.sd-sr-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sd-sr-title { font-size: 0.8rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sd-sr-meta { font-size: 0.68rem; color: rgba(255,255,255,0.38); }
 .sd-add-poster-preview {
     display: none;
     width: 54px; height: 81px; object-fit: cover;
@@ -4977,7 +5083,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 
 /* ── Watched toggle overlaid on card ── */
 .sd-watched-toggle {
-    position: absolute; bottom: 4px; left: 4px; z-index: 3;
+    position: absolute; bottom: 4px; right: 4px; z-index: 3;
     width: 22px; height: 22px; border-radius: 50%;
     background: rgba(0,0,0,0.6); border: none; cursor: pointer; padding: 0;
     display: flex; align-items: center; justify-content: center;
@@ -5008,16 +5114,49 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-series-tile .sd-movie-poster { cursor: pointer; }
 .sd-hub-series { cursor: pointer; }
 .sd-series-expand {
-    padding: 0.5rem 0.5rem 0.35rem;
+    padding: 0.65rem 0.65rem 0.45rem;
     background: #141414;
     border-top: 1px solid rgba(255,255,255,0.06);
 }
 .sd-series-expand.sd-hidden { display: none; }
+
+/* When expanded: span full grid row, poster left + seasons right */
+.sd-series-tile:has(.sd-series-expand:not(.sd-hidden)) {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    grid-template-rows: auto 1fr;
+    transform: none !important;
+}
+.sd-series-tile:has(.sd-series-expand:not(.sd-hidden)) .sd-movie-poster {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    width: 100px;
+    height: 100%;
+    min-height: 120px;
+    aspect-ratio: unset;
+}
+.sd-series-tile:has(.sd-series-expand:not(.sd-hidden)) .sd-movie-info {
+    grid-column: 2;
+    grid-row: 1;
+    padding: 0.55rem 0.65rem 0.3rem;
+}
+.sd-series-tile:has(.sd-series-expand:not(.sd-hidden)) .sd-movie-title {
+    font-size: 0.82rem;
+    white-space: normal;
+}
+.sd-series-tile:has(.sd-series-expand:not(.sd-hidden)) .sd-series-expand {
+    grid-column: 2;
+    grid-row: 2;
+    border-top: none;
+    padding-top: 0;
+}
+
 .sd-sf-add-btn {
     display: flex; align-items: center; gap: 3px;
     background: none; border: none; color: rgba(255,255,255,0.28);
-    font-size: 0.65rem; cursor: pointer; font-family: inherit;
-    padding: 0.2rem 0; margin-top: 0.3rem; transition: color 0.15s;
+    font-size: 0.72rem; cursor: pointer; font-family: inherit;
+    padding: 0.25rem 0; margin-top: 0.4rem; transition: color 0.15s;
 }
 .sd-sf-add-btn:hover { color: #e50914; }
 

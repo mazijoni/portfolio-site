@@ -602,11 +602,11 @@
         </div>
         <form id="form-board-link" class="ws-modal-form" autocomplete="off">
             <div class="form-group">
-                <label for="board-link-url">URL *</label>
+                <label for="board-link-url-field">URL *</label>
                 <input type="url" id="board-link-url-field" placeholder="https://&#8230;" required>
             </div>
             <div class="form-group">
-                <label for="board-link-label">Label</label>
+                <label for="board-link-label-field">Label</label>
                 <input type="text" id="board-link-label-field" placeholder="Optional label" maxlength="80">
             </div>            <div class="form-group">
                 <label>Colour</label>
@@ -637,11 +637,11 @@
         </div>
         <form id="form-board-image" class="ws-modal-form" autocomplete="off">
             <div class="form-group">
-                <label for="board-image-url">Image URL *</label>
+                <label for="board-image-url-field">Image URL *</label>
                 <input type="url" id="board-image-url-field" placeholder="https://&#8230;" required>
             </div>
             <div class="form-group">
-                <label for="board-image-label">Caption</label>
+                <label for="board-image-label-field">Caption</label>
                 <input type="text" id="board-image-label-field" placeholder="Optional caption" maxlength="120">
             </div>
             <div class="ws-modal-footer">
@@ -1011,6 +1011,10 @@
                 <label for="link-url-field">URL *</label>
                 <input type="url" id="link-url-field" placeholder="https://&#8230;" required>
             </div>
+            <div class="form-group" id="link-thumb-group" style="display:none">
+                <label for="link-thumb-field">Thumbnail URL</label>
+                <input type="url" id="link-thumb-field" placeholder="https://… (image to show on card)">
+            </div>
             <div class="form-group">
                 <label for="link-title-field">Title</label>
                 <input type="text" id="link-title-field" placeholder="Display name" maxlength="120">
@@ -1023,6 +1027,9 @@
                     <option value="youtube-playlist">YouTube Playlist</option>
                     <option value="youtube-video">YouTube Video</option>
                     <option value="streaming-service">Streaming Service</option>
+                    <option value="image">Image</option>
+                    <option value="3d-model">3D Model</option>
+                    <option value="file">File</option>
                     <option value="other">Other</option>
                 </select>
             </div>
