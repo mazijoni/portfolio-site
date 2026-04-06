@@ -42,7 +42,19 @@ export const refs = {
     kanbanTasks: (db, uid, pid) =>
         collection(db, "users", uid, "projects", pid, "kanban_tasks"),
 
-    /** Single project doc */
+    /** users/{uid}/links  (used by workspace media section — do NOT use for Link Gallery) */
+    links: (db, uid) =>
+        collection(db, "users", uid, "links"),
+
+    /** users/{uid}/gallery-links  (Link Gallery app — standalone from workspace) */
+    galleryLinks: (db, uid) =>
+        collection(db, "users", uid, "gallery-links"),
+
+    /** users/{uid}/gmail-contacts */
+    gmailContacts: (db, uid) =>
+        collection(db, "users", uid, "gmail-contacts"),
+
+    /** users/{uid}/projects/{pid} — single project doc */
     project: (db, uid, pid) =>
         doc(db, "users", uid, "projects", pid),
 };
