@@ -1,4 +1,4 @@
-﻿/**
+/**
  * apps/links.js — Link Gallery app.
  *
  * Completely standalone from the Workspace (uses users/{uid}/gallery-links,
@@ -9,7 +9,7 @@
  */
 
 import {
-    onSnapshot, addDoc, updateDoc, deleteDoc,
+    onSnapshot, addDoc, updateDoc, deleteDoc, deleteField,
     doc, query, orderBy, serverTimestamp,
     collection, getDocs
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
@@ -206,7 +206,7 @@ function _renderCatsGrid(body) {
             <div class="link-cat-card link-cat-card--streaming" data-cat-name="${escHtml(c.name)}">
                 <div class="link-cat-card-icon"><span class="material-symbols-outlined">smart_display</span></div>
                 <div class="link-cat-card-name">${escHtml(c.name)}</div>
-                <div class="link-cat-card-count">${count} service${count !== 1 ? "s" : ""}</div>
+                <div class="link-cat-card-count" data-streaming-count="${escHtml(c.name)}">…</div>
                 <div class="link-cat-card-footer">${actionBtns}</div>
             </div>`;
         return `
@@ -233,6 +233,15 @@ function _renderCatsGrid(body) {
             <div class="link-cat-card-footer"></div>
         </div>` : "";
     body.innerHTML = `<div class="link-cats-grid">${catCards}${uncatCard}</div>`;
+
+    // Async: fill streaming cards with total movie/show counts
+    _cats.filter(c => c.prefab === "streaming").forEach(async c => {
+        const svcLinks = _links.filter(l => l.category === c.name);
+        await Promise.all(svcLinks.map(l => _loadStreamItems(l.id)));
+        const total = svcLinks.reduce((acc, l) => acc + (_streamCache[l.id]?.length || 0), 0);
+        const el = body.querySelector(`[data-streaming-count="${CSS.escape(c.name)}"]`);
+        if (el) el.textContent = `${total} title${total !== 1 ? "s" : ""}`;
+    });
 }
 
 function _domain(url) {
@@ -259,6 +268,7 @@ const _serviceLabel = link => link.title || _domain(link.url) || "Service";
 async function _renderStreamingHub(body, cat) {
     _shCatName = cat.name;
     const services = _links.filter(l => l.category === cat.name);
+    _hubLastServices = services;
     body.innerHTML = "";
     const hub = document.createElement("div");
     hub.className = "streaming-hub";
@@ -358,112 +368,100 @@ function _buildHubItems(services) {
     );
 }
 
+function _sdHubCardHtml(item) {
+    const isSeries  = item.type === "series";
+    const rawUrl    = item.url && _isSafeUrl(item.url) ? item.url : null;
+    const safeUrl   = rawUrl ? escHtml(rawUrl) : null;
+    const dispTitle = item.title || (rawUrl ? _extractTitleFromUrl(rawUrl) || rawUrl : "");
+    const tot  = isSeries ? (item.seasons || []).reduce((a, se) => a + (se.eps || 0), 0) : 0;
+    const done = isSeries ? (item.seasons || []).reduce((a, se) => a + (se.watched?.length || 0), 0) : 0;
+    const pct  = tot ? Math.round(done / tot * 100) : 0;
+    return `<div class="sd-movie-card${item.watched ? " sd-movie-watched" : ""}" data-sh-item-id="${escHtml(item.id)}" data-sh-svc-id="${escHtml(item._serviceId)}" data-hub-drag-item="${escHtml(item.id)}" data-hub-svc-id="${escHtml(item._serviceId)}" draggable="true">
+        ${safeUrl ? `<a class="sd-movie-poster" href="${safeUrl}" target="_blank" rel="noopener noreferrer" draggable="false">` : `<div class="sd-movie-poster">`}
+            ${item.posterUrl && _isSafeUrl(item.posterUrl) ? `<img class="sd-movie-poster-img" src="${escHtml(item.posterUrl)}" alt="" loading="lazy" draggable="false">` : `<span class="material-symbols-outlined sd-movie-icon">${isSeries ? "tv" : "movie"}</span>`}
+            ${isSeries && tot > 0 ? `<div class="sd-tile-prog"><div class="sd-tile-prog-fill" style="width:${pct}%"></div></div>` : ""}
+        ${safeUrl ? `</a>` : `</div>`}
+        ${!isSeries ? `<button class="sd-watched-toggle sh-toggle-watched" data-sh-item-id="${escHtml(item.id)}" data-sh-svc-id="${escHtml(item._serviceId)}" title="${item.watched ? "Mark unwatched" : "Mark watched"}">
+            <span class="material-symbols-outlined">${item.watched ? "check_circle" : "radio_button_unchecked"}</span>
+        </button>` : ""}
+        <div class="sd-movie-info">
+            ${safeUrl ? `<a class="sd-movie-title sd-movie-title-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${escHtml(dispTitle)}" draggable="false">${escHtml(dispTitle)}</a>` : `<span class="sd-movie-title" title="${escHtml(dispTitle)}">${escHtml(dispTitle)}</span>`}
+        </div>
+        <div class="sh-svc-badge">${escHtml(item._serviceTitle)}</div>
+    </div>`;
+}
+
 function _renderHubContent(container, allItems) {
     if (!container) return;
-    const movies = allItems.filter(i => i.type === "movie");
-    const series = allItems.filter(i => i.type === "series");
-    const showMovies = _shActiveTab === "all" || _shActiveTab === "movie";
-    const showSeries = _shActiveTab === "all" || _shActiveTab === "series";
-
     if (!allItems.length) {
         container.innerHTML = `<div class="sh-empty"><span class="material-symbols-outlined">video_library</span><p>Add a streaming service then open it to track movies &amp; series.</p></div>`;
-        return;
+        container.onclick = null; return;
     }
-
-    let html = "";
-
-    if (showMovies && movies.length) {
-        const watched = movies.filter(m => m.watched).length;
-        html += `<div class="sh-section">
-            <div class="sh-section-hdr"><span class="material-symbols-outlined">movie</span>Movies<span class="sh-section-count">${watched}/${movies.length}</span></div>
-            <div class="sd-movies-grid">`
-        + movies.map(m => {
-            const rawUrl    = m.url && _isSafeUrl(m.url) ? m.url : (m.title && _isSafeUrl(m.title) ? m.title : null);
-            const safeUrl   = rawUrl ? escHtml(rawUrl) : null;
-            const dispTitle = m.title && !_isSafeUrl(m.title) ? m.title : (rawUrl ? _extractTitleFromUrl(rawUrl) || rawUrl : m.title || "");
-            return `
-            <div class="sd-movie-card${m.watched ? " sd-movie-watched" : ""}" data-sh-item-id="${escHtml(m.id)}" data-sh-svc-id="${escHtml(m._serviceId)}">
-                ${safeUrl
-                    ? `<a class="sd-movie-poster" href="${safeUrl}" target="_blank" rel="noopener noreferrer">`
-                    : `<div class="sd-movie-poster">`}
-                    ${m.posterUrl && _isSafeUrl(m.posterUrl)
-                        ? `<img class="sd-movie-poster-img" src="${escHtml(m.posterUrl)}" alt="" loading="lazy">`
-                        : `<span class="material-symbols-outlined sd-movie-icon">movie</span>`}
-                    <div class="sd-movie-watched-overlay"><span class="material-symbols-outlined">check_circle</span></div>
-                ${safeUrl ? `</a>` : `</div>`}
-                <button class="sd-watched-toggle sh-toggle-watched" title="${m.watched ? "Mark unwatched" : "Mark watched"}">
-                    <span class="material-symbols-outlined">${m.watched ? "check_circle" : "radio_button_unchecked"}</span>
-                </button>
-                <div class="sd-movie-info">
-                    ${safeUrl
-                        ? `<a class="sd-movie-title sd-movie-title-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${escHtml(dispTitle)}">${escHtml(dispTitle)}</a>`
-                        : `<span class="sd-movie-title" title="${escHtml(dispTitle)}">${escHtml(dispTitle)}</span>`}
+    let filtered = allItems;
+    if (_shActiveTab === "movie")  filtered = allItems.filter(i => i.type !== "series");
+    if (_shActiveTab === "series") filtered = allItems.filter(i => i.type === "series");
+    if (!filtered.length) {
+        const label = _shActiveTab === "movie" ? "movies" : "series";
+        container.innerHTML = `<div class="sh-empty"><span class="material-symbols-outlined">${_shActiveTab === "movie" ? "movie" : "tv"}</span><p>No ${label} tracked yet.</p></div>`;
+        container.onclick = null; return;
+    }
+    const units = _buildUnits(filtered);
+    container.innerHTML = `<div class="sh-unified-grid">${
+        units.map(u => {
+            if (u.type === "solo") return _sdHubCardHtml(u.item);
+            const collapsed = _shCollapsedColls.has(u.name);
+            if (collapsed) {
+                const fp = u.items.find(i => i.posterUrl && _isSafeUrl(i.posterUrl));
+                const ph = fp ? `<img class="sd-movie-poster-img" src="${escHtml(fp.posterUrl)}" alt="" loading="lazy">` : `<span class="material-symbols-outlined sd-movie-icon">video_library</span>`;
+                return `<div class="sd-movie-card sd-coll-collapsed" data-sh-coll-tog="${escHtml(u.name)}">
+                    <button class="sd-movie-poster sd-coll-stack-btn" data-sh-coll-tog="${escHtml(u.name)}" title="Expand">
+                        <div class="sd-cs-layer sd-cs-back2"></div><div class="sd-cs-layer sd-cs-back1"></div>
+                        <div class="sd-cs-layer sd-cs-front">${ph}</div>
+                        <div class="sd-cs-count">${u.items.length}</div>
+                    </button>
+                    <div class="sd-movie-info">
+                        <span class="sd-movie-title" title="${escHtml(u.name)}">${escHtml(u.name)}</span>
+                        <button class="sd-expand-toggle" data-sh-coll-tog="${escHtml(u.name)}" title="Expand"><span class="material-symbols-outlined">expand_more</span></button>
+                    </div>
+                </div>`;
+            }
+            return `<div class="sd-coll-block" data-sh-coll="${escHtml(u.name)}">
+                <div class="sd-coll-hdr">
+                    <span class="sd-coll-name">${escHtml(u.name)}</span>
+                    <span class="sd-coll-badge">${u.items.length}</span>
+                    <button class="sd-coll-toggle" data-sh-coll-tog="${escHtml(u.name)}" title="Collapse"><span class="material-symbols-outlined">expand_less</span></button>
                 </div>
-                <div class="sh-svc-badge">${escHtml(m._serviceTitle)}</div>
+                <div class="sd-coll-inner">${u.items.map(i => _sdHubCardHtml(i)).join("")}</div>
             </div>`;
         }).join("")
-        + `</div></div>`;
-    }
-
-    if (showSeries && series.length) {
-        html += `<div class="sh-section">
-            <div class="sh-section-hdr"><span class="material-symbols-outlined">tv</span>Series<span class="sh-section-count">${series.length}</span></div>
-            <div class="sd-movies-grid">` +
-        series.map(s => {
-            const tot  = (s.seasons || []).reduce((a, se) => a + (se.eps || 0), 0);
-            const done = (s.seasons || []).reduce((a, se) => a + (se.watched || []).length, 0);
-            const pct  = tot ? Math.round(done / tot * 100) : 0;
-            const sDisp = s.title && !_isSafeUrl(s.title) ? s.title : (s.url && _isSafeUrl(s.url) ? _extractTitleFromUrl(s.url) || s.title || "" : s.title || "");
-            const sRawUrl  = s.url && _isSafeUrl(s.url) ? s.url : (s.title && _isSafeUrl(s.title) ? s.title : null);
-            const sSafeUrl = sRawUrl ? escHtml(sRawUrl) : null;
-            return `
-            <div class="sd-movie-card sd-series-tile" data-sh-item-id="${escHtml(s.id)}" data-sh-svc-id="${escHtml(s._serviceId)}">
-                ${sSafeUrl
-                    ? `<a class="sd-movie-poster" href="${sSafeUrl}" target="_blank" rel="noopener noreferrer">`
-                    : `<div class="sd-movie-poster">`}
-                    ${s.posterUrl && _isSafeUrl(s.posterUrl)
-                        ? `<img class="sd-movie-poster-img" src="${escHtml(s.posterUrl)}" alt="" loading="lazy">`
-                        : `<span class="material-symbols-outlined sd-movie-icon">tv</span>`}
-                    ${tot > 0 ? `<div class="sd-tile-prog"><div class="sd-tile-prog-fill" style="width:${pct}%"></div></div>` : ""}
-                    ${s.seasons?.length ? `<div class="sd-season-badge">${s.seasons.length} S</div>` : ""}
-                ${sSafeUrl ? `</a>` : `</div>`}
-                <div class="sd-movie-info">
-                    ${sSafeUrl
-                        ? `<a class="sd-movie-title sd-movie-title-link" href="${sSafeUrl}" target="_blank" rel="noopener noreferrer" title="${escHtml(sDisp)}">${escHtml(sDisp)}</a>`
-                        : `<span class="sd-movie-title" title="${escHtml(sDisp)}">${escHtml(sDisp)}</span>`}
-                </div>
-                <div class="sh-svc-badge">${escHtml(s._serviceTitle)}</div>
-            </div>`;
-        }).join("") +
-        `</div></div>`;
-    }
-
-    if (!html) {
-        const label = _shActiveTab === "movie" ? "movies" : "series";
-        html = `<div class="sh-empty"><span class="material-symbols-outlined">${_shActiveTab === "movie" ? "movie" : "tv"}</span><p>No ${label} tracked yet.</p></div>`;
-    }
-
-    container.innerHTML = html;
-
-    // Toggle watched on movie poster click
-    container.querySelectorAll(".sh-toggle-watched").forEach(btn => {
-        btn.addEventListener("click", async e => {
-            if (e.target.closest("a")) return;
-            const card  = btn.closest("[data-sh-item-id]");
-            const itemId = card.dataset.shItemId;
-            const svcId  = card.dataset.shSvcId;
-            const item   = (_streamCache[svcId] || []).find(i => i.id === itemId);
+    }</div>`;
+    const _hubGrid = container.querySelector(".sh-unified-grid");
+    if (_hubGrid) _attachHubDrag(_hubGrid, filtered, container);
+    container.onclick = async e => {
+        const ct = e.target.closest("[data-sh-coll-tog]");
+        if (ct) {
+            const name = ct.dataset.shCollTog;
+            if (_shCollapsedColls.has(name)) _shCollapsedColls.delete(name); else _shCollapsedColls.add(name);
+            _renderHubContent(container, allItems);
+            return;
+        }
+        const wb = e.target.closest(".sh-toggle-watched");
+        if (wb && !e.target.closest("a")) {
+            const itemId = wb.dataset.shItemId, svcId = wb.dataset.shSvcId;
+            const item = (_streamCache[svcId] || []).find(i => i.id === itemId);
             if (!item) return;
             item.watched = !item.watched;
-            card.classList.toggle("sd-movie-watched", item.watched);
-            btn.title = item.watched ? "Mark unwatched" : "Mark watched";
+            const card = wb.closest("[data-sh-item-id]");
+            if (card) {
+                card.classList.toggle("sd-movie-watched", item.watched);
+                wb.querySelector(".material-symbols-outlined").textContent = item.watched ? "check_circle" : "radio_button_unchecked";
+                wb.title = item.watched ? "Mark unwatched" : "Mark watched";
+            }
             try {
                 await updateDoc(doc(_db, "users", _user.uid, "gallery-links", svcId, "streaming-items", itemId), { watched: item.watched });
-            } catch (err) { console.error(err); item.watched = !item.watched; card.classList.toggle("sd-movie-watched", item.watched); }
-        });
-    });
-
-
+            } catch (err) { console.error(err); item.watched = !item.watched; }
+        }
+    };
 }
 
 function _render() {
@@ -1114,6 +1112,11 @@ let _sdActiveTab      = "all";
 let _shActiveTab      = "all"; // streaming hub: "all"|"movie"|"series"
 const _streamCache    = {}; // linkId → items[]
 const _sdExpandedIds  = new Set(); // series item IDs with expand open
+let   _sdDragSrc      = null;      // { kind:'item'|'coll', id?, name? }
+const _collapsedColls   = new Set(); // collection names collapsed (drawer)
+const _shCollapsedColls = new Set(); // collection names collapsed (hub)
+let   _sdInsertAfter    = false;     // true = insert after drop target on drop
+let   _hubLastServices  = null;      // services list for hub re-render after drag
 
 function _getTmdbKey() { return _tmdbDefaultKey || ""; }
 async function _fetchTmdbMeta(urlStr, title, type) {
@@ -1190,7 +1193,7 @@ async function _loadStreamItems(linkId) {
 
 async function _saveStreamItem(linkId, type, title, itemUrl, posterUrl, seasons) {
     const item = {
-        title, type, watched: false, addedAt: Date.now(),
+        title, type, watched: false, addedAt: Date.now(), sortOrder: Date.now(),
         ...(itemUrl   ? { url: itemUrl }            : {}),
         ...(posterUrl ? { posterUrl }               : {}),
         ...(type === "series" ? { seasons: (seasons?.length ? seasons : []) } : {}),
@@ -1198,6 +1201,638 @@ async function _saveStreamItem(linkId, type, title, itemUrl, posterUrl, seasons)
     const ref = await addDoc(_streamRef(linkId), item);
     _streamCache[linkId] = [...(_streamCache[linkId] || []), { id: ref.id, ...item }];
     return { id: ref.id, ...item };
+}
+
+/* ══════════ COLLECTIONS & REORDER ══════════ */
+
+function _sdSorted(items) {
+    return [...items].sort((a, b) =>
+        (a.sortOrder ?? a.addedAt ?? 0) - (b.sortOrder ?? b.addedAt ?? 0)
+    );
+}
+
+function _buildUnits(items) {
+    const sorted = _sdSorted(items);
+    const units  = [];
+    const seen   = {}; // collection name → unit ref
+    for (const item of sorted) {
+        if (item.collection) {
+            if (!seen[item.collection]) {
+                const u = { type: "coll", name: item.collection, items: [] };
+                seen[item.collection] = u;
+                units.push(u);
+            }
+            seen[item.collection].items.push(item);
+        } else {
+            units.push({ type: "solo", item });
+        }
+    }
+    return units;
+}
+
+function _sdCardHtml(item, draggable = false) {
+    const isSeries  = item.type === "series";
+    const rawUrl    = item.url && _isSafeUrl(item.url) ? item.url : null;
+    const safeUrl   = rawUrl ? escHtml(rawUrl) : null;
+    const dispTitle = item.title || (rawUrl ? _extractTitleFromUrl(rawUrl) || rawUrl : "");
+    const dragAttrs  = draggable ? ` draggable="true" data-drag-item="${escHtml(item.id)}"` : "";
+    const dragHandle = draggable ? `<span class="sd-drag-handle" title="Drag to reorder">&#8942;</span>` : "";
+    const footer = `<div class="sd-card-footer">
+                <button class="sd-icon-btn sd-edit-btn" data-edit-item="${escHtml(item.id)}" title="Edit / Group"><span class="material-symbols-outlined" style="font-size:12px">edit</span></button>
+                <button class="sd-icon-btn sd-icon-btn--danger sd-del-btn" data-delete-item="${escHtml(item.id)}" title="Remove"><span class="material-symbols-outlined" style="font-size:12px">delete</span></button>
+            </div>`;
+
+    if (!isSeries) {
+        return `<div class="sd-movie-card${item.watched ? " sd-movie-watched" : ""}" data-sd-item-id="${escHtml(item.id)}"${dragAttrs}>
+            ${dragHandle}
+            ${safeUrl ? `<a class="sd-movie-poster" href="${safeUrl}" target="_blank" rel="noopener noreferrer" draggable="false">` : `<div class="sd-movie-poster">`}
+                ${item.posterUrl && _isSafeUrl(item.posterUrl) ? `<img class="sd-movie-poster-img" src="${escHtml(item.posterUrl)}" alt="" loading="lazy" draggable="false">` : `<span class="material-symbols-outlined sd-movie-icon">movie</span>`}
+                <div class="sd-movie-watched-overlay"><span class="material-symbols-outlined">check_circle</span></div>
+            ${safeUrl ? `</a>` : `</div>`}
+            <button class="sd-watched-toggle" data-toggle-watched data-sd-item-id="${escHtml(item.id)}" title="${item.watched ? "Mark unwatched" : "Mark watched"}">
+                <span class="material-symbols-outlined">${item.watched ? "check_circle" : "radio_button_unchecked"}</span>
+            </button>
+            <div class="sd-movie-info">
+                ${safeUrl ? `<a class="sd-movie-title sd-movie-title-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${escHtml(dispTitle)}">${escHtml(dispTitle)}</a>` : `<span class="sd-movie-title" title="${escHtml(dispTitle)}">${escHtml(dispTitle)}</span>`}
+            </div>
+            ${footer}
+        </div>`;
+    }
+    // Series card
+    const tot  = (item.seasons || []).reduce((a, se) => a + (se.eps || 0), 0);
+    const done = (item.seasons || []).reduce((a, se) => a + (se.watched?.length || 0), 0);
+    const pct  = tot ? Math.round(done / tot * 100) : 0;
+    const isExpanded = _sdExpandedIds.has(item.id);
+    const allDone    = tot > 0 && done === tot;
+    const seasonsHtml = item.seasons?.length
+        ? `<div class="sd-seasons">${item.seasons.map((se, si) => {
+            const sDone    = (se.watched || []).length;
+            const sAllDone = sDone === se.eps;
+            const epBubbles = Array.from({ length: se.eps }, (_, ei) => {
+                const ep = ei + 1, watched = (se.watched || []).includes(ep);
+                return `<button class="sd-ep${watched ? " sd-ep-done" : ""}" data-sd-item-id="${escHtml(item.id)}" data-season-idx="${si}" data-ep-n="${ep}" title="E${ep}">${ep}</button>`;
+            }).join("");
+            return `<div class="sd-season-row">
+                <button class="sd-s-label${sAllDone ? " sd-s-done" : ""}" data-toggle-season data-sd-item-id="${escHtml(item.id)}" data-season-idx="${si}" title="Toggle season ${se.s}">S${se.s}</button>
+                <div class="sd-ep-wrap">${epBubbles}</div>
+                <span class="sd-ep-count">${sDone}/${se.eps}</span>
+            </div>`;
+        }).join("")}</div>`
+        : `<div class="sd-no-seasons">No season data</div>`;
+
+    return `<div class="sd-movie-card sd-series-tile" data-sd-item-id="${escHtml(item.id)}"${dragAttrs}>
+        ${dragHandle}
+        ${safeUrl ? `<a class="sd-movie-poster" href="${safeUrl}" target="_blank" rel="noopener noreferrer" draggable="false">` : `<div class="sd-movie-poster">`}
+            ${item.posterUrl && _isSafeUrl(item.posterUrl) ? `<img class="sd-movie-poster-img" src="${escHtml(item.posterUrl)}" alt="" loading="lazy" draggable="false">` : `<span class="material-symbols-outlined sd-movie-icon">tv</span>`}
+            ${tot > 0 ? `<div class="sd-tile-prog"><div class="sd-tile-prog-fill" style="width:${pct}%"></div></div>` : ""}
+            ${item.seasons?.length ? `<div class="sd-season-badge">${item.seasons.length} S</div>` : ""}
+        ${safeUrl ? `</a>` : `</div>`}
+        <div class="sd-movie-info">
+            ${safeUrl ? `<a class="sd-movie-title sd-movie-title-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${escHtml(dispTitle)}">${escHtml(dispTitle)}</a>` : `<span class="sd-movie-title" title="${escHtml(dispTitle)}">${escHtml(dispTitle)}</span>`}
+            <button class="sd-expand-toggle" data-toggle-expand="${escHtml(item.id)}" title="${isExpanded ? "Collapse" : "Expand seasons"}">
+                <span class="material-symbols-outlined">${isExpanded ? "expand_less" : "expand_more"}</span>
+            </button>
+        </div>
+        <div class="sd-series-expand${isExpanded ? "" : " sd-hidden"}">
+            <div class="sd-expand-hdr">
+                <button class="sd-toggle-show${allDone ? " sd-toggle-show--done" : ""}" data-toggle-show data-sd-item-id="${escHtml(item.id)}" title="${allDone ? "Unwatch all" : "Watch all"}">
+                    <span class="material-symbols-outlined" style="font-size:14px">${allDone ? "remove_done" : "done_all"}</span>
+                    ${allDone ? "Unwatch all" : "Watch all"}
+                </button>
+            </div>
+            ${seasonsHtml}
+        </div>
+        ${footer}
+    </div>`;
+}
+
+function _sdCollBlockHtml(unit, draggable = false) {
+    const collapsed   = _collapsedColls.has(unit.name);
+    const hdDragAttrs = draggable ? ` draggable="true" data-coll-drag="${escHtml(unit.name)}"` : "";
+    const dragHandle  = draggable ? `<span class="sd-drag-handle sd-drag-handle--coll" title="Drag to reorder">&#8942;</span>` : "";
+
+    if (collapsed) {
+        const firstWithPoster = unit.items.find(i => i.posterUrl && _isSafeUrl(i.posterUrl));
+        const posterHtml = firstWithPoster
+            ? `<img class="sd-movie-poster-img" src="${escHtml(firstWithPoster.posterUrl)}" alt="" loading="lazy">`
+            : `<span class="material-symbols-outlined sd-movie-icon">video_library</span>`;
+        return `<div class="sd-movie-card sd-coll-collapsed" data-drag-coll="${escHtml(unit.name)}"${hdDragAttrs}>
+            ${dragHandle}
+            <button class="sd-movie-poster sd-coll-stack-btn" data-coll-toggle="${escHtml(unit.name)}" title="Expand ${escHtml(unit.name)}">
+                <div class="sd-cs-layer sd-cs-back2"></div>
+                <div class="sd-cs-layer sd-cs-back1"></div>
+                <div class="sd-cs-layer sd-cs-front">${posterHtml}</div>
+                <div class="sd-cs-count">${unit.items.length}</div>
+            </button>
+            <div class="sd-movie-info">
+                <span class="sd-movie-title" title="${escHtml(unit.name)}">${escHtml(unit.name)}</span>
+                <button class="sd-expand-toggle" data-coll-toggle="${escHtml(unit.name)}" title="Expand">
+                    <span class="material-symbols-outlined">expand_more</span>
+                </button>
+            </div>
+        </div>`;
+    }
+
+    return `<div class="sd-coll-block" data-drag-coll="${escHtml(unit.name)}">
+        <div class="sd-coll-hdr"${hdDragAttrs}>
+            ${dragHandle}
+            <span class="sd-coll-name">${escHtml(unit.name)}</span>
+            <span class="sd-coll-badge">${unit.items.length}</span>
+            <button class="sd-icon-btn sd-coll-rename-btn" data-rename-coll="${escHtml(unit.name)}" title="Rename collection"><span class="material-symbols-outlined" style="font-size:12px">edit</span></button>
+            <button class="sd-coll-toggle" data-coll-toggle="${escHtml(unit.name)}" title="Collapse">
+                <span class="material-symbols-outlined">expand_less</span>
+            </button>
+        </div>
+        <div class="sd-coll-inner">
+            ${unit.items.map(i => _sdCardHtml(i, true)).join("")}
+        </div>
+    </div>`;
+}
+
+function _attachSdDrag(grid) {
+    if (!grid) return;
+    if (grid._sdAbort) grid._sdAbort.abort();
+    const ctrl = new AbortController();
+    grid._sdAbort = ctrl;
+    const sig = ctrl.signal;
+
+    // Ensure remove-zone exists in sd-body (shown only when dragging a collection item)
+    const sdBody = document.getElementById("sd-body");
+    let removeZone = sdBody?.querySelector(".sd-remove-zone");
+    if (!removeZone && sdBody) {
+        removeZone = document.createElement("div");
+        removeZone.className = "sd-remove-zone sd-hidden";
+        removeZone.innerHTML = `<span class="material-symbols-outlined">remove_circle_outline</span>Remove from collection`;
+        sdBody.appendChild(removeZone);
+    }
+
+    function _cleanup() {
+        _sdDragSrc = null;
+        _sdInsertAfter = false;
+        grid.querySelectorAll(".sd-unit-dragging, .sd-drag-over, .sd-drop-before, .sd-drop-after").forEach(el =>
+            el.classList.remove("sd-unit-dragging", "sd-drag-over", "sd-drop-before", "sd-drop-after")
+        );
+        if (removeZone) { removeZone.classList.add("sd-hidden"); removeZone.classList.remove("sd-drag-over"); }
+    }
+
+    grid.addEventListener("dragstart", e => {
+        const card = e.target.closest("[data-drag-item]");
+        const coll = e.target.closest("[data-coll-drag]");
+        if (card) {
+            _sdDragSrc = { kind: "item", id: card.dataset.dragItem };
+            e.dataTransfer.effectAllowed = "move";
+            setTimeout(() => {
+                if (!_sdDragSrc) return;
+                card.classList.add("sd-unit-dragging");
+                const srcItem = (_streamCache[_openDrawerLinkId] || []).find(i => i.id === _sdDragSrc.id);
+                if (srcItem?.collection && removeZone) removeZone.classList.remove("sd-hidden");
+            }, 0);
+        } else if (coll) {
+            _sdDragSrc = { kind: "coll", name: coll.dataset.collDrag };
+            e.dataTransfer.effectAllowed = "move";
+            setTimeout(() => {
+                if (!_sdDragSrc) return;
+                (coll.closest(".sd-coll-block") || coll.closest(".sd-movie-card"))?.classList.add("sd-unit-dragging");
+            }, 0);
+        } else {
+            e.preventDefault();
+        }
+    }, { signal: sig });
+
+    grid.addEventListener("dragend", _cleanup, { signal: sig });
+
+    grid.addEventListener("dragover", e => {
+        if (!_sdDragSrc) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        const card    = e.target.closest("[data-drag-item]");
+        const collBlk = e.target.closest(".sd-coll-block:not(.sd-movie-card)");
+        const collCC  = e.target.closest(".sd-movie-card.sd-coll-collapsed");
+        const dragging = grid.querySelector(".sd-unit-dragging");
+        grid.querySelectorAll(".sd-drag-over, .sd-drop-before, .sd-drop-after").forEach(el =>
+            el.classList.remove("sd-drag-over", "sd-drop-before", "sd-drop-after")
+        );
+        if (card) {
+            if (dragging && (card === dragging || dragging.contains(card))) return;
+            const rect = card.getBoundingClientRect();
+            _sdInsertAfter = e.clientX > rect.left + rect.width / 2;
+            card.classList.add(_sdInsertAfter ? "sd-drop-after" : "sd-drop-before");
+        } else if (collBlk || collCC) {
+            const tgt = collBlk || collCC;
+            if (!(dragging && (tgt === dragging || dragging.contains(tgt)))) tgt.classList.add("sd-drag-over");
+        }
+    }, { signal: sig });
+
+    grid.addEventListener("dragleave", e => {
+        if (!grid.contains(e.relatedTarget))
+            grid.querySelectorAll(".sd-drag-over, .sd-drop-before, .sd-drop-after").forEach(el => el.classList.remove("sd-drag-over", "sd-drop-before", "sd-drop-after"));
+    }, { signal: sig });
+
+    grid.addEventListener("drop", async e => {
+        e.preventDefault();
+        if (!_sdDragSrc) return;
+        const src = { ..._sdDragSrc };
+        const insertAfter = _sdInsertAfter;
+        _cleanup();
+        const allItems      = _streamCache[_openDrawerLinkId] || [];
+        const targetCard    = e.target.closest("[data-drag-item]");
+        const targetBlk     = e.target.closest(".sd-coll-block:not(.sd-movie-card)");
+        const targetCC      = e.target.closest(".sd-movie-card.sd-coll-collapsed");
+        const targetCollName = targetBlk?.dataset.dragColl || targetCC?.dataset.dragColl;
+
+        if (src.kind === "item") {
+            const srcItem = allItems.find(i => i.id === src.id);
+            if (targetCard && targetCard.dataset.dragItem !== src.id) {
+                const tgtItem = allItems.find(i => i.id === targetCard.dataset.dragItem);
+                if (srcItem?.collection && srcItem.collection === tgtItem?.collection) {
+                    await _reorderWithinColl(src.id, tgtItem.id, srcItem.collection, insertAfter);
+                } else if (srcItem?.collection && !tgtItem?.collection) {
+                    await _removeFromCollection(src.id);
+                } else if (!srcItem?.collection && !tgtItem?.collection) {
+                    await _autoCreateCollection(src.id, tgtItem.id, tgtItem.title || "Collection");
+                } else {
+                    await _reorderStreamUnit(src, { kind: "item", id: targetCard.dataset.dragItem }, insertAfter);
+                }
+            } else if (targetCollName && srcItem?.collection !== targetCollName) {
+                await _setItemCollection(src.id, targetCollName);
+            }
+        } else if (src.kind === "coll") {
+            if (targetCard) {
+                await _reorderStreamUnit(src, { kind: "item", id: targetCard.dataset.dragItem }, insertAfter);
+            } else if (targetCollName && targetCollName !== src.name) {
+                await _reorderStreamUnit(src, { kind: "coll", name: targetCollName }, insertAfter);
+            }
+        }
+    }, { signal: sig });
+
+    if (removeZone) {
+        removeZone.addEventListener("dragover", e => {
+            if (!_sdDragSrc) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            removeZone.classList.add("sd-drag-over");
+        }, { signal: sig });
+        removeZone.addEventListener("dragleave", () => removeZone.classList.remove("sd-drag-over"), { signal: sig });
+        removeZone.addEventListener("drop", async e => {
+            e.preventDefault();
+            if (!_sdDragSrc || _sdDragSrc.kind !== "item") { _cleanup(); return; }
+            const srcId = _sdDragSrc.id;
+            _cleanup();
+            await _removeFromCollection(srcId);
+        }, { signal: sig });
+    }
+}
+
+async function _reorderStreamUnit(src, tgt, insertAfter = false) {
+    const allItems = _streamCache[_openDrawerLinkId] || [];
+    const units    = _buildUnits(allItems);
+    const findIdx  = u => {
+        if (u.kind === "item") return units.findIndex(un =>
+            (un.type === "solo" && un.item.id === u.id) ||
+            (un.type === "coll" && un.items.some(i => i.id === u.id))
+        );
+        if (u.kind === "coll") return units.findIndex(un => un.type === "coll" && un.name === u.name);
+        return -1;
+    };
+    const srcIdx = findIdx(src);
+    if (srcIdx < 0) return;
+    const newUnits = [...units];
+    const [moved]  = newUnits.splice(srcIdx, 1);
+    const tgtIdx   = newUnits.findIndex(un => {
+        if (tgt.kind === "item") return (un.type === "solo" && un.item.id === tgt.id) || (un.type === "coll" && un.items.some(i => i.id === tgt.id));
+        if (tgt.kind === "coll") return un.type === "coll" && un.name === tgt.name;
+        return false;
+    });
+    if (tgtIdx < 0) return;
+    newUnits.splice(insertAfter ? tgtIdx + 1 : tgtIdx, 0, moved);
+    const updates = [];
+    newUnits.forEach((unit, ui) => {
+        const items = unit.type === "solo" ? [unit.item] : unit.items;
+        items.forEach((item, ii) => {
+            const newSO = ui * 10000 + ii * 100;
+            if (item.sortOrder !== newSO) {
+                item.sortOrder = newSO;
+                updates.push(updateDoc(
+                    doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", item.id),
+                    { sortOrder: newSO }
+                ));
+            }
+        });
+    });
+    try {
+        await Promise.all(updates);
+        _renderLibrary();
+    } catch (err) { console.error(err); toast("Error reordering", "error"); }
+}
+
+async function _reorderWithinColl(srcId, tgtId, collName, insertAfter = false) {
+    const allItems  = _streamCache[_openDrawerLinkId] || [];
+    const collItems = _sdSorted(allItems.filter(i => i.collection === collName));
+    const srcIdx    = collItems.findIndex(i => i.id === srcId);
+    const tgtIdx    = collItems.findIndex(i => i.id === tgtId);
+    if (srcIdx < 0 || tgtIdx < 0 || srcIdx === tgtIdx) return;
+    const newOrder = [...collItems];
+    const [moved]  = newOrder.splice(srcIdx, 1);
+    const postTgtIdx = newOrder.findIndex(i => i.id === tgtId);
+    if (postTgtIdx < 0) return;
+    newOrder.splice(insertAfter ? postTgtIdx + 1 : postTgtIdx, 0, moved);
+    const updates = newOrder.map((item, i) => {
+        const newSO = i * 100;
+        item.sortOrder = newSO;
+        return updateDoc(
+            doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", item.id),
+            { sortOrder: newSO }
+        );
+    });
+    try {
+        await Promise.all(updates);
+        _renderLibrary();
+    } catch (err) { console.error(err); toast("Error reordering", "error"); }
+}
+
+async function _hubReorderUnit(srcId, tgtId, allItems, insertAfter = false) {
+    const units = _buildUnits(allItems);
+    const srcUnitIdx = units.findIndex(u =>
+        (u.type === "solo" && u.item.id === srcId) ||
+        (u.type === "coll" && u.items.some(i => i.id === srcId))
+    );
+    if (srcUnitIdx < 0) return;
+    const newUnits = [...units];
+    const [moved] = newUnits.splice(srcUnitIdx, 1);
+    const tgtUnitIdx = newUnits.findIndex(u =>
+        (u.type === "solo" && u.item.id === tgtId) ||
+        (u.type === "coll" && u.items.some(i => i.id === tgtId))
+    );
+    if (tgtUnitIdx < 0) return;
+    newUnits.splice(insertAfter ? tgtUnitIdx + 1 : tgtUnitIdx, 0, moved);
+    const writes = [];
+    newUnits.forEach((unit, ui) => {
+        const items = unit.type === "solo" ? [unit.item] : unit.items;
+        items.forEach((item, ii) => {
+            const newSO = ui * 10000 + ii * 100;
+            if (item.sortOrder !== newSO) {
+                item.sortOrder = newSO;
+                const cached = (_streamCache[item._serviceId] || []).find(c => c.id === item.id);
+                if (cached) cached.sortOrder = newSO;
+                writes.push(updateDoc(
+                    doc(_db, "users", _user.uid, "gallery-links", item._serviceId, "streaming-items", item.id),
+                    { sortOrder: newSO }
+                ));
+            }
+        });
+    });
+    try {
+        await Promise.all(writes);
+    } catch (err) { console.error(err); toast("Error reordering", "error"); }
+}
+
+function _attachHubDrag(grid, allItems, container) {
+    if (!grid) return;
+    if (grid._sdAbort) grid._sdAbort.abort();
+    const ctrl = new AbortController();
+    grid._sdAbort = ctrl;
+    const sig = ctrl.signal;
+    let _hubDragSrc = null;
+
+    function _cleanup() {
+        _hubDragSrc = null;
+        grid.querySelectorAll(".sd-unit-dragging, .sd-drop-before, .sd-drop-after")
+            .forEach(el => el.classList.remove("sd-unit-dragging", "sd-drop-before", "sd-drop-after"));
+    }
+
+    grid.addEventListener("dragstart", e => {
+        const card = e.target.closest("[data-hub-drag-item]");
+        if (!card) { e.preventDefault(); return; }
+        _hubDragSrc = { id: card.dataset.hubDragItem, svcId: card.dataset.hubSvcId };
+        e.dataTransfer.effectAllowed = "move";
+        setTimeout(() => { if (_hubDragSrc) card.classList.add("sd-unit-dragging"); }, 0);
+    }, { signal: sig });
+
+    grid.addEventListener("dragend", _cleanup, { signal: sig });
+
+    grid.addEventListener("dragover", e => {
+        if (!_hubDragSrc) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        const card = e.target.closest("[data-hub-drag-item]");
+        if (!card) return;
+        const dragging = grid.querySelector(".sd-unit-dragging");
+        if (dragging && (card === dragging || dragging.contains(card))) return;
+        const rect = card.getBoundingClientRect();
+        const after = e.clientX > rect.left + rect.width / 2;
+        grid.querySelectorAll(".sd-drop-before, .sd-drop-after")
+            .forEach(el => el.classList.remove("sd-drop-before", "sd-drop-after"));
+        card.classList.add(after ? "sd-drop-after" : "sd-drop-before");
+    }, { signal: sig });
+
+    grid.addEventListener("dragleave", e => {
+        if (!grid.contains(e.relatedTarget))
+            grid.querySelectorAll(".sd-drop-before, .sd-drop-after")
+                .forEach(el => el.classList.remove("sd-drop-before", "sd-drop-after"));
+    }, { signal: sig });
+
+    grid.addEventListener("drop", async e => {
+        e.preventDefault();
+        if (!_hubDragSrc) return;
+        const src = { ..._hubDragSrc };
+        const afterEl  = grid.querySelector(".sd-drop-after");
+        const beforeEl = grid.querySelector(".sd-drop-before");
+        const insertAfter = !!afterEl;
+        const tgtCard = afterEl || beforeEl;
+        _cleanup();
+        if (!tgtCard || tgtCard.dataset.hubDragItem === src.id) return;
+        await _hubReorderUnit(src.id, tgtCard.dataset.hubDragItem, allItems, insertAfter);
+        if (_hubLastServices) {
+            const fresh = _buildHubItems(_hubLastServices);
+            _renderHubContent(container, fresh);
+        }
+    }, { signal: sig });
+}
+
+async function _setItemCollection(itemId, collName) {
+    const items = _streamCache[_openDrawerLinkId] || [];
+    const item  = items.find(i => i.id === itemId);
+    if (!item) return;
+    const updates    = { collection: collName };
+    const collItems  = items.filter(i => i.collection === collName && i.id !== itemId);
+    if (collItems.length) {
+        const maxSO      = Math.max(...collItems.map(i => i.sortOrder ?? i.addedAt ?? 0));
+        updates.sortOrder = maxSO + 100;
+        item.sortOrder    = maxSO + 100;
+    }
+    item.collection = collName;
+    try {
+        await updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", itemId), updates);
+        _renderLibrary();
+        toast(`Added to "${collName}"`, "success");
+    } catch (err) { console.error(err); toast("Error updating", "error"); }
+}
+
+async function _removeFromCollection(itemId) {
+    const items = _streamCache[_openDrawerLinkId] || [];
+    const item  = items.find(i => i.id === itemId);
+    if (!item || !item.collection) return;
+    delete item.collection;
+    try {
+        await updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", itemId),
+            { collection: deleteField() });
+        _renderLibrary();
+    } catch (err) { console.error(err); toast("Error updating", "error"); }
+}
+
+async function _autoCreateCollection(srcId, tgtId, name) {
+    const items    = _streamCache[_openDrawerLinkId] || [];
+    const srcItem  = items.find(i => i.id === srcId);
+    const tgtItem  = items.find(i => i.id === tgtId);
+    if (!srcItem || !tgtItem) return;
+    srcItem.collection = name;
+    tgtItem.collection = name;
+    try {
+        await Promise.all([
+            updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", srcId),  { collection: name }),
+            updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", tgtId),  { collection: name }),
+        ]);
+        _renderLibrary();
+        toast(`Collection "${name}" created`, "success");
+    } catch (err) { console.error(err); toast("Error creating collection", "error"); }
+}
+
+async function _renameCollection(oldName, newName) {
+    const items    = _streamCache[_openDrawerLinkId] || [];
+    const affected = items.filter(i => i.collection === oldName);
+    if (!affected.length) return;
+    affected.forEach(i => { i.collection = newName; });
+    if (_collapsedColls.has(oldName)) { _collapsedColls.delete(oldName); _collapsedColls.add(newName); }
+    try {
+        await Promise.all(affected.map(i =>
+            updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", i.id),
+                { collection: newName })
+        ));
+        _renderLibrary();
+        toast("Collection renamed", "success");
+    } catch (err) { console.error(err); toast("Error renaming", "error"); }
+}
+
+function _openCollRename(name) {
+    let modal = document.getElementById("sd-coll-rename-modal");
+    if (!modal) {
+        modal = document.createElement("div");
+        modal.id = "sd-coll-rename-modal";
+        modal.className = "sd-iem-overlay sd-hidden";
+        modal.innerHTML = `
+            <div class="sd-iem-panel">
+                <div class="sd-iem-title">Rename Collection</div>
+                <label class="sd-iem-field">
+                    <span class="sd-iem-lbl">Name</span>
+                    <input id="sd-crm-input" class="sd-add-input" autocomplete="off" maxlength="80">
+                </label>
+                <div class="sd-iem-btns">
+                    <button id="sd-crm-cancel" class="sd-cancel-btn">Cancel</button>
+                    <button id="sd-crm-save" class="sd-save-btn">Rename</button>
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+        modal.addEventListener("click", e => { if (e.target === modal) modal.classList.add("sd-hidden"); });
+        document.getElementById("sd-crm-cancel").addEventListener("click", () => modal.classList.add("sd-hidden"));
+        document.getElementById("sd-crm-save").addEventListener("click", _saveCollRename);
+        document.getElementById("sd-crm-input").addEventListener("keydown", e => {
+            if (e.key === "Enter")  _saveCollRename();
+            if (e.key === "Escape") modal.classList.add("sd-hidden");
+        });
+    }
+    modal._oldName = name;
+    document.getElementById("sd-crm-input").value = name;
+    modal.classList.remove("sd-hidden");
+    setTimeout(() => { const inp = document.getElementById("sd-crm-input"); inp.focus(); inp.select(); }, 40);
+}
+
+async function _saveCollRename() {
+    const modal   = document.getElementById("sd-coll-rename-modal");
+    const oldName = modal?._oldName;
+    const newName = document.getElementById("sd-crm-input")?.value.trim();
+    if (!newName || newName === oldName) { modal?.classList.add("sd-hidden"); return; }
+    modal.classList.add("sd-hidden");
+    await _renameCollection(oldName, newName);
+}
+
+function _openItemEdit(itemId) {
+    const item = (_streamCache[_openDrawerLinkId] || []).find(i => i.id === itemId);
+    if (!item) return;
+    let modal = document.getElementById("sd-item-edit-modal");
+    if (!modal) {
+        modal = document.createElement("div");
+        modal.id = "sd-item-edit-modal";
+        modal.className = "sd-iem-overlay";
+        modal.innerHTML = `
+            <div class="sd-iem-panel">
+                <div class="sd-iem-title">Edit item</div>
+                <label class="sd-iem-field">
+                    <span class="sd-iem-lbl">Title</span>
+                    <input id="sd-iem-title" class="sd-add-input" autocomplete="off" maxlength="200">
+                </label>
+                <label class="sd-iem-field">
+                    <span class="sd-iem-lbl">Collection <small style="opacity:.5">(groups related titles together)</small></span>
+                    <input id="sd-iem-coll" class="sd-add-input" list="sd-iem-coll-dl" autocomplete="off" placeholder="e.g. Star Wars, MCU…" maxlength="80">
+                    <datalist id="sd-iem-coll-dl"></datalist>
+                </label>
+                <div class="sd-iem-btns">
+                    <button id="sd-iem-cancel" class="sd-cancel-btn">Cancel</button>
+                    <button id="sd-iem-save" class="sd-save-btn">Save</button>
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+        modal.addEventListener("click", e => { if (e.target === modal) modal.classList.add("sd-hidden"); });
+        document.getElementById("sd-iem-cancel").addEventListener("click", () => modal.classList.add("sd-hidden"));
+        document.getElementById("sd-iem-save").addEventListener("click", _saveItemEdit);
+        document.getElementById("sd-iem-title").addEventListener("keydown", e => {
+            if (e.key === "Enter")  _saveItemEdit();
+            if (e.key === "Escape") modal.classList.add("sd-hidden");
+        });
+    }
+    modal._editItemId = itemId;
+    document.getElementById("sd-iem-title").value = item.title || "";
+    document.getElementById("sd-iem-coll").value  = item.collection || "";
+    const allColls = [...new Set(
+        (_streamCache[_openDrawerLinkId] || [])
+            .filter(i => i.collection && i.id !== itemId)
+            .map(i => i.collection)
+    )];
+    document.getElementById("sd-iem-coll-dl").innerHTML = allColls.map(c => `<option value="${escHtml(c)}">`).join("");
+    modal.classList.remove("sd-hidden");
+    setTimeout(() => document.getElementById("sd-iem-title").focus(), 40);
+}
+
+async function _saveItemEdit() {
+    const modal  = document.getElementById("sd-item-edit-modal");
+    const itemId = modal?._editItemId;
+    const item   = (_streamCache[_openDrawerLinkId] || []).find(i => i.id === itemId);
+    if (!item) return;
+    const title = document.getElementById("sd-iem-title").value.trim();
+    const coll  = document.getElementById("sd-iem-coll").value.trim() || null;
+    if (!title) { toast("Title cannot be empty", "error"); return; }
+    const changes = {};
+    if (title !== (item.title || "")) { changes.title = title; item.title = title; }
+    const oldColl = item.collection || null;
+    if (coll !== oldColl) {
+        changes.collection = coll || deleteField();
+        item.collection    = coll;
+        if (coll) {
+            const collItems = (_streamCache[_openDrawerLinkId] || [])
+                .filter(i => i.collection === coll && i.id !== itemId);
+            if (collItems.length) {
+                const maxSO    = Math.max(...collItems.map(i => i.sortOrder ?? i.addedAt ?? 0));
+                changes.sortOrder = maxSO + 100;
+                item.sortOrder    = maxSO + 100;
+            }
+        }
+    }
+    if (!Object.keys(changes).length) { modal.classList.add("sd-hidden"); return; }
+    try {
+        await updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", itemId), changes);
+        modal.classList.add("sd-hidden");
+        _renderLibrary();
+        toast("Saved", "success");
+    } catch (err) { console.error(err); toast("Error saving", "error"); }
 }
 
 function _openHubItemForm(services) {
@@ -1610,10 +2245,9 @@ function _closeLibrary() {
 function _renderLibrary() {
     const body = document.getElementById("sd-body");
     if (!body || !_openDrawerLinkId) return;
-    const items   = _streamCache[_openDrawerLinkId] || [];
-    const movies  = items.filter(i => i.type !== "series");
-    const series  = items.filter(i => i.type === "series");
-
+    const allItems    = _streamCache[_openDrawerLinkId] || [];
+    const movies      = allItems.filter(i => i.type !== "series");
+    const series      = allItems.filter(i => i.type === "series");
     const totalMovies = movies.length;
     const watchedMov  = movies.filter(m => m.watched).length;
     const totalEps    = series.reduce((a, s) => a + (s.seasons || []).reduce((b, se) => b + (se.eps || 0), 0), 0);
@@ -1633,105 +2267,53 @@ function _renderLibrary() {
         progFill.style.width = total ? `${Math.round(done / total * 100)}%` : "0%";
     }
 
-    if (!items.length) {
+    if (!allItems.length) {
         body.innerHTML = `<div class="sh-empty"><span class="material-symbols-outlined">video_library</span><p>No movies or series added yet.</p></div>`;
         return;
     }
 
-    const showMovies = _sdActiveTab === "all" || _sdActiveTab === "movie";
-    const showSeries = _sdActiveTab === "all" || _sdActiveTab === "series";
-    let html = "";
+    let filtered = allItems;
+    if (_sdActiveTab === "movie")  filtered = movies;
+    if (_sdActiveTab === "series") filtered = series;
 
-    if (showMovies && movies.length) {
-        html += `<div class="sh-section"><div class="sh-section-hdr"><span class="material-symbols-outlined">movie</span>Movies<span class="sh-section-count">${watchedMov}/${totalMovies}</span></div><div class="sd-movies-grid">`;
-        html += movies.map(m => {
-            const rawUrl    = m.url && _isSafeUrl(m.url) ? m.url : null;
-            const safeUrl   = rawUrl ? escHtml(rawUrl) : null;
-            const dispTitle = m.title || (rawUrl ? _extractTitleFromUrl(rawUrl) || rawUrl : "");
-            return `<div class="sd-movie-card${m.watched ? " sd-movie-watched" : ""}" data-sd-item-id="${escHtml(m.id)}">
-                ${safeUrl ? `<a class="sd-movie-poster" href="${safeUrl}" target="_blank" rel="noopener noreferrer">` : `<div class="sd-movie-poster">`}
-                    ${m.posterUrl && _isSafeUrl(m.posterUrl) ? `<img class="sd-movie-poster-img" src="${escHtml(m.posterUrl)}" alt="" loading="lazy">` : `<span class="material-symbols-outlined sd-movie-icon">movie</span>`}
-                    <div class="sd-movie-watched-overlay"><span class="material-symbols-outlined">check_circle</span></div>
-                ${safeUrl ? `</a>` : `</div>`}
-                <button class="sd-watched-toggle" data-toggle-watched data-sd-item-id="${escHtml(m.id)}" title="${m.watched ? "Mark unwatched" : "Mark watched"}">
-                    <span class="material-symbols-outlined">${m.watched ? "check_circle" : "radio_button_unchecked"}</span>
-                </button>
-                <div class="sd-movie-info">
-                    ${safeUrl ? `<a class="sd-movie-title sd-movie-title-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${escHtml(dispTitle)}">${escHtml(dispTitle)}</a>` : `<span class="sd-movie-title" title="${escHtml(dispTitle)}">${escHtml(dispTitle)}</span>`}
-                </div>
-                <button class="sd-icon-btn sd-icon-btn--danger sd-del-btn" data-delete-item="${escHtml(m.id)}" title="Remove">
-                    <span class="material-symbols-outlined" style="font-size:13px">delete</span>
-                </button>
-            </div>`;
-        }).join("");
-        html += `</div></div>`;
-    }
+    const canDrag = _sdActiveTab === "all";
+    const units   = _buildUnits(filtered);
 
-    if (showSeries && series.length) {
-        html += `<div class="sh-section"><div class="sh-section-hdr"><span class="material-symbols-outlined">tv</span>Series<span class="sh-section-count">${series.length}</span></div><div class="sd-movies-grid">`;
-        html += series.map(s => {
-            const tot  = (s.seasons || []).reduce((a, se) => a + (se.eps || 0), 0);
-            const done = (s.seasons || []).reduce((a, se) => a + (se.watched?.length || 0), 0);
-            const pct  = tot ? Math.round(done / tot * 100) : 0;
-            const rawUrl    = s.url && _isSafeUrl(s.url) ? s.url : null;
-            const safeUrl   = rawUrl ? escHtml(rawUrl) : null;
-            const dispTitle = s.title || (rawUrl ? _extractTitleFromUrl(rawUrl) || rawUrl : "");
-            const isExpanded = _sdExpandedIds.has(s.id);
-            const allDone    = tot > 0 && done === tot;
-            const seasonsHtml = s.seasons?.length
-                ? `<div class="sd-seasons">${s.seasons.map((se, si) => {
-                    const sDone    = (se.watched || []).length;
-                    const sAllDone = sDone === se.eps;
-                    const epBubbles = Array.from({ length: se.eps }, (_, ei) => {
-                        const ep      = ei + 1;
-                        const watched = (se.watched || []).includes(ep);
-                        return `<button class="sd-ep${watched ? " sd-ep-done" : ""}" data-sd-item-id="${escHtml(s.id)}" data-season-idx="${si}" data-ep-n="${ep}" title="E${ep}">${ep}</button>`;
-                    }).join("");
-                    return `<div class="sd-season-row">
-                        <button class="sd-s-label${sAllDone ? " sd-s-done" : ""}" data-toggle-season data-sd-item-id="${escHtml(s.id)}" data-season-idx="${si}" title="Toggle season ${se.s}">S${se.s}</button>
-                        <div class="sd-ep-wrap">${epBubbles}</div>
-                        <span class="sd-ep-count">${sDone}/${se.eps}</span>
-                    </div>`;
-                }).join("")}</div>`
-                : `<div class="sd-no-seasons">No season data</div>`;
-
-            return `<div class="sd-movie-card sd-series-tile" data-sd-item-id="${escHtml(s.id)}">
-                ${safeUrl ? `<a class="sd-movie-poster" href="${safeUrl}" target="_blank" rel="noopener noreferrer">` : `<div class="sd-movie-poster">`}
-                    ${s.posterUrl && _isSafeUrl(s.posterUrl) ? `<img class="sd-movie-poster-img" src="${escHtml(s.posterUrl)}" alt="" loading="lazy">` : `<span class="material-symbols-outlined sd-movie-icon">tv</span>`}
-                    ${tot > 0 ? `<div class="sd-tile-prog"><div class="sd-tile-prog-fill" style="width:${pct}%"></div></div>` : ""}
-                    ${s.seasons?.length ? `<div class="sd-season-badge">${s.seasons.length} S</div>` : ""}
-                ${safeUrl ? `</a>` : `</div>`}
-                <div class="sd-movie-info">
-                    ${safeUrl ? `<a class="sd-movie-title sd-movie-title-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${escHtml(dispTitle)}">${escHtml(dispTitle)}</a>` : `<span class="sd-movie-title" title="${escHtml(dispTitle)}">${escHtml(dispTitle)}</span>`}
-                    <button class="sd-expand-toggle" data-toggle-expand="${escHtml(s.id)}" title="${isExpanded ? "Collapse" : "Expand seasons"}">
-                        <span class="material-symbols-outlined">${isExpanded ? "expand_less" : "expand_more"}</span>
-                    </button>
-                </div>
-                <div class="sd-series-expand${isExpanded ? "" : " sd-hidden"}">
-                    <div class="sd-expand-hdr">
-                        <button class="sd-toggle-show${allDone ? " sd-toggle-show--done" : ""}" data-toggle-show data-sd-item-id="${escHtml(s.id)}" title="${allDone ? "Unwatch all" : "Watch all"}">
-                            <span class="material-symbols-outlined" style="font-size:14px">${allDone ? "remove_done" : "done_all"}</span>
-                            ${allDone ? "Unwatch all" : "Watch all"}
-                        </button>
-                    </div>
-                    ${seasonsHtml}
-                </div>
-                <button class="sd-icon-btn sd-icon-btn--danger sd-del-btn" data-delete-item="${escHtml(s.id)}" title="Remove">
-                    <span class="material-symbols-outlined" style="font-size:13px">delete</span>
-                </button>
-            </div>`;
-        }).join("");
-        html += `</div></div>`;
-    }
-
-    if (!html) {
+    if (!units.length) {
         const label = _sdActiveTab === "movie" ? "movies" : "series";
-        html = `<div class="sh-empty"><span class="material-symbols-outlined">${_sdActiveTab === "movie" ? "movie" : "tv"}</span><p>No ${label} tracked yet.</p></div>`;
+        body.innerHTML = `<div class="sh-empty"><span class="material-symbols-outlined">${_sdActiveTab === "movie" ? "movie" : "tv"}</span><p>No ${label} tracked yet.</p></div>`;
+        return;
     }
-    body.innerHTML = html;
+
+    body.innerHTML = `<div class="sd-unified-grid" id="sd-unified-grid">${
+        units.map(u => u.type === "solo"
+            ? _sdCardHtml(u.item, canDrag)
+            : _sdCollBlockHtml(u, canDrag)
+        ).join("")
+    }</div>`;
+
+    if (canDrag) _attachSdDrag(body.querySelector("#sd-unified-grid"));
 }
 
 async function _onLibraryBodyClick(e) {
+    // Rename collection
+    const renameCollBtn = e.target.closest("[data-rename-coll]");
+    if (renameCollBtn) { _openCollRename(renameCollBtn.dataset.renameColl); return; }
+
+    // Edit item
+    const editBtn = e.target.closest("[data-edit-item]");
+    if (editBtn) { _openItemEdit(editBtn.dataset.editItem); return; }
+
+    // Toggle collection expand/collapse
+    const collToggle = e.target.closest("[data-coll-toggle]");
+    if (collToggle) {
+        const name = collToggle.dataset.collToggle;
+        if (_collapsedColls.has(name)) _collapsedColls.delete(name);
+        else _collapsedColls.add(name);
+        _renderLibrary();
+        return;
+    }
+
     // Toggle watched (movie)
     const toggleWatched = e.target.closest("[data-toggle-watched]");
     if (toggleWatched) {
