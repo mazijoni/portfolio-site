@@ -138,7 +138,7 @@ export const materialIcons = [
     { cat: 'activities', name: 'sports_volleyball' }, { cat: 'activities', name: 'sports_mma' }, { cat: 'activities', name: 'sports_motorsports' },
     { cat: 'activities', name: 'fitness_center' }, { cat: 'activities', name: 'pool' }, { cat: 'activities', name: 'hiking' },
     { cat: 'activities', name: 'kayaking' }, { cat: 'activities', name: 'skateboarding' }, { cat: 'activities', name: 'surfing' },
-    { cat: 'activities', name: 'snowboarding' }, { cat: 'activities', name: 'cycling' }, { cat: 'activities', name: 'directions_run' },
+    { cat: 'activities', name: 'snowboarding' }, { cat: 'activities', name: 'directions_bike' }, { cat: 'activities', name: 'directions_run' },
     { cat: 'activities', name: 'rowing' }, { cat: 'activities', name: 'self_improvement' }, { cat: 'activities', name: 'spa' },
     { cat: 'activities', name: 'accessibility' }, { cat: 'activities', name: 'sports_gymnastics' }, { cat: 'activities', name: 'kitesurfing' },
     { cat: 'activities', name: 'paragliding' }, { cat: 'activities', name: 'scuba_diving' }, { cat: 'activities', name: 'nordic_walking' },

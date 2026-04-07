@@ -240,6 +240,13 @@ function _domain(url) {
     catch { return ""; }
 }
 
+function _shortUrl(url) {
+    try {
+        const u = new URL(url);
+        return (u.hostname + u.pathname).replace(/^www\./, "").replace(/\/$/, "");
+    } catch { return url || ""; }
+}
+
 function _isSafeUrl(url) {
     try {
         const u = new URL(url);
