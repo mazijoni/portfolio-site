@@ -307,6 +307,10 @@ async function _renderStreamingHub(body, cat) {
             <button class="sh-tab${_shActiveTab==="all"?" sh-tab-active":""}" data-sh-tab="all">All</button>
             <button class="sh-tab${_shActiveTab==="movie"?" sh-tab-active":""}" data-sh-tab="movie">Movies</button>
             <button class="sh-tab${_shActiveTab==="series"?" sh-tab-active":""}" data-sh-tab="series">Series</button>
+            <button class="sh-lucky-btn" id="sh-lucky-btn" title="Pick a random movie or next episode">
+                <span class="material-symbols-outlined">casino</span>
+                <span class="sh-lucky-btn-label">I&#8217;m Feeling Lucky</span>
+            </button>
         </div>
         <div class="sh-content" id="sh-content"><div class="sh-loading">Loading…</div></div>`;
     body.appendChild(hub);
@@ -344,6 +348,7 @@ async function _renderStreamingHub(body, cat) {
     });
 
     hub.querySelector("#sh-tab-bar").addEventListener("click", e => {
+        if (e.target.closest("#sh-lucky-btn")) { _showLuckyPick(services); return; }
         const tab = e.target.closest("[data-sh-tab]");
         if (!tab) return;
         _shActiveTab = tab.dataset.shTab;
@@ -2407,4 +2412,262 @@ async function _onLibraryBodyClick(e) {
             _renderLibrary();
         } catch (err) { console.error(err); toast("Error removing item", "error"); }
     }
+}
+
+/* ══════════ I'M FEELING LUCKY ══════════ */
+
+function _getNextEpisode(item) {
+    for (const se of (item.seasons || [])) {
+        for (let ep = 1; ep <= se.eps; ep++) {
+            if (!(se.watched || []).includes(ep)) {
+                return { season: se.s, episode: ep };
+            }
+        }
+    }
+    return null;
+}
+
+async function _fetchLuckyTmdbDetails(item, nextEp) {
+    const key = _getTmdbKey();
+    if (!key || !item.title) return {};
+    const kind = item.type === "series" ? "tv" : "movie";
+    try {
+        // Try to extract TMDB ID from the item's url
+        let tmdbId = null;
+        if (item.url) {
+            const m = item.url.match(/themoviedb\.org\/(movie|tv)\/(\d+)/);
+            if (m) tmdbId = parseInt(m[2], 10);
+        }
+        // Search if no ID from URL
+        if (!tmdbId) {
+            const searchRes = await fetch(
+                `https://api.themoviedb.org/3/search/${kind}?api_key=${encodeURIComponent(key)}&query=${encodeURIComponent(item.title)}&language=en-US&page=1`
+            );
+            if (!searchRes.ok) return {};
+            const searchData = await searchRes.json();
+            const hit = (searchData.results || [])[0];
+            if (!hit) return {};
+            tmdbId = hit.id;
+        }
+        if (kind === "movie") {
+            const res = await fetch(
+                `https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${encodeURIComponent(key)}&language=en-US`
+            );
+            if (!res.ok) return {};
+            const data = await res.json();
+            return {
+                overview:  data.overview || "",
+                posterUrl: data.poster_path ? `https://image.tmdb.org/t/p/w300${data.poster_path}` : null,
+            };
+        }
+        // Series — fetch episode details
+        if (nextEp) {
+            const epRes = await fetch(
+                `https://api.themoviedb.org/3/tv/${tmdbId}/season/${nextEp.season}/episode/${nextEp.episode}?api_key=${encodeURIComponent(key)}&language=en-US`
+            );
+            const showRes = await fetch(
+                `https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${encodeURIComponent(key)}&language=en-US`
+            );
+            const showData = showRes.ok ? await showRes.json() : {};
+            const posterUrl = showData.poster_path ? `https://image.tmdb.org/t/p/w300${showData.poster_path}` : null;
+            if (epRes.ok) {
+                const epData = await epRes.json();
+                return {
+                    overview:     epData.overview || showData.overview || "",
+                    episodeName:  epData.name || "",
+                    stillUrl:     epData.still_path ? `https://image.tmdb.org/t/p/w300${epData.still_path}` : null,
+                    posterUrl,
+                    airDate:      epData.air_date || null,
+                };
+            }
+            return { overview: showData.overview || "", posterUrl, airDate: null };
+        }
+        const showRes = await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${encodeURIComponent(key)}&language=en-US`);
+        const showData = showRes.ok ? await showRes.json() : {};
+        return {
+            overview: showData.overview || "",
+            posterUrl: showData.poster_path ? `https://image.tmdb.org/t/p/w300${showData.poster_path}` : null,
+        };
+    } catch { return {}; }
+}
+
+let _luckyServices = null;
+let _luckyFullPool = [];   // original pool for infinite cycling
+let _luckyShownIds = new Set(); // IDs shown this cycle
+
+async function _showLuckyPick(services) {
+    _luckyServices = services;
+    _luckyShownIds = new Set(); // fresh cycle on each button press
+
+    // Ensure all items are loaded
+    await Promise.all(services.map(l => _loadStreamItems(l.id)));
+    const allItems = _buildHubItems(services);
+
+    // Candidates: unwatched movies + series with remaining episodes
+    const candidates = allItems.filter(item =>
+        item.type === "series" ? _getNextEpisode(item) !== null : !item.watched
+    );
+    _luckyFullPool = candidates.length ? candidates : allItems;
+    if (!_luckyFullPool.length) { toast("No movies or shows tracked yet!", "error"); return; }
+
+    _pickAndShowLucky(_luckyFullPool, allItems, services);
+}
+
+async function _pickAndShowLucky(fullPool, allItems, services) {
+    _ensureLuckyModal();
+
+    // Build unseen pool; reset cycle when all have been shown
+    let unseen = fullPool.filter(i => !_luckyShownIds.has(i.id));
+    if (!unseen.length) {
+        _luckyShownIds = new Set();
+        unseen = [...fullPool];
+    }
+
+    // Shuffle unseen for random order
+    const shuffled = [...unseen].sort(() => Math.random() - 0.5);
+    const today    = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+    // Show loading state using the first candidate as preview
+    const firstItem   = shuffled[0];
+    const firstNextEp = firstItem.type === "series" ? _getNextEpisode(firstItem) : null;
+    const firstSvc    = services.find(s => s.id === firstItem._serviceId);
+    _setLuckyLoading(true, firstItem, firstNextEp, firstSvc ? _serviceLabel(firstSvc) : "");
+
+    // Iterate through shuffled pool looking for an already-aired pick
+    for (const item of shuffled) {
+        const nextEp   = item.type === "series" ? _getNextEpisode(item) : null;
+        const svc      = services.find(s => s.id === item._serviceId);
+        const svcLabel = svc ? _serviceLabel(svc) : "";
+        const details  = await _fetchLuckyTmdbDetails(item, nextEp);
+
+        // Skip unaired next episodes
+        if (nextEp && details.airDate && details.airDate > today) continue;
+
+        _luckyShownIds.add(item.id);
+        _setLuckyContent(item, nextEp, svcLabel, details, fullPool, allItems, services);
+        return;
+    }
+
+    // All candidates had unaired next episodes — show the first one with a badge
+    const fallbackItem    = shuffled[0];
+    const fallbackNextEp  = fallbackItem.type === "series" ? _getNextEpisode(fallbackItem) : null;
+    const fallbackSvc     = services.find(s => s.id === fallbackItem._serviceId);
+    const fallbackLabel   = fallbackSvc ? _serviceLabel(fallbackSvc) : "";
+    const fallbackDetails = await _fetchLuckyTmdbDetails(fallbackItem, fallbackNextEp);
+    _luckyShownIds.add(fallbackItem.id);
+    _setLuckyContent(fallbackItem, fallbackNextEp, fallbackLabel, { ...fallbackDetails, allUnaired: true }, fullPool, allItems, services);
+}
+
+function _ensureLuckyModal() {
+    if (document.getElementById("sh-lucky-overlay")) return;
+    const overlay = document.createElement("div");
+    overlay.id = "sh-lucky-overlay";
+    overlay.className = "sh-lucky-overlay";
+    overlay.innerHTML = `
+        <div class="sh-lucky-modal" role="dialog" aria-modal="true" aria-label="I'm Feeling Lucky">
+            <button class="sh-lucky-close" id="sh-lucky-close" title="Close">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            <div class="sh-lucky-header">
+                <span class="material-symbols-outlined sh-lucky-dice-icon">casino</span>
+                <span class="sh-lucky-header-text">I&#8217;m Feeling Lucky</span>
+            </div>
+            <div class="sh-lucky-body" id="sh-lucky-body">
+                <div class="sh-lucky-spinner"><span class="material-symbols-outlined sh-lucky-spin-icon">autorenew</span></div>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener("click", e => { if (e.target === overlay) _closeLuckyModal(); });
+    document.getElementById("sh-lucky-close").addEventListener("click", _closeLuckyModal);
+    document.addEventListener("keydown", _luckyKeyClose);
+}
+
+function _luckyKeyClose(e) {
+    if (e.key === "Escape") _closeLuckyModal();
+}
+
+function _closeLuckyModal() {
+    const ov = document.getElementById("sh-lucky-overlay");
+    if (ov) { ov.classList.remove("sh-lucky-visible"); }
+    document.removeEventListener("keydown", _luckyKeyClose);
+}
+
+function _setLuckyLoading(loading, item, nextEp, svcLabel) {
+    const ov = document.getElementById("sh-lucky-overlay");
+    if (!ov) return;
+    if (loading) {
+        const isSeries = item.type === "series";
+        const title = item.title || "";
+        const epLabel = nextEp
+            ? `S${nextEp.season}E${nextEp.episode}`
+            : isSeries ? "Series" : "Movie";
+        document.getElementById("sh-lucky-body").innerHTML = `
+            <div class="sh-lucky-card sh-lucky-loading-state">
+                <div class="sh-lucky-poster-wrap">
+                    ${item.posterUrl && _isSafeUrl(item.posterUrl)
+                        ? `<img class="sh-lucky-poster-img" src="${escHtml(item.posterUrl)}" alt="">`
+                        : `<div class="sh-lucky-poster-blank"><span class="material-symbols-outlined">${isSeries ? "tv" : "movie"}</span></div>`}
+                </div>
+                <div class="sh-lucky-info">
+                    <div class="sh-lucky-type-badge">${isSeries ? "Series" : "Movie"}</div>
+                    <div class="sh-lucky-title">${escHtml(title)}</div>
+                    ${nextEp ? `<div class="sh-lucky-ep-label">Next up: ${escHtml(epLabel)}</div>` : ""}
+                    <div class="sh-lucky-desc sh-lucky-desc--loading">
+                        <span class="material-symbols-outlined sh-lucky-spin-icon">autorenew</span>
+                        Fetching details&#8230;
+                    </div>
+                    ${svcLabel ? `<div class="sh-lucky-svc">${escHtml(svcLabel)}</div>` : ""}
+                </div>
+            </div>`;
+        ov.classList.add("sh-lucky-visible");
+    }
+}
+
+function _setLuckyContent(item, nextEp, svcLabel, details, pool, allItems, services) {
+    const body = document.getElementById("sh-lucky-body");
+    if (!body) return;
+    const isSeries   = item.type === "series";
+    const rawUrl     = item.url && _isSafeUrl(item.url) ? item.url : null;
+    const safeUrl    = rawUrl ? escHtml(rawUrl) : null;
+    const title      = item.title || "";
+    const epLabel    = nextEp ? `S${nextEp.season}E${nextEp.episode}` : "";
+    const epName     = details.episodeName || "";
+    const overview   = details.overview || "";
+    const posterSrc  = details.stillUrl || details.posterUrl || (item.posterUrl && _isSafeUrl(item.posterUrl) ? item.posterUrl : null);
+
+    body.innerHTML = `
+        <div class="sh-lucky-card">
+            <div class="sh-lucky-poster-wrap">
+                ${posterSrc
+                    ? `<img class="sh-lucky-poster-img" src="${escHtml(posterSrc)}" alt="">`
+                    : `<div class="sh-lucky-poster-blank"><span class="material-symbols-outlined">${isSeries ? "tv" : "movie"}</span></div>`}
+            </div>
+            <div class="sh-lucky-info">
+                <div class="sh-lucky-type-badge">${isSeries ? "Series" : "Movie"}</div>
+                <div class="sh-lucky-title">${escHtml(title)}</div>
+                ${epLabel ? `<div class="sh-lucky-ep-label">Next up: <strong>${escHtml(epLabel)}</strong>${epName ? ` &mdash; ${escHtml(epName)}` : ""}</div>` : ""}
+                ${overview
+                    ? `<p class="sh-lucky-desc">${escHtml(overview)}</p>`
+                    : `<p class="sh-lucky-desc sh-lucky-desc--empty">No description available.</p>`}
+                ${svcLabel ? `<div class="sh-lucky-svc">${escHtml(svcLabel)}</div>` : ""}
+                <div class="sh-lucky-actions">
+                    ${details.allUnaired
+                        ? `<span class="sh-lucky-unaired-badge"><span class="material-symbols-outlined">schedule</span>Not aired yet</span>`
+                        : safeUrl
+                            ? `<a class="sh-lucky-watch-btn" href="${safeUrl}" target="_blank" rel="noopener noreferrer">
+                                <span class="material-symbols-outlined">play_arrow</span>Watch Now
+                               </a>`
+                            : `<span class="sh-lucky-watch-btn sh-lucky-watch-btn--disabled">
+                                <span class="material-symbols-outlined">link_off</span>No link
+                               </span>`}
+                    <button class="sh-lucky-retry-btn" id="sh-lucky-retry">
+                        <span class="material-symbols-outlined">casino</span>Try Another
+                    </button>
+                </div>
+            </div>
+        </div>`;
+
+    document.getElementById("sh-lucky-retry")?.addEventListener("click", () => {
+        _pickAndShowLucky(_luckyFullPool, allItems, services);
+    });
 }
