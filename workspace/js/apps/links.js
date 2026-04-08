@@ -11,7 +11,7 @@
 import {
     onSnapshot, addDoc, updateDoc, deleteDoc, deleteField,
     doc, getDoc, query, orderBy, where, serverTimestamp,
-    collection, getDocs
+    collection, getDocs, setDoc
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
 import { refs }                from "../db.js";
@@ -48,13 +48,14 @@ const MGH_PERSON_ALIASES = {
 /* ══════════ STATE ══════════ */
 
 let _db, _user, _unsub;
-let _links       = [];
-let _search      = "";
-let _activeCat   = "all";   // "all" | category name | "_uncat"
-let _sortMode    = "manual";
-let _editId      = null;
-let _editCatId   = null;
-let _dragId      = null;
+let _links          = [];
+let _search         = "";
+let _activeCat      = "all";   // "all" | category name | "_uncat"
+let _sortMode       = "manual";
+let _editId         = null;
+let _editCatId      = null;
+let _dragId         = null;
+let _settingsLoaded = false;   // true after first Firestore settings snapshot
 const _mediaThumbs = {}; // url → imgUrl | null  (undefined = not yet tried)
 
 let _cats = [];   // [{ id, name, icon }]
@@ -79,6 +80,12 @@ function _loadCats() {
 }
 function _saveCats() {
     try { localStorage.setItem(_CATS_KEY(), JSON.stringify(_cats)); } catch {}
+    // Also persist to Firestore so categories survive across devices and domains.
+    // Guard with _settingsLoaded to avoid overwriting Firestore before we've read it.
+    if (_settingsLoaded && _db && _user?.uid) {
+        setDoc(refs.linkSettings(_db, _user.uid), { categories: _cats }, { merge: true })
+            .catch(err => console.error("[links] _saveCats Firestore error:", err));
+    }
 }
 function _syncCatsFromLinks() {
     const known = new Set(_cats.map(c => c.name));
@@ -101,6 +108,29 @@ export function initLinks(db, user) {
     _db   = db;
     _user = user;
     _loadCats();
+
+    // Subscribe to Firestore settings — source of truth for categories across devices/domains.
+    // The guard flag _settingsLoaded prevents _saveCats from overwriting Firestore
+    // before we've received the initial snapshot.
+    onSnapshot(refs.linkSettings(_db, _user.uid), snap => {
+        if (snap.exists()) {
+            const remoteCats = snap.data()?.categories;
+            if (Array.isArray(remoteCats) && remoteCats.length > 0) {
+                _cats = remoteCats;
+                try { localStorage.setItem(_CATS_KEY(), JSON.stringify(_cats)); } catch {}
+            } else if (!_settingsLoaded && _cats.length > 0) {
+                // Remote doc exists but has no categories yet — push local cats up once
+                setDoc(refs.linkSettings(_db, _user.uid), { categories: _cats }, { merge: true })
+                    .catch(console.error);
+            }
+        } else if (!_settingsLoaded && _cats.length > 0) {
+            // No settings doc yet — migrate localStorage cats to Firestore
+            setDoc(refs.linkSettings(_db, _user.uid), { categories: _cats }, { merge: true })
+                .catch(console.error);
+        }
+        _settingsLoaded = true;
+        _render();
+    }, err => console.error("[links] settings snapshot error:", err));
 
     document.getElementById("btn-add-link")
         .addEventListener("click", () => _openForm(null));
