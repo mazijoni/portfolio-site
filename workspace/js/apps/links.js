@@ -930,7 +930,7 @@ function _mghEmbed(url) {
 function _mghPlatBadge(link) {
     let lbl = link.badgeLabel || "";
     let col = link.badgeColor || "";
-    const linkUrl = link.url || "";
+    const linkUrl = link.url || link.profileUrl || "";
     let h = "";
     try { h = new URL(linkUrl).hostname.replace(/^www\./, ""); } catch {}
 
@@ -960,9 +960,10 @@ function _mghFindCreatorFor(link) {
     if (link.creatorId) return _links.find(l => l.id === link.creatorId) ?? null;
     if (!link.url) return null;
     for (const c of _links.filter(l => l.type === "creator" || l.type === "youtube-channel")) {
-        if (!c.url) continue;
+        if (!c.url && !c.profileUrl) continue;
+        const _cUrl = c.url || c.profileUrl;
         try {
-            const cu = new URL(c.url); const mu = new URL(link.url);
+            const cu = new URL(_cUrl); const mu = new URL(link.url);
             if (cu.hostname === mu.hostname) {
                 const cp = cu.pathname.replace(/\/$/, ""); const mp = mu.pathname.replace(/\/$/, "");
                 if (cp && (mp === cp || mp.startsWith(cp + "/"))) return c;
@@ -1087,7 +1088,7 @@ function _mghOpenCreatorPanel(creator) {
     if (descTxt) { descEl.textContent = descTxt; descEl.style.display = ""; } else descEl.style.display = "none";
 
     const profBtn = document.getElementById("mgh-cp-profile-btn");
-    if (!isChar && creator.url) { profBtn.style.display = ""; profBtn.onclick = () => window.open(creator.url, "_blank", "noopener,noreferrer"); }
+    if (!isChar && (creator.url || creator.profileUrl)) { profBtn.style.display = ""; profBtn.onclick = () => window.open(creator.url || creator.profileUrl, "_blank", "noopener,noreferrer"); }
     else profBtn.style.display = "none";
 
     const body = document.getElementById("mgh-cp-body");
@@ -1241,7 +1242,7 @@ function _mghCreatorCard(link) {
             </div>
             ${(link.description || link.desc) ? `<div class="creator-desc">${escHtml(link.description || link.desc || "")}</div>` : ""}
         </div>
-        ${link.url ? `<a class="creator-card-link" href="${escHtml(link.url)}" target="_blank" rel="noopener noreferrer" title="Open profile" onclick="event.stopPropagation()"><svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M5.5 1H9v3.5M9 1L4 6M2 3.5H1v5.5h5.5V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>` : ""}`;
+        ${(link.url || link.profileUrl) ? `<a class="creator-card-link" href="${escHtml(link.url || link.profileUrl)}" target="_blank" rel="noopener noreferrer" title="Open profile" onclick="event.stopPropagation()"><svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M5.5 1H9v3.5M9 1L4 6M2 3.5H1v5.5h5.5V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>` : ""}`;
     card.addEventListener("click", e => {
         if (e.target.closest(".db-card-actions") || e.target.closest(".creator-card-link")) return;
         _mghOpenCreatorPanel(link);
@@ -1485,7 +1486,7 @@ async function _doWorkspaceImport(cat, projId, skipDup) {
         const thumbUrl = l.avatarUrl || l.thumbUrl || l.imageUrl || "";
         const data = {
             title:       l.name || "",
-            url:         l.url  || "",
+            url:         l.url  || l.profileUrl || "",
             type:        glType,
             category:    cat.name,
             description: l.desc || "",
