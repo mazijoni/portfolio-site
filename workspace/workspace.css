@@ -4094,6 +4094,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    position: relative;
     transition: border-color var(--transition), transform var(--transition), box-shadow var(--transition);
 }
 .link-card:hover {
@@ -4403,6 +4404,64 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     border-color: var(--accent);
     box-shadow: 0 0 0 2px var(--accent-dim);
 }
+
+/* ── Bulk select mode ── */
+.links-bulk-bar {
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--accent);
+    padding: 0.45rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.8rem;
+}
+.links-bulk-count {
+    font-weight: 600;
+    color: var(--accent);
+    flex: 1;
+}
+.links-bulk-actions { display: flex; align-items: center; gap: 0.5rem; }
+
+/* Prevent opening links while in select mode */
+.links-select-mode .link-card a { pointer-events: none; }
+.links-select-mode .link-card { cursor: pointer; user-select: none; }
+/* Hide drag handle in select mode */
+.links-select-mode .link-card-drag-handle { display: none; }
+
+/* Selected card highlight */
+.link-card--selected {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 2px var(--accent-dim) !important;
+    background: color-mix(in srgb, var(--accent) 8%, var(--bg-secondary));
+}
+.link-card--selected::before {
+    content: "check_circle";
+    font-family: "Material Symbols Outlined";
+    font-size: 0.95rem;
+    color: var(--accent);
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 2;
+    line-height: 1;
+}
+/* Box-hover (while rubber-banding) */
+.link-card--box-hover {
+    border-color: var(--accent) !important;
+    opacity: 0.75;
+}
+/* Rubber-band selection rectangle */
+.links-box-select {
+    position: absolute;
+    border: 1.5px solid var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    pointer-events: none;
+    z-index: 10;
+    border-radius: 3px;
+}
+/* links-body needs relative positioning for the box to position correctly */
+.links-body { position: relative; }
 
 /* ── Favicon fallback (material icon) ── */
 .link-card-favicon-fb {
