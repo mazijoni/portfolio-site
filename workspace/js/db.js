@@ -54,6 +54,10 @@ export const refs = {
     gmailContacts: (db, uid) =>
         collection(db, "users", uid, "gmail-contacts"),
 
+    /** users/{uid}/settings/links — single doc for Link Gallery settings (categories, etc.) */
+    linkSettings: (db, uid) =>
+        doc(db, "users", uid, "settings", "links"),
+
     /** users/{uid}/projects/{pid} — single project doc */
     project: (db, uid, pid) =>
         doc(db, "users", uid, "projects", pid),
