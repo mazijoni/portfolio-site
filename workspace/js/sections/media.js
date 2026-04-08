@@ -593,9 +593,10 @@ function _findCreatorFor(link) {
     if (!link.url) return null;
     // Auto-match: if media URL path starts with a creator's URL path on the same host
     for (const c of _links.filter(l => l.type === "creator")) {
-        if (!c.url) continue;
+        if (!c.url && !c.profileUrl) continue;
+        const cUrl = c.url || c.profileUrl;
         try {
-            const cu = new URL(c.url);
+            const cu = new URL(cUrl);
             const mu = new URL(link.url);
             if (cu.hostname === mu.hostname) {
                 const cPath = cu.pathname.replace(/\/$/, "");
@@ -807,6 +808,14 @@ async function _onLinkSubmit(e) {
         data.badgeColor = color;
         const _badgeLbl = document.getElementById("ml-field-badge")?.value.trim() || null;
         if (_badgeLbl !== null) data.badgeLabel = _badgeLbl;
+        if (type === "creator" && url) {
+            const _p = _parseCreatorUrl(url);
+            if (_p && _p.platform !== "other" && _p.username) {
+                data.platform = _p.platform;
+                data.username = _p.username;
+                if (!data.avatarUrl) data.avatarUrl = _getCreatorAvatar(_p.platform, _p.username);
+            }
+        }
     }
         data.creatorId = document.getElementById("ml-field-creator")?.value || null;
         const _pSel = document.getElementById("ml-field-person");
@@ -827,7 +836,7 @@ async function _onLinkSubmit(e) {
                         const profileUrls = { twitter: `https://x.com/${parsed.username}`, youtube: `https://www.youtube.com/@${parsed.username}`, instagram: `https://www.instagram.com/${parsed.username}`, tiktok: `https://www.tiktok.com/@${parsed.username}`, twitch: `https://www.twitch.tv/${parsed.username}` };
                         const profileUrl = profileUrls[parsed.platform] || "";
                         const avatarUrl = _getCreatorAvatar(parsed.platform, parsed.username);
-                        const cData = { name: parsed.username, profileUrl, avatarUrl, description: "", platform: parsed.platform, username: parsed.username, type: "creator", categoryId: _catId, createdAt: serverTimestamp() };
+                        const cData = { name: parsed.username, url: profileUrl, avatarUrl, description: "", platform: parsed.platform, username: parsed.username, type: "creator", categoryId: _catId, createdAt: serverTimestamp() };
                         const docRef = await addDoc(collection(db, "users", _uid, "links"), cData);
                         data.creatorId = docRef.id;
                         toast(`Creator @${parsed.username} auto-added.`);
