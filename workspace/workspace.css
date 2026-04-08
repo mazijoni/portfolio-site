@@ -3537,6 +3537,42 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .lc-prefab .material-symbols-outlined { font-size: 1.3rem; }
 .lc-prefab.active { border-color: var(--accent); color: var(--accent); background: rgba(99,102,241,0.07); }
 .lc-prefab[data-prefab="streaming"].active { border-color: #e50914; color: #e50914; background: rgba(229,9,20,0.07); }
+.lc-prefab[data-prefab="media"].active { border-color: #818cf8; color: #818cf8; background: rgba(129,140,248,0.09); }
+
+/* ── Lock badge on category cards ── */
+.link-cat-lock-badge {
+    position: absolute; top: 6px; right: 6px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.12);
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+}
+.link-cat-lock-badge .material-symbols-outlined { font-size: 0.8rem; color: rgba(255,255,255,0.7); }
+.link-cat-lock-toggle {
+    display: flex; align-items: center; gap: 0.5rem;
+    cursor: pointer; font-size: 0.85rem; user-select: none;
+}
+.link-cat-lock-toggle input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+
+/* ── Category lock screen ── */
+.link-lockscreen {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 340px; padding: 3rem 1.5rem; gap: 1rem; text-align: center;
+}
+.link-ls-icon .material-symbols-outlined { font-size: 3.5rem; color: var(--text-muted); opacity: 0.4; }
+.link-ls-name { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
+.link-ls-sub { font-size: 0.82rem; color: var(--text-muted); margin-top: -0.4rem; }
+.link-ls-bio-btn { display: flex; align-items: center; gap: 0.45rem; margin-top: 0.25rem; }
+.link-ls-or { font-size: 0.72rem; color: var(--text-muted); }
+.link-ls-form { display: flex; gap: 0.5rem; width: 100%; max-width: 280px; }
+.link-ls-pw { flex: 1; min-width: 0; }
+.link-ls-err { font-size: 0.8rem; color: #f87171; max-width: 280px; }
+.link-ls-bio-offer {
+    font-size: 0.82rem; color: var(--text-secondary); max-width: 280px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 0.75rem 1rem; text-align: center;
+}
+.link-ls-offer-btns { display: flex; gap: 0.5rem; justify-content: center; margin-top: 0.5rem; }
 
 /* ── Streaming Hub category card ── */
 .link-cat-card--streaming {
@@ -3545,6 +3581,158 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 }
 .link-cat-card--streaming:hover { border-color: rgba(229,9,20,0.5); }
 .link-cat-card--streaming .link-cat-card-icon .material-symbols-outlined { color: #e50914; }
+
+/* ── Media Hub category card ── */
+.link-cat-card--media {
+    background: linear-gradient(145deg, #0e0e20 0%, #0a0a18 100%);
+    border-color: rgba(129,140,248,0.2);
+}
+.link-cat-card--media:hover { border-color: rgba(129,140,248,0.5); }
+.link-cat-card--media .link-cat-card-icon .material-symbols-outlined { color: #818cf8; }
+
+/* ══════════ MEDIA HUB VIEW ══════════ */
+.media-gallery-hub {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+.mgh-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.7rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+.mgh-title {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+}
+.mgh-title .material-symbols-outlined { font-size: 1.1rem; color: #818cf8; }
+.mgh-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+.mgh-section { display: flex; flex-direction: column; gap: 0.75rem; }
+.mgh-section-count {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0 7px;
+    flex-shrink: 0;
+}
+
+/* ══════════ LINK FORM ══════════ */
+.link-badge-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+.link-badge-row input[type="text"] { flex: 1; }
+.link-badge-row input[type="color"] {
+    width: 38px;
+    height: 36px;
+    padding: 2px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+}
+.ml-attr-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+.ml-attr-col { display: flex; flex-direction: column; gap: 4px; }
+.ml-attr-label { font-size: 0.72rem; color: var(--text-muted); }
+.ml-attr-col select { min-height: 36px; }
+.ml-attr-col select[multiple] { min-height: 72px; }
+
+/* ══════════ MEDIA HUB TOOLBAR (search + layout) ══════════ */
+.mgh-search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    max-width: 240px;
+}
+.mgh-search-input {
+    flex: 1;
+    height: 30px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.8rem;
+}
+.mgh-search-input:focus { outline: none; border-color: var(--accent); }
+.mgh-search-close {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-muted); display: flex; align-items: center; padding: 4px;
+}
+.mgh-search-close:hover { color: var(--text-primary); }
+.mgh-toolbar-actions {
+    display: flex; align-items: center; gap: 2px;
+}
+.ws-btn-icon {
+    padding: 5px 7px !important;
+    display: flex; align-items: center; justify-content: center;
+}
+.mgh-layout-btn.active { color: var(--accent) !important; background: var(--bg-tertiary) !important; }
+
+/* ══════════ MEDIA HUB IMPORT DIALOG ══════════ */
+.mgh-import-overlay {
+    position: fixed; inset: 0; z-index: 3000;
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(2px);
+    display: flex; align-items: center; justify-content: center;
+}
+.mgh-import-dialog {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg, 10px);
+    padding: 1.25rem 1.5rem;
+    width: 360px; max-width: 95vw;
+    display: flex; flex-direction: column; gap: 0.85rem;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+}
+.mgh-import-header {
+    display: flex; align-items: center; justify-content: space-between;
+    font-weight: 600; font-size: 0.92rem;
+}
+.mgh-import-close {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-muted); display: flex; align-items: center; padding: 4px;
+    border-radius: var(--radius);
+}
+.mgh-import-close:hover { color: var(--text-primary); background: var(--bg-tertiary); }
+.mgh-import-label { font-size: 0.78rem; color: var(--text-muted); }
+.mgh-import-select {
+    width: 100%; padding: 0.45rem 0.6rem;
+    background: var(--bg-tertiary); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text-primary);
+    font-size: 0.85rem; font-family: inherit;
+}
+.mgh-import-check {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.82rem; color: var(--text-secondary); cursor: pointer;
+}
+.mgh-import-actions {
+    display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem;
+}
 
 /* ══════════ STREAMING HUB VIEW ══════════ */
 .streaming-hub { padding: 0; }
