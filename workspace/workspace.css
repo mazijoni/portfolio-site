@@ -4854,8 +4854,8 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-hero {
     position: relative; flex-shrink: 0;
     padding: 1.5rem 1.25rem 1.15rem;
-    background: linear-gradient(170deg, #200808 0%, #150000 55%, #0f0f0f 100%);
-    border-bottom: 2px solid #e50914;
+    background: linear-gradient(170deg, color-mix(in srgb, var(--sd-brand, #e50914) 25%, #000) 0%, color-mix(in srgb, var(--sd-brand, #e50914) 8%, #000) 55%, #0f0f0f 100%);
+    border-bottom: 2px solid var(--sd-brand, #e50914);
 }
 .sd-close-btn {
     position: absolute; top: 0.65rem; right: 0.65rem;
@@ -4878,18 +4878,18 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 
 .sd-watch-btn {
     display: flex; align-items: center; gap: 3px;
-    background: #e50914; color: #fff; border: none;
+    background: var(--sd-brand, #e50914); color: #fff; border: none;
     padding: 0.48rem 0.9rem; border-radius: 3px;
     font-size: 0.77rem; font-weight: 700; cursor: pointer;
     text-decoration: none; flex-shrink: 0; letter-spacing: 0.02em;
     transition: background 0.15s; font-family: inherit;
 }
-.sd-watch-btn:hover { background: #f40612; }
+.sd-watch-btn:hover { background: color-mix(in srgb, var(--sd-brand, #e50914) 85%, #fff); }
 .sd-watch-btn .material-symbols-outlined { font-size: 1.1rem; }
 
 /* ── Progress track ── */
 .sd-progress-track { height: 3px; background: rgba(255,255,255,0.06); flex-shrink: 0; }
-.sd-progress-fill { height: 100%; background: #e50914; transition: width 0.6s ease; width: 0%; }
+.sd-progress-fill { height: 100%; background: var(--sd-brand, #e50914); transition: width 0.6s ease; width: 0%; }
 
 /* ── Toolbar ── */
 .sd-toolbar {
@@ -4932,14 +4932,14 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     transition: border-color 0.15s; font-family: inherit;
 }
 .sd-add-input::placeholder { color: rgba(255,255,255,0.22); }
-.sd-add-input:focus { border-color: #e50914; }
+.sd-add-input:focus { border-color: var(--sd-brand, #e50914); }
 .sd-save-btn {
     height: 30px; padding: 0 0.8rem; border-radius: 3px;
-    background: #e50914; border: none; color: #fff;
+    background: var(--sd-brand, #e50914); border: none; color: #fff;
     font-size: 0.77rem; font-weight: 700; cursor: pointer;
     font-family: inherit; transition: background 0.15s;
 }
-.sd-save-btn:hover { background: #f40612; }
+.sd-save-btn:hover { background: color-mix(in srgb, var(--sd-brand, #e50914) 80%, #fff); }
 .sd-cancel-btn {
     height: 30px; width: 30px; border-radius: 3px;
     background: rgba(255,255,255,0.05); border: none; color: rgba(255,255,255,0.38);
@@ -4970,7 +4970,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     letter-spacing: 0.1em; color: rgba(255,255,255,0.32); margin-bottom: 0.8rem;
 }
 .sd-section-hdr .material-symbols-outlined { font-size: 0.9rem; }
-.sd-section-count { margin-left: auto; font-size: 0.64rem; font-weight: 600; color: #e50914; }
+.sd-section-count { margin-left: auto; font-size: 0.64rem; font-weight: 600; color: var(--sd-brand, #e50914); }
 
 /* ── Movies poster grid ── */
 .sd-movies-grid {
@@ -4984,7 +4984,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
 }
 .sd-movie-card:hover { transform: scale(1.04); border-color: rgba(255,255,255,0.14); box-shadow: 0 6px 20px rgba(0,0,0,0.5); }
-.sd-movie-card.sd-movie-watched { border-color: rgba(229,9,20,0.4); }
+.sd-movie-card.sd-movie-watched { border-color: color-mix(in srgb, var(--sd-brand, #e50914) 40%, transparent); }
 
 .sd-movie-poster {
     width: 100%; aspect-ratio: 2/3; background: #0e0e0e;
@@ -4994,7 +4994,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-movie-icon { font-size: 2rem; color: rgba(255,255,255,0.28); pointer-events: none; }
 .sd-movie-watched-overlay {
     position: absolute; inset: 0;
-    background: rgba(229,9,20,0.82);
+    background: color-mix(in srgb, var(--sd-brand, #e50914) 82%, transparent);
     display: flex; align-items: center; justify-content: center;
     opacity: 0; transition: opacity 0.15s;
 }
@@ -5018,7 +5018,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 }
 .sd-movie-card:hover .sd-del-btn,
 .sd-series-card:hover .sd-del-btn { opacity: 1; }
-.sd-del-btn:hover { color: #e50914; }
+.sd-del-btn:hover { color: var(--sd-brand, #e50914); }
 
 /* ── Series cards ── */
 .sd-series-card {
@@ -5038,25 +5038,25 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     display: block; margin-bottom: 5px;
 }
 .sd-series-prog-bar { height: 2px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
-.sd-series-prog-fill { height: 100%; background: #e50914; border-radius: 2px; transition: width 0.4s ease; }
+.sd-series-prog-fill { height: 100%; background: var(--sd-brand, #e50914); border-radius: 2px; transition: width 0.4s ease; }
 
 .sd-series-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
-.sd-pct-badge { font-size: 0.64rem; font-weight: 600; color: rgba(229,9,20,0.85); min-width: 28px; text-align: right; }
+.sd-pct-badge { font-size: 0.64rem; font-weight: 600; color: var(--sd-brand, #e50914); min-width: 28px; text-align: right; }
 .sd-icon-btn {
     background: none; border: none; color: rgba(255,255,255,0.28);
     cursor: pointer; padding: 3px; border-radius: 3px;
     display: flex; align-items: center; transition: all 0.15s;
 }
 .sd-icon-btn:hover { color: #fff; background: rgba(255,255,255,0.07); }
-.sd-icon-btn--danger:hover { color: #e50914; background: rgba(229,9,20,0.1); }
+.sd-icon-btn--danger:hover { color: var(--sd-brand, #e50914); background: color-mix(in srgb, var(--sd-brand, #e50914) 10%, transparent); }
 
 /* ── Season rows ── */
 .sd-seasons { display: flex; flex-direction: column; gap: 0.5rem; }
 .sd-season-row { display: flex; align-items: center; gap: 0.55rem; }
 .sd-s-label { font-size: 0.74rem; font-weight: 700; color: rgba(255,255,255,0.35); width: 26px; flex-shrink: 0; background: none; border: none; padding: 0; font-family: inherit; cursor: pointer; }
 .sd-s-label:hover { color: rgba(255,255,255,0.8); }
-.sd-s-label.sd-s-done { color: #e50914; }
-.sd-s-label.sd-s-done:hover { color: #ff3d3d; }
+.sd-s-label.sd-s-done { color: var(--sd-brand, #e50914); }
+.sd-s-label.sd-s-done:hover { color: color-mix(in srgb, var(--sd-brand, #e50914) 80%, #fff); }
 .sd-expand-hdr { display: flex; justify-content: flex-end; margin-bottom: 0.35rem; }
 .sd-toggle-show {
     display: inline-flex; align-items: center; gap: 4px;
@@ -5066,8 +5066,8 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     transition: color 0.15s, background 0.15s;
 }
 .sd-toggle-show:hover { color: #fff; background: rgba(255,255,255,0.07); }
-.sd-toggle-show--done { color: #e50914; }
-.sd-toggle-show--done:hover { color: #e50914; background: rgba(229,9,20,0.08); }
+.sd-toggle-show--done { color: var(--sd-brand, #e50914); }
+.sd-toggle-show--done:hover { color: var(--sd-brand, #e50914); background: color-mix(in srgb, var(--sd-brand, #e50914) 8%, transparent); }
 .sd-ep-wrap { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
 .sd-ep {
     width: 26px; height: 26px; border-radius: 4px;
@@ -5076,8 +5076,8 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     cursor: pointer; display: flex; align-items: center; justify-content: center;
     transition: all 0.12s; padding: 0; font-family: inherit; flex-shrink: 0;
 }
-.sd-ep:hover { border-color: #e50914; color: #e50914; background: rgba(229,9,20,0.08); }
-.sd-ep.sd-ep-done { background: #e50914; border-color: #e50914; color: #fff; }
+.sd-ep:hover { border-color: var(--sd-brand, #e50914); color: var(--sd-brand, #e50914); background: color-mix(in srgb, var(--sd-brand, #e50914) 8%, transparent); }
+.sd-ep.sd-ep-done { background: var(--sd-brand, #e50914); border-color: var(--sd-brand, #e50914); color: #fff; }
 .sd-ep-count { font-size: 0.72rem; color: rgba(255,255,255,0.3); min-width: 32px; text-align: right; flex-shrink: 0; }
 .sd-no-seasons { font-size: 0.78rem; color: rgba(255,255,255,0.25); padding: 0.25rem 0; }
 
@@ -5089,7 +5089,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     display: flex; align-items: center; justify-content: center;
     transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.sd-expand-toggle:hover { background: rgba(229,9,20,0.18); border-color: rgba(229,9,20,0.45); color: #e50914; }
+.sd-expand-toggle:hover { background: color-mix(in srgb, var(--sd-brand, #e50914) 18%, transparent); border-color: color-mix(in srgb, var(--sd-brand, #e50914) 45%, transparent); color: var(--sd-brand, #e50914); }
 .sd-expand-toggle .material-symbols-outlined { font-size: 14px; }
 
 /* ── Season add form ── */
@@ -5105,17 +5105,17 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     font-size: 0.8rem; padding: 0 0.4rem; outline: none; font-family: inherit;
     transition: border-color 0.15s;
 }
-.sd-sf-input:focus { border-color: #e50914; }
+.sd-sf-input:focus { border-color: var(--sd-brand, #e50914); }
 
 /* ── Return prompt ── */
 .sd-return-prompt {
     position: fixed; bottom: 1.25rem; left: 50%;
     transform: translateX(-50%) translateY(12px);
-    background: #1c1c1c; border: 1px solid rgba(229,9,20,0.45);
+    background: #1c1c1c; border: 1px solid color-mix(in srgb, var(--sd-brand, #e50914) 45%, transparent);
     border-radius: 6px; padding: 0.6rem 1rem;
     display: flex; align-items: center; gap: 0.6rem;
     font-size: 0.79rem; color: rgba(255,255,255,0.75);
-    box-shadow: 0 6px 28px rgba(0,0,0,0.6), 0 0 0 1px rgba(229,9,20,0.12);
+    box-shadow: 0 6px 28px rgba(0,0,0,0.6), 0 0 0 1px color-mix(in srgb, var(--sd-brand, #e50914) 12%, transparent);
     z-index: 1200; opacity: 0;
     transition: opacity 0.22s, transform 0.22s;
     pointer-events: all; white-space: nowrap;
@@ -5142,7 +5142,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     color: inherit; text-decoration: none;
 }
 .sd-movie-title-link:hover { color: #fff; text-decoration: underline; }
-.sd-series-title-link:hover { color: #e50914; }
+.sd-series-title-link:hover { color: var(--sd-brand, #e50914); }
 
 /* ── Poster image inside movie card ── */
 .sd-movie-poster-img {
@@ -5201,12 +5201,12 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 /* ── FAB add button ── */
 .sd-add-fab {
     width: 30px; height: 30px; border-radius: 50%;
-    background: #e50914; border: none; color: #fff; cursor: pointer;
+    background: var(--sd-brand, #e50914); border: none; color: #fff; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0; transition: background 0.15s;
     font-size: 1.35rem; line-height: 1;
 }
-.sd-add-fab:hover { background: #f40612; }
+.sd-add-fab:hover { background: color-mix(in srgb, var(--sd-brand, #e50914) 80%, #fff); }
 
 /* ── Add form type buttons ── */
 .sd-add-type-btns {
@@ -5215,13 +5215,13 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-type-btn {
     display: flex; align-items: center; gap: 3px;
     height: 30px; padding: 0 0.65rem; border-radius: 3px;
-    background: #e50914; border: none; color: #fff;
+    background: var(--sd-brand, #e50914); border: none; color: #fff;
     font-size: 0.72rem; font-weight: 700; cursor: pointer;
     font-family: inherit; transition: background 0.15s; white-space: nowrap;
 }
-.sd-type-btn:hover { background: #f40612; }
-.sd-type-btn--series { background: rgba(229,9,20,0.55); }
-.sd-type-btn--series:hover { background: #e50914; }
+.sd-type-btn:hover { background: color-mix(in srgb, var(--sd-brand, #e50914) 80%, #fff); }
+.sd-type-btn--series { background: color-mix(in srgb, var(--sd-brand, #e50914) 55%, transparent); }
+.sd-type-btn--series:hover { background: var(--sd-brand, #e50914); }
 
 /* ── Watched toggle overlaid on card ── */
 .sd-watched-toggle {
@@ -5233,7 +5233,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     opacity: 0;
 }
 .sd-movie-card:hover .sd-watched-toggle { opacity: 1; }
-.sd-movie-watched .sd-watched-toggle { opacity: 1; color: #e50914; }
+.sd-movie-watched .sd-watched-toggle { opacity: 1; color: var(--sd-brand, #e50914); }
 .sd-watched-toggle .material-symbols-outlined { font-size: 14px; }
 
 /* ── Series tile progress bar ── */
@@ -5241,7 +5241,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
     background: rgba(255,255,255,0.1);
 }
-.sd-tile-prog-fill { height: 100%; background: #e50914; }
+.sd-tile-prog-fill { height: 100%; background: var(--sd-brand, #e50914); }
 
 /* ── Season count badge (top-right of poster) ── */
 .sd-season-badge {
@@ -5300,7 +5300,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     font-size: 0.72rem; cursor: pointer; font-family: inherit;
     padding: 0.25rem 0; margin-top: 0.4rem; transition: color 0.15s;
 }
-.sd-sf-add-btn:hover { color: #e50914; }
+.sd-sf-add-btn:hover { color: var(--sd-brand, #e50914); }
 
 /* ── Unified grid ── */
 .sd-unified-grid {
@@ -5318,11 +5318,11 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     border-radius: 6px;
     overflow: hidden;
 }
-.sd-coll-block.sd-drag-over { border-color: #e50914; box-shadow: 0 0 0 1px #e50914; }
+.sd-coll-block.sd-drag-over { border-color: var(--sd-brand, #e50914); box-shadow: 0 0 0 1px var(--sd-brand, #e50914); }
 
 /* ── Drag insert-before / insert-after indicators ── */
-.sd-drop-before { box-shadow: -4px 0 0 0 #e50914 !important; outline: 1px solid rgba(229,9,20,0.3); outline-offset: 1px; }
-.sd-drop-after  { box-shadow: 4px 0 0 0 #e50914 !important; outline: 1px solid rgba(229,9,20,0.3); outline-offset: 1px; }
+.sd-drop-before { box-shadow: -4px 0 0 0 var(--sd-brand, #e50914) !important; outline: 1px solid color-mix(in srgb, var(--sd-brand, #e50914) 30%, transparent); outline-offset: 1px; }
+.sd-drop-after  { box-shadow: 4px 0 0 0 var(--sd-brand, #e50914) !important; outline: 1px solid color-mix(in srgb, var(--sd-brand, #e50914) 30%, transparent); outline-offset: 1px; }
 .sd-coll-hdr {
     display: flex; align-items: center; gap: 0.45rem;
     padding: 0.4rem 0.6rem;
@@ -5359,7 +5359,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     transition: all 0.15s; cursor: default; user-select: none;
 }
 .sd-remove-zone.sd-hidden { display: none; }
-.sd-remove-zone.sd-drag-over { border-color: #e50914; color: #e50914; background: rgba(229,9,20,0.07); }
+.sd-remove-zone.sd-drag-over { border-color: var(--sd-brand, #e50914); color: var(--sd-brand, #e50914); background: color-mix(in srgb, var(--sd-brand, #e50914) 7%, transparent); }
 .sd-remove-zone .material-symbols-outlined { font-size: 1rem; }
 
 /* ── Hub unified grid (collections + solo cards) ── */

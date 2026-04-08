@@ -1196,11 +1196,12 @@ async function _loadStreamItems(linkId) {
     return items;
 }
 
-async function _saveStreamItem(linkId, type, title, itemUrl, posterUrl, seasons) {
+async function _saveStreamItem(linkId, type, title, itemUrl, posterUrl, seasons, collectionName) {
     const item = {
         title, type, watched: false, addedAt: Date.now(), sortOrder: Date.now(),
-        ...(itemUrl   ? { url: itemUrl }            : {}),
-        ...(posterUrl ? { posterUrl }               : {}),
+        ...(itemUrl        ? { url: itemUrl }                  : {}),
+        ...(posterUrl      ? { posterUrl }                     : {}),
+        ...(collectionName ? { collection: collectionName }    : {}),
         ...(type === "series" ? { seasons: (seasons?.length ? seasons : []) } : {}),
     };
     const ref = await addDoc(_streamRef(linkId), item);
@@ -1798,7 +1799,8 @@ function _openItemEdit(itemId) {
     document.getElementById("sd-iem-title").value = item.title || "";
     document.getElementById("sd-iem-coll").value  = item.collection || "";
     const allColls = [...new Set(
-        (_streamCache[_openDrawerLinkId] || [])
+        Object.values(_streamCache)
+            .flat()
             .filter(i => i.collection && i.id !== itemId)
             .map(i => i.collection)
     )];
@@ -1852,6 +1854,8 @@ function _openHubItemForm(services) {
                 <select id="sh-iaf-service" class="sd-add-input"></select>
                 <input id="sh-iaf-title" class="sd-add-input" placeholder="Search title\u2026">
                 <input id="sh-iaf-url" class="sd-add-input" placeholder="Link (optional)\u2026">
+                <input id="sh-iaf-coll" class="sd-add-input" list="sh-iaf-coll-dl" autocomplete="off" placeholder="Collection (optional)\u2026" maxlength="80">
+                <datalist id="sh-iaf-coll-dl"></datalist>
                 <input type="hidden" id="sh-iaf-poster-val">
             </div>
             <div class="sd-add-type-btns">
@@ -1871,6 +1875,7 @@ function _openHubItemForm(services) {
             const rawPoster = document.getElementById("sh-iaf-poster-val").value || "";
             let   posterUrl = rawPoster && _isSafeUrl(rawPoster) ? rawPoster : null;
             let   seasons   = [];
+            const collectionName = document.getElementById("sh-iaf-coll")?.value.trim() || null;
             if (type === "series") {
                 const meta = await _fetchTmdbMeta(rawUrl || null, title, "series");
                 if (meta) {
@@ -1879,7 +1884,7 @@ function _openHubItemForm(services) {
                 }
             }
             try {
-                await _saveStreamItem(linkId, type, title, itemUrl, posterUrl, seasons);
+                await _saveStreamItem(linkId, type, title, itemUrl, posterUrl, seasons, collectionName);
                 form.classList.add("sd-hidden");
                 const svcs = _links.filter(l => l.category === _shCatName);
                 _renderHubContent(document.getElementById("sh-content"), _buildHubItems(svcs));
@@ -1931,8 +1936,15 @@ function _openHubItemForm(services) {
     ).join("");
     document.getElementById("sh-iaf-title").value = "";
     document.getElementById("sh-iaf-url").value = "";
+    document.getElementById("sh-iaf-coll").value = "";
     document.getElementById("sh-iaf-poster-val").value = "";
     const p = document.getElementById("sh-iaf-poster"); p.src = ""; p.style.display = "none";
+    // Populate collection datalist from all services
+    const _allHubColls = [...new Set(
+        Object.values(_streamCache).flat().filter(i => i.collection).map(i => i.collection)
+    )];
+    document.getElementById("sh-iaf-coll-dl").innerHTML =
+        _allHubColls.map(c => `<option value="${escHtml(c)}">`).join("");
     form.classList.remove("sd-hidden");
     setTimeout(() => document.getElementById("sh-iaf-title").focus(), 40);
 }
@@ -1991,6 +2003,15 @@ function _ensureStreamingDrawer() {
 
     el.querySelector(".sd-overlay").addEventListener("click", _closeLibrary);
     document.getElementById("sd-close-btn").addEventListener("click", _closeLibrary);
+
+    // Domain-group link interception: rewrite to first reachable domain before navigating
+    el.addEventListener("click", async e => {
+        const a = e.target.closest("a[target='_blank']");
+        if (!a || !a.href || !_findDomainGroup(a.href)) return;
+        e.preventDefault();
+        const resolved = await _resolveServiceUrl(a.href);
+        window.open(resolved, "_blank", "noopener,noreferrer");
+    });
     document.getElementById("sd-tabs").addEventListener("click", e => {
         const tab = e.target.closest("[data-sd-tab]");
         if (!tab) return;
@@ -2210,6 +2231,141 @@ function _ensureStreamingDrawer() {
 
 /* ══════════ LIBRARY OPEN / CLOSE / RENDER ══════════ */
 
+// Multi-domain groups: domains listed in priority order (first = preferred)
+// When a stored URL uses any domain in the group, the system tries them in
+// order and rewrites the URL to the first reachable one before navigating.
+const _SD_DOMAIN_GROUPS = {
+    "pstream": ["pstream.net", "pstream.to", "pstream.org", "pstream.com"],
+};
+
+function _findDomainGroup(url) {
+    try {
+        const hostname = new URL(url).hostname.replace(/^www\./, "");
+        for (const [, domains] of Object.entries(_SD_DOMAIN_GROUPS)) {
+            if (domains.some(d => hostname === d || hostname.endsWith("." + d))) {
+                return domains;
+            }
+        }
+    } catch { /* noop */ }
+    return null;
+}
+
+async function _isDomainReachable(domain) {
+    const key = `sd_domain_ok_${domain}`;
+    const cached = localStorage.getItem(key);
+    if (cached) {
+        try {
+            const { ok, ts } = JSON.parse(cached);
+            if (Date.now() - ts < 3_600_000) return ok;
+        } catch { /* stale */ }
+    }
+    try {
+        await fetch(`https://${domain}/`, { method: "HEAD", mode: "no-cors", signal: AbortSignal.timeout(5000) });
+        localStorage.setItem(key, JSON.stringify({ ok: true, ts: Date.now() }));
+        return true;
+    } catch {
+        localStorage.setItem(key, JSON.stringify({ ok: false, ts: Date.now() }));
+        return false;
+    }
+}
+
+function _swapDomain(url, newDomain) {
+    try {
+        const u = new URL(url);
+        u.hostname = newDomain;
+        return u.toString();
+    } catch { return url; }
+}
+
+async function _resolveServiceUrl(url) {
+    const domains = _findDomainGroup(url);
+    if (!domains) return url;
+    for (const domain of domains) {
+        if (await _isDomainReachable(domain)) return _swapDomain(url, domain);
+    }
+    return url; // all domains unreachable, return original
+}
+
+const _SD_BRAND_COLORS = {
+    "netflix.com":           "#e50914",
+    "primevideo.com":        "#00a8e1",
+    "amazon.com":            "#00a8e1",
+    "disneyplus.com":        "#0063e5",
+    "hulu.com":              "#1ce783",
+    "max.com":               "#002be7",
+    "hbomax.com":            "#5822b4",
+    "appletv.apple.com":     "#595959",
+    "tv.apple.com":          "#595959",
+    "peacocktv.com":         "#e8c84a",
+    "paramountplus.com":     "#0064ff",
+    "discoveryplus.com":     "#2175d9",
+    "crunchyroll.com":       "#f47521",
+    "funimation.com":        "#5b0bb5",
+    "mubi.com":              "#00b4b4",
+    "tubi.tv":               "#fa4040",
+    "pluto.tv":              "#fff200",
+    "dazn.com":              "#f8ff00",
+    "britbox.com":           "#1d4d7e",
+    "acorn.tv":              "#518b34",
+    "viaplay.com":           "#09f",
+    "svtplay.se":            "#1a6ab2",
+    "nrk.no":                "#00b9f2",
+    "tv2.no":                "#e8000d",
+    "areena.yle.fi":         "#00a0dc",
+    "plex.tv":               "#e5a00d",
+    "pstream.net":           "#8288fe",
+    "pstream.to":            "#8288fe",
+};
+
+function _sdBrandColor(url) {
+    if (!url) return null;
+    try {
+        const h = new URL(url).hostname.replace(/^www\./, "");
+        for (const [k, v] of Object.entries(_SD_BRAND_COLORS)) {
+            if (h === k || h.endsWith("." + k)) return v;
+        }
+    } catch { /* noop */ }
+    return null;
+}
+
+function _applyBrandColor(color) {
+    document.documentElement.style.setProperty("--sd-brand", color || "#e50914");
+}
+
+async function _resolveBrandColor(url) {
+    if (!url) return "#e50914";
+    // 1. Hardcoded map (instant)
+    const hardcoded = _sdBrandColor(url);
+    if (hardcoded) return hardcoded;
+    // 2. localStorage cache
+    const domain = _domain(url);
+    if (domain) {
+        const cached = localStorage.getItem(`sd_brand_${domain}`);
+        if (cached) return cached;
+    }
+    // 3. Async: fetch the page and read <meta name="theme-color">
+    try {
+        const res = await fetch(
+            `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+            { signal: AbortSignal.timeout(6000) }
+        );
+        if (res.ok) {
+            const json = await res.json();
+            const html = json.contents || "";
+            const m = html.match(/<meta[^>]+name=["']theme-color["'][^>]+content=["']([^"']+)["']/i)
+                   || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']theme-color["']/i);
+            if (m) {
+                const color = m[1].trim();
+                if (/^#[0-9a-f]{3,8}$/i.test(color) || /^rgba?\(/.test(color) || /^hsl/.test(color)) {
+                    if (domain) localStorage.setItem(`sd_brand_${domain}`, color);
+                    return color;
+                }
+            }
+        }
+    } catch { /* noop — offline or CORS */ }
+    return "#e50914";
+}
+
 async function _openLibrary(linkId) {
     _openDrawerLinkId = linkId;
     _ensureStreamingDrawer();
@@ -2226,6 +2382,14 @@ async function _openLibrary(linkId) {
         faviconEl.style.display = d ? "" : "none";
     }
     if (visitBtn && _isSafeUrl(link.url)) visitBtn.href = link.url;
+
+    // Apply brand colour: instant from map/cache, then update async for unknown services
+    const domain = _domain(link.url);
+    const immediateColor = _sdBrandColor(link.url)
+        || (domain ? localStorage.getItem(`sd_brand_${domain}`) : null)
+        || "#e50914";
+    _applyBrandColor(immediateColor);
+    _resolveBrandColor(link.url).then(color => { if (color !== immediateColor) _applyBrandColor(color); });
 
     _sdActiveTab = "all";
     const drawer = document.getElementById("streaming-drawer");
