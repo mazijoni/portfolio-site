@@ -58,6 +58,15 @@ let _dragId         = null;
 let _settingsLoaded = false;   // true after first Firestore settings snapshot
 const _mediaThumbs = {}; // url → imgUrl | null  (undefined = not yet tried)
 
+/* ── Bulk select state ── */
+let _selectMode  = false;
+let _selectedIds = new Set();
+
+// Box-select drag state
+let _boxDrag = false;
+let _boxStartX = 0, _boxStartY = 0;
+let _boxEl = null;
+
 let _cats = [];   // [{ id, name, icon }]
 const _CATS_KEY = () => `linksCats_${_user?.uid}`;
 function _loadCats() {
@@ -102,6 +111,157 @@ function _syncCatsFromLinks() {
     if (changed) _saveCats();
 }
 
+/* ══════════ BULK SELECT ══════════ */
+
+function _enterSelectMode() {
+    _selectMode  = true;
+    _selectedIds = new Set();
+    const btn = document.getElementById("btn-links-select-mode");
+    if (btn) { btn.classList.add("active"); btn.textContent = "✕ Cancel"; }
+    _updateBulkBar();
+    // Add select-mode class to body for CSS hooks (hides drag handles, disables link clicks)
+    document.getElementById("links-body")?.classList.add("links-select-mode");
+}
+
+function _exitSelectMode() {
+    _selectMode  = false;
+    _selectedIds = new Set();
+    const btn = document.getElementById("btn-links-select-mode");
+    if (btn) {
+        btn.classList.remove("active");
+        btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Select`;
+    }
+    document.getElementById("links-body")?.classList.remove("links-select-mode");
+    // Clear visual selection on cards
+    document.querySelectorAll("#links-body .link-card.link-card--selected")
+        .forEach(c => c.classList.remove("link-card--selected"));
+    _updateBulkBar();
+}
+
+function _toggleSelectItem(id) {
+    if (_selectedIds.has(id)) _selectedIds.delete(id);
+    else _selectedIds.add(id);
+    // Sync visual state
+    const card = document.querySelector(`#links-body .link-card[data-id="${id}"]`);
+    if (card) card.classList.toggle("link-card--selected", _selectedIds.has(id));
+    _updateBulkBar();
+}
+
+function _updateBulkBar() {
+    let bar = document.getElementById("links-bulk-bar");
+    if (!_selectMode) { bar?.remove(); return; }
+
+    if (!bar) {
+        bar = document.createElement("div");
+        bar.id = "links-bulk-bar";
+        bar.className = "links-bulk-bar";
+        // Insert after the links header
+        const header = document.querySelector("#app-links .links-header");
+        header?.insertAdjacentElement("afterend", bar);
+    }
+
+    const n = _selectedIds.size;
+    bar.innerHTML = `
+        <span class="links-bulk-count">${n} selected</span>
+        <div class="links-bulk-actions">
+            <button class="ws-btn ws-btn-ghost ws-btn-sm" id="btn-bulk-select-all">Select all</button>
+            <button class="ws-btn ws-btn-ghost ws-btn-sm" id="btn-bulk-deselect">Deselect all</button>
+            <button class="ws-btn ws-btn-danger ws-btn-sm" id="btn-bulk-delete" ${n === 0 ? "disabled" : ""}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                Delete ${n > 0 ? n + " item" + (n !== 1 ? "s" : "") : ""}
+            </button>
+        </div>`;
+
+    bar.querySelector("#btn-bulk-select-all").addEventListener("click", () => {
+        document.querySelectorAll("#links-body .link-card[data-id]").forEach(c => {
+            _selectedIds.add(c.dataset.id);
+            c.classList.add("link-card--selected");
+        });
+        _updateBulkBar();
+    });
+    bar.querySelector("#btn-bulk-deselect").addEventListener("click", () => {
+        _selectedIds.clear();
+        document.querySelectorAll("#links-body .link-card.link-card--selected")
+            .forEach(c => c.classList.remove("link-card--selected"));
+        _updateBulkBar();
+    });
+    bar.querySelector("#btn-bulk-delete").addEventListener("click", _bulkDelete);
+}
+
+async function _bulkDelete() {
+    const ids = [..._selectedIds];
+    if (!ids.length) return;
+    const ok = await confirm(`Delete ${ids.length} link${ids.length !== 1 ? "s" : ""}? This cannot be undone.`);
+    if (!ok) return;
+    try {
+        await Promise.all(ids.map(id =>
+            deleteDoc(doc(_db, "users", _user.uid, "gallery-links", id))
+        ));
+        toast(`Deleted ${ids.length} link${ids.length !== 1 ? "s" : ""}`, "success");
+        _exitSelectMode();
+    } catch (err) {
+        console.error("[links] bulk delete error:", err);
+        toast("Error deleting some links", "error");
+    }
+}
+
+/* ── Box-select (rubber-band drag) ── */
+
+function _initBoxSelect(body) {
+    body.addEventListener("mousedown", e => {
+        if (!_selectMode) return;
+        // Only start drag on the container itself or empty space
+        if (e.target.closest(".link-card")) return;
+        if (e.button !== 0) return;
+        _boxDrag  = true;
+        const rect = body.getBoundingClientRect();
+        _boxStartX = e.clientX - rect.left + body.scrollLeft;
+        _boxStartY = e.clientY - rect.top  + body.scrollTop;
+
+        _boxEl = document.createElement("div");
+        _boxEl.className = "links-box-select";
+        body.appendChild(_boxEl);
+        e.preventDefault();
+    });
+
+    body.addEventListener("mousemove", e => {
+        if (!_boxDrag || !_boxEl) return;
+        const rect   = body.getBoundingClientRect();
+        const curX   = e.clientX - rect.left + body.scrollLeft;
+        const curY   = e.clientY - rect.top  + body.scrollTop;
+        const x      = Math.min(_boxStartX, curX);
+        const y      = Math.min(_boxStartY, curY);
+        const w      = Math.abs(curX - _boxStartX);
+        const h      = Math.abs(curY - _boxStartY);
+        _boxEl.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
+
+        // Highlight cards that intersect the box
+        const boxRect = { left: x + rect.left - body.scrollLeft, top: y + rect.top - body.scrollTop, right: x + rect.left - body.scrollLeft + w, bottom: y + rect.top - body.scrollTop + h };
+        document.querySelectorAll("#links-body .link-card[data-id]").forEach(card => {
+            const cr = card.getBoundingClientRect();
+            const hit = cr.left < boxRect.right && cr.right > boxRect.left && cr.top < boxRect.bottom && cr.bottom > boxRect.top;
+            card.classList.toggle("link-card--box-hover", hit);
+        });
+    });
+
+    const _endBox = () => {
+        if (!_boxDrag) return;
+        _boxDrag = false;
+        _boxEl?.remove(); _boxEl = null;
+        // Commit all box-hovered cards to selection
+        document.querySelectorAll("#links-body .link-card.link-card--box-hover").forEach(card => {
+            card.classList.remove("link-card--box-hover");
+            _selectedIds.add(card.dataset.id);
+            card.classList.add("link-card--selected");
+        });
+        _updateBulkBar();
+    };
+    body.addEventListener("mouseup",    _endBox);
+    body.addEventListener("mouseleave", _endBox);
+}
+
+/* ══════════ BULK SELECT END ══════════ */
+
 /* ══════════ INIT ══════════ */
 
 export function initLinks(db, user) {
@@ -131,6 +291,12 @@ export function initLinks(db, user) {
         _settingsLoaded = true;
         _render();
     }, err => console.error("[links] settings snapshot error:", err));
+
+    document.getElementById("btn-links-select-mode")
+        ?.addEventListener("click", () => _selectMode ? _exitSelectMode() : _enterSelectMode());
+
+    const _linksBody = document.getElementById("links-body");
+    if (_linksBody) _initBoxSelect(_linksBody);
 
     document.getElementById("btn-add-link")
         .addEventListener("click", () => _openForm(null));
@@ -1505,6 +1671,13 @@ function _populateCatSelect(currentValue) {
 /* ══════════ BODY CLICK DELEGATION ══════════ */
 
 function _onBodyClick(e) {
+    // In select mode: clicking a card toggles selection instead of navigating
+    if (_selectMode) {
+        const card = e.target.closest(".link-card[data-id]");
+        if (card) { e.preventDefault(); _toggleSelectItem(card.dataset.id); return; }
+        return;
+    }
+
     // Category card click (not on a sub-button)
     const catCard = e.target.closest(".link-cat-card[data-cat-name]");
     if (catCard && !e.target.closest("[data-cat-action]")) {
@@ -1734,10 +1907,9 @@ function _openCatForm(editId) {
     if (searchEl) searchEl.value = "";
     _renderLinkCatIconCats();
 
-    // Prefab section: only show when creating, hide when editing
     const prefabGroup = document.getElementById("link-cat-prefab-group");
     const prefabField = document.getElementById("link-cat-prefab-field");
-    if (prefabGroup) prefabGroup.style.display = editId ? "none" : "";
+    if (prefabGroup) prefabGroup.style.display = "";
 
     let selectedIcon = "folder";
     if (editId) {
@@ -1747,7 +1919,12 @@ function _openCatForm(editId) {
         document.getElementById("btn-link-cat-submit").textContent = "Save";
         document.getElementById("link-cat-id-field").value   = editId;
         document.getElementById("link-cat-name-field").value = cat.name;
-        if (prefabField) prefabField.value = cat.prefab || "";
+        const currentPrefab = cat.prefab || "";
+        if (prefabField) prefabField.value = currentPrefab;
+        // Pre-select the active prefab button
+        document.querySelectorAll("#link-cat-prefabs .lc-prefab").forEach(b =>
+            b.classList.toggle("active", b.dataset.prefab === currentPrefab)
+        );
         selectedIcon = cat.icon || "folder";
         const _lf = document.getElementById("link-cat-lock-field");
         const _lpw = document.getElementById("link-cat-lock-pw");
@@ -1807,8 +1984,14 @@ async function _onCatFormSubmit(e) {
         const old = _cats.find(c => c.id === editId);
         const oldName = old?.name;
         _cats = _cats.map(c => c.id === editId
-            ? { ...c, name, icon, ...lockData, ...(prefab ? { prefab } : (c.prefab ? { prefab: c.prefab } : {})) }
+            ? { ...c, name, icon, ...lockData, ...(prefab ? { prefab } : { prefab: undefined }) }
             : c);
+        // Remove undefined keys
+        _cats = _cats.map(c => {
+            const out = { ...c };
+            if (out.prefab === undefined) delete out.prefab;
+            return out;
+        });
         if (oldName && oldName !== name) {
             const toUpdate = _links.filter(l => l.category === oldName);
             Promise.all(toUpdate.map(l =>
@@ -1834,15 +2017,21 @@ async function _onCatFormSubmit(e) {
 async function _deleteCat(id) {
     const cat = _cats.find(c => c.id === id);
     if (!cat) return;
-    const linksInCat = _links.filter(l => l.category === cat.name).length;
-    const msg = linksInCat
-        ? `Delete category "${cat.name}"? The ${linksInCat} link${linksInCat !== 1 ? "s" : ""} inside will become uncategorised.`
+    const linksInCat = _links.filter(l => l.category === cat.name);
+    const msg = linksInCat.length
+        ? `Delete category "${cat.name}"? The ${linksInCat.length} link${linksInCat.length !== 1 ? "s" : ""} inside will become uncategorised.`
         : `Delete category "${cat.name}"?`;
     const ok = await confirm(msg);
     if (!ok) return;
     _cats = _cats.filter(c => c.id !== id);
     _saveCats();
     if (_activeCat === cat.name) _activeCat = "all";
+    // Remove the category from all links in Firestore so they don't recreate it
+    if (linksInCat.length) {
+        Promise.all(linksInCat.map(l =>
+            updateDoc(doc(_db, "users", _user.uid, "gallery-links", l.id), { category: deleteField() })
+        )).catch(err => console.error("[links] _deleteCat uncat error:", err));
+    }
     toast("Category deleted");
     _render();
 }
