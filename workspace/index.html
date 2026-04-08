@@ -569,6 +569,7 @@
                         <option value="school">School</option>
                         <option value="web">Web / IT</option>
                         <option value="music">Music</option>
+                        <option value="media">Media</option>
                         <option value="other">Other</option>
                     </select>
                 </div>
@@ -996,6 +997,35 @@
     <img id="ws-lightbox-img" class="ws-lightbox-img" src="" alt="">
 </div></div>
 
+<!-- Media Hub: Creator side-panel -->
+<div class="creator-panel" id="mgh-creator-panel">
+    <div class="creator-panel-header">
+        <div class="creator-panel-top">
+            <button class="creator-panel-back" id="mgh-cp-back">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                Back
+            </button>
+            <button class="creator-panel-profile-btn ws-btn ws-btn-ghost ws-btn-sm" id="mgh-cp-profile-btn" style="display:none">
+                <svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M5.5 1H9v3.5M9 1L4 6M2 3.5H1v5.5h5.5V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Open profile
+            </button>
+        </div>
+        <div class="creator-panel-identity">
+            <img id="mgh-cp-avatar" class="creator-panel-avatar" src="" alt="" style="display:none" onerror="this.style.display='none';document.getElementById('mgh-cp-avatar-fallback').style.display='flex'">
+            <div class="creator-panel-avatar creator-panel-avatar--fallback" id="mgh-cp-avatar-fallback" style="display:none">👤</div>
+            <div class="creator-panel-info">
+                <div class="creator-panel-name" id="mgh-cp-name"></div>
+                <div class="creator-panel-meta">
+                    <span id="mgh-cp-badge" class="creator-platform-badge" style="display:none"></span>
+                    <span id="mgh-cp-username" class="creator-username"></span>
+                </div>
+                <div id="mgh-cp-desc" class="creator-desc" style="display:none"></div>
+            </div>
+        </div>
+    </div>
+    <div class="creator-panel-body" id="mgh-cp-body"></div>
+</div>
+
 <!-- Link Gallery: Add / Edit modal -->
 <div id="modal-link" class="ws-modal-overlay hidden">
     <div class="ws-modal">
@@ -1008,16 +1038,21 @@
         <form id="form-add-link" class="ws-modal-form" autocomplete="off">
             <input type="hidden" id="link-id-field">
             <div class="form-group">
-                <label for="link-url-field">URL *</label>
+                <label for="link-url-field" id="link-url-label">URL *</label>
                 <input type="url" id="link-url-field" placeholder="https://&#8230;" required>
             </div>
             <div class="form-group" id="link-thumb-group" style="display:none">
-                <label for="link-thumb-field">Thumbnail URL</label>
+                <label for="link-thumb-field" id="link-thumb-label">Thumbnail URL</label>
                 <input type="url" id="link-thumb-field" placeholder="https://… (image to show on card)">
             </div>
+            <div class="form-group" id="link-source-group" style="display:none">
+                <label for="link-source-field">Source Page URL</label>
+                <input type="url" id="link-source-field" placeholder="https://… (page where image is from)">
+            </div>
             <div class="form-group">
-                <label for="link-title-field">Title</label>
+                <label for="link-title-field">Name / Title</label>
                 <input type="text" id="link-title-field" placeholder="Display name" maxlength="120">
+                <div id="link-char-hint" style="font-size:0.75rem;margin-top:4px;"></div>
             </div>
             <div class="form-group">
                 <label for="link-type-field">Type <span id="link-type-hint" class="link-type-hint"></span></label>
@@ -1030,16 +1065,42 @@
                     <option value="image">Image</option>
                     <option value="3d-model">3D Model</option>
                     <option value="file">File</option>
+                    <option value="video">Video</option>
                     <option value="other">Other</option>
+                    <option value="creator">Creator / Channel</option>
+                    <option value="person">Person / Character</option>
                 </select>
             </div>
             <div class="form-group">
                 <label for="link-cat-field">Category</label>
                 <select id="link-cat-field"></select>
             </div>
-            <div class="form-group">
-                <label for="link-desc-field">Note</label>
-                <input type="text" id="link-desc-field" placeholder="Optional note" maxlength="200">
+            <div class="form-group" id="link-badge-group" style="display:none">
+                <label>Platform Badge</label>
+                <div class="link-badge-row">
+                    <input type="text" id="link-badge-label-field" placeholder="e.g. YT, IG, Twitch" maxlength="20">
+                    <input type="color" id="link-badge-color-field" value="#888888">
+                </div>
+            </div>
+            <div class="form-group" id="link-desc-group">
+                <label for="link-desc-field">Description / Note</label>
+                <input type="text" id="link-desc-field" placeholder="Optional note" maxlength="300">
+            </div>
+            <div class="form-group" id="link-attr-group" style="display:none">
+                <label>Attribution</label>
+                <div class="ml-attr-row">
+                    <div class="ml-attr-col">
+                        <label class="ml-attr-label" for="link-creator-field">Creator</label>
+                        <select id="link-creator-field">
+                            <option value="">— none —</option>
+                        </select>
+                    </div>
+                    <div class="ml-attr-col">
+                        <label class="ml-attr-label" for="link-person-field">Person(s)</label>
+                        <select id="link-person-field" multiple size="3">
+                        </select>
+                    </div>
+                </div>
             </div>
             <div class="ws-modal-footer">
                 <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-link">Cancel</button>
