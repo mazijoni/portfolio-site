@@ -420,7 +420,7 @@ async function _bioVerify(credentialId) {
     const rawId = Uint8Array.from(atob(credentialId), c => c.charCodeAt(0));
     await navigator.credentials.get({ publicKey: {
         challenge: crypto.getRandomValues(new Uint8Array(32)),
-        allowCredentials: [{ id: rawId, type: "public-key", transports: ["internal"] }],
+        allowCredentials: [{ id: rawId, type: "public-key" }],
         userVerification: "required",
         timeout: 60000,
     }});
@@ -429,59 +429,159 @@ async function _showLockScreen(cat) {
     const body = document.getElementById("links-body");
     if (!body) return;
     const bioOk = !!cat.credentialId && await _bioAvailable();
-    const bioBtnHtml = bioOk ? `
-        <button class="ws-btn ws-btn-accent link-ls-bio-btn" id="ls-bio-btn">
-            <span class="material-symbols-outlined" style="font-size:1.1em;vertical-align:middle">fingerprint</span>
-            Fingerprint / Face ID
-        </button>
-        <div class="link-ls-or">— or —</div>` : "";
-    body.innerHTML = `
-        <div class="link-lockscreen">
-            <div class="link-ls-icon"><span class="material-symbols-outlined">lock</span></div>
-            <div class="link-ls-name">${escHtml(cat.name)}</div>
-            <div class="link-ls-sub">This category is locked</div>
-            ${bioBtnHtml}
-            <form id="ls-form" class="link-ls-form" autocomplete="off">
-                <input type="password" class="link-ls-pw" id="ls-pw" placeholder="Password" autocomplete="current-password">
-                <button type="submit" class="ws-btn ws-btn-accent">Unlock</button>
-            </form>
-            <div class="link-ls-err" id="ls-err" style="display:none"></div>
-        </div>`;
-    const showErr = msg => { const el = body.querySelector("#ls-err"); if (el) { el.className = "link-ls-err"; el.textContent = msg; el.style.display = ""; } };
+
+    let _pinValue  = "";
+    const MAX_PIN  = 20;
+
     const _doUnlock = () => { _unlockedCats.add(cat.id); _activeCat = cat.name; _render(); };
+
     const _offerBio = async () => {
-        const erEl = body.querySelector("#ls-err");
-        if (!erEl) return _doUnlock();
-        erEl.className = "link-ls-bio-offer";
-        erEl.innerHTML = `<p>Enable fingerprint for faster unlock next time?</p>
-            <div class="link-ls-offer-btns">
+        const offerEl = body.querySelector("#ls-offer");
+        if (!offerEl) return _doUnlock();
+        offerEl.innerHTML = `
+            <p style="font-size:0.82rem;color:var(--text-secondary);margin:0 0 0.5rem">Enable fingerprint / Face ID for faster unlock?</p>
+            <div style="display:flex;gap:0.5rem;justify-content:center">
                 <button id="ls-bio-yes" class="ws-btn ws-btn-accent ws-btn-sm">Enable</button>
                 <button id="ls-bio-no" class="ws-btn ws-btn-ghost ws-btn-sm">Not now</button>
             </div>`;
-        erEl.style.display = "";
-        body.querySelector("#ls-bio-yes").addEventListener("click", async () => {
+        offerEl.style.display = "";
+        offerEl.querySelector("#ls-bio-yes").addEventListener("click", async () => {
             try {
                 const credId = await _bioEnroll(cat.id);
                 _cats = _cats.map(c => c.id === cat.id ? { ...c, credentialId: credId } : c);
                 _saveCats(); cat.credentialId = credId;
-            } catch { /* user declined */ }
+            } catch { /* declined */ }
             _doUnlock();
         });
-        body.querySelector("#ls-bio-no").addEventListener("click", _doUnlock);
+        offerEl.querySelector("#ls-bio-no").addEventListener("click", _doUnlock);
     };
-    if (bioOk) {
-        body.querySelector("#ls-bio-btn").addEventListener("click", async () => {
-            try { await _bioVerify(cat.credentialId); _doUnlock(); }
-            catch (err) { if (err?.name !== "NotAllowedError") showErr("Biometric failed. Try password."); }
+
+    const _tryBio = async () => {
+        if (!bioOk) return;
+        try {
+            await _bioVerify(cat.credentialId);
+            _doUnlock();
+        } catch (err) {
+            if (err?.name !== "NotAllowedError") {
+                _showMsg("Biometric failed — enter PIN");
+            }
+        }
+    };
+
+    const _showMsg = (msg, isErr = true) => {
+        const el = body.querySelector("#ls-msg");
+        if (!el) return;
+        el.textContent = msg;
+        el.style.color = isErr ? "#f87171" : "var(--text-muted)";
+        el.style.display = "";
+        if (isErr) {
+            // Shake the dots
+            const dots = body.querySelector(".ls-pin-dots");
+            if (dots) { dots.classList.remove("ls-shake"); void dots.offsetWidth; dots.classList.add("ls-shake"); }
+        }
+    };
+
+    const _updateDots = () => {
+        const container = body.querySelector("#ls-pin-dots");
+        if (!container) return;
+        // Re-render dots to match current length (minimum 1 empty dot)
+        const show = Math.max(_pinValue.length + 1, 1);
+        const capped = Math.min(show, MAX_PIN);
+        container.innerHTML = Array.from({ length: capped }, (_, i) =>
+            `<div class="ls-pin-dot${i < _pinValue.length ? " filled" : ""}"></div>`
+        ).join("");
+        // Submit key: enabled only when there's input
+        const submitKey = body.querySelector(".ls-key--submit");
+        if (submitKey) submitKey.disabled = _pinValue.length === 0;
+    };
+
+    body.innerHTML = `
+        <div class="link-lockscreen">
+            <div class="link-ls-icon"><span class="material-symbols-outlined">lock</span></div>
+            <div class="link-ls-name">${escHtml(cat.name)}</div>
+            <div class="link-ls-sub">Enter PIN to unlock</div>
+
+            <div class="ls-pin-dots" id="ls-pin-dots"></div>
+            <div id="ls-msg" style="display:none;font-size:0.78rem;min-height:1.2em"></div>
+
+            ${bioOk ? `<button class="ls-bio-btn" id="ls-bio-btn" title="Use fingerprint / Face ID">
+                <span class="material-symbols-outlined">fingerprint</span>
+            </button>` : ""}
+
+            <div class="ls-keypad">
+                ${[1,2,3,4,5,6,7,8,9,"✓",0,"⌫"].map(k => `
+                    <button class="ls-key${k === "✓" ? " ls-key--submit" : ""}${k === "⌫" ? " ls-key--back" : ""}"
+                        data-key="${k}">${k}</button>`).join("")}
+            </div>
+
+            <button class="ws-btn ws-btn-ghost ws-btn-sm ls-keyboard-toggle" id="ls-keyboard-toggle">Use keyboard instead</button>
+            <div id="ls-keyboard-wrap" style="display:none">
+                <form id="ls-form" class="link-ls-form" autocomplete="off" style="margin-top:0.5rem">
+                    <input type="password" class="link-ls-pw" id="ls-pw" placeholder="Password" autocomplete="current-password">
+                    <button type="submit" class="ws-btn ws-btn-accent">Unlock</button>
+                </form>
+            </div>
+            <div id="ls-offer" style="display:none;text-align:center;margin-top:0.5rem"></div>
+        </div>`;
+
+    _updateDots();
+
+    // Keypad input
+    body.querySelector(".ls-keypad").addEventListener("click", async e => {
+        const btn = e.target.closest(".ls-key");
+        if (!btn) return;
+        const k = btn.dataset.key;
+        const msgEl = body.querySelector("#ls-msg");
+        if (msgEl) { msgEl.style.display = "none"; }
+        if (k === "⌫") {
+            _pinValue = _pinValue.slice(0, -1);
+        } else if (k === "✓") {
+            await _submitPin();
+            return;
+        } else if (_pinValue.length < MAX_PIN) {
+            _pinValue += k;
+        }
+        _updateDots();
+    });
+
+    const _submitPin = async () => {
+        if (!_pinValue) return;
+        const hash = await _sha256(_pinValue);
+        if (hash !== cat.passwordHash) {
+            _pinValue = "";
+            _updateDots();
+            _showMsg("Incorrect PIN");
+            return;
+        }
+        if (!cat.credentialId && await _bioAvailable()) await _offerBio(); else _doUnlock();
+    };
+
+    // Keyboard fallback form
+    body.querySelector("#ls-keyboard-toggle").addEventListener("click", () => {
+        const wrap = body.querySelector("#ls-keyboard-wrap");
+        wrap.style.display = wrap.style.display === "none" ? "" : "none";
+    });
+    const lsForm = body.querySelector("#ls-form");
+    if (lsForm) {
+        lsForm.addEventListener("submit", async e => {
+            e.preventDefault();
+            const pw = body.querySelector("#ls-pw").value;
+            if (!pw) return;
+            if (await _sha256(pw) !== cat.passwordHash) {
+                _showMsg("Incorrect password");
+                body.querySelector("#ls-pw").value = "";
+                return;
+            }
+            if (!cat.credentialId && await _bioAvailable()) await _offerBio(); else _doUnlock();
         });
     }
-    body.querySelector("#ls-form").addEventListener("submit", async e => {
-        e.preventDefault();
-        const pw = body.querySelector("#ls-pw").value;
-        if (!pw) return;
-        if (await _sha256(pw) !== cat.passwordHash) { showErr("Incorrect password."); body.querySelector("#ls-pw").value = ""; return; }
-        if (!cat.credentialId && await _bioAvailable()) await _offerBio(); else _doUnlock();
-    });
+
+    // Biometric button
+    if (bioOk) {
+        body.querySelector("#ls-bio-btn").addEventListener("click", _tryBio);
+        // Auto-trigger biometric on open
+        setTimeout(_tryBio, 300);
+    }
 }
 
 function _renderCatsGrid(body) {
@@ -1831,7 +1931,7 @@ function _ensureCatModal() {
                         <span>Lock with password</span>
                     </label>
                     <div id="link-cat-lock-pw-wrap" style="display:none">
-                        <input type="password" id="link-cat-lock-pw" placeholder="Set password" maxlength="100" autocomplete="new-password" style="margin-top:0.5rem;width:100%">
+                        <input type="text" inputmode="numeric" pattern="[0-9]*" id="link-cat-lock-pw" placeholder="Set PIN (digits only)" maxlength="20" autocomplete="new-password" style="margin-top:0.5rem;width:100%">
                         <p style="margin-top:4px;font-size:0.75rem;color:var(--text-muted)">Fingerprint / Face ID will be offered after first unlock if your device supports it.</p>
                     </div>
                 </div>
@@ -1894,6 +1994,12 @@ function _ensureCatModal() {
 
     overlay.querySelector("#link-cat-lock-field").addEventListener("change", e => {
         overlay.querySelector("#link-cat-lock-pw-wrap").style.display = e.target.checked ? "" : "none";
+    });
+    // Enforce digits-only in the PIN field
+    document.getElementById("link-cat-lock-pw").addEventListener("input", e => {
+        const el = e.target;
+        const cleaned = el.value.replace(/\D/g, "");
+        if (el.value !== cleaned) el.value = cleaned;
     });
     document.getElementById("form-link-cat").addEventListener("submit", _onCatFormSubmit);
 }
