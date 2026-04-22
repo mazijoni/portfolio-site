@@ -92,20 +92,9 @@ function _initBlueMap() {
     goBtn.addEventListener("click", _apply);
     urlEl.addEventListener("keydown", e => { if (e.key === "Enter") _apply(); });
 
-    // Probe Tailscale reachability — show the nav button only if the server responds
-    const probeUrl = urlEl.value.trim() || "https://server.tail8d3368.ts.net/";
-    const controller = new AbortController();
-    const probeTimeout = setTimeout(() => controller.abort(), 3000);
-    fetch(probeUrl, { mode: "no-cors", signal: controller.signal })
-        .then(() => {
-            clearTimeout(probeTimeout);
-            if (navBtn) navBtn.style.display = "";
-            _apply();
-        })
-        .catch(() => {
-            clearTimeout(probeTimeout);
-            // Not on Tailscale — keep button hidden
-        });
+    // Always show BlueMap tab
+    if (navBtn) navBtn.style.display = "";
+    _apply();
 }
 
 function onUserReady(user) {
