@@ -69,6 +69,11 @@ function _subscribeProjects() {
     _unsub = onSnapshot(q, (snap) => {
         _projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         _renderProjectList();
+        // Keep currentProject in sync with Firestore data
+        if (currentProjectId) {
+            const updated = _projects.find(p => p.id === currentProjectId);
+            if (updated) currentProject = updated;
+        }
         // Restore last-open project once on first load
         if (!_restored) {
             _restored = true;
@@ -213,8 +218,21 @@ async function deleteCurrentProject() {
     const ok = await confirm(`Delete "${currentProject.title}"? All project data will be lost.`);
     if (!ok) return;
 
+    const pidToDelete   = currentProjectId;
+    const srcCategoryId = currentProject.sourceCategoryId || null;
+
     try {
-        await deleteDoc(refs.project(_db, _user.uid, currentProjectId));
+        await deleteDoc(refs.project(_db, _user.uid, pidToDelete));
+        // If this project was migrated from a private-dashboard category,
+        // stamp migrated:true so the migration won't recreate it on next load.
+        if (srcCategoryId) {
+            try {
+                await updateDoc(
+                    doc(_db, "users", _user.uid, "categories", srcCategoryId),
+                    { migrated: true }
+                );
+            } catch { /* category may already be deleted — ignore */ }
+        }
         currentProjectId = null;
         currentProject   = null;
         sessionStorage.removeItem("ws_project");
