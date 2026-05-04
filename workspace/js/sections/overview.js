@@ -64,14 +64,12 @@ async function _loadStats() {
 
     try {
         const _catId = currentProject.sourceCategoryId || currentProject.id;
-        const [tasksSnap, mediaSnap, nodesSnap] = await Promise.all([
+        const [tasksSnap, mediaSnap] = await Promise.all([
             getCountFromServer(refs.kanbanTasks(db, uid, currentProjectId)),
             getCountFromServer(query(collection(db, `users/${auth.currentUser?.uid}/links`), where("categoryId", "==", _catId))),
-            getCountFromServer(refs.nodes(db, uid, currentProjectId)),
         ]);
         document.getElementById("stat-tasks").textContent = tasksSnap.data().count;
         document.getElementById("stat-media").textContent = mediaSnap.data().count;
-        document.getElementById("stat-nodes").textContent = nodesSnap.data().count;
     } catch { /* getCountFromServer not supported on older SDK — silently skip */ }
 }
 
