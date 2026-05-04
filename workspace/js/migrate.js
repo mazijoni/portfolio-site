@@ -10,7 +10,7 @@
  */
 
 import {
-    collection, getDocs, addDoc, query, orderBy, serverTimestamp
+    collection, doc, getDocs, addDoc, updateDoc, query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
 import { db } from "./app.js";
@@ -37,8 +37,10 @@ async function _migrateCategoriesToProjects(uid) {
 
     if (catsSnap.empty) return; // nothing to migrate
 
-    // Build set of already-migrated category IDs
-    const migratedCatIds = new Set(
+    // Build set of category IDs that already have a corresponding project.
+    // Used only to retroactively flag categories that were migrated before
+    // the `migrated` flag was introduced.
+    const existingProjectCatIds = new Set(
         projectsSnap.docs
             .map(d => d.data().sourceCategoryId)
             .filter(Boolean)
@@ -46,15 +48,27 @@ async function _migrateCategoriesToProjects(uid) {
 
     let count = 0;
     for (const catDoc of catsSnap.docs) {
-        if (migratedCatIds.has(catDoc.id)) continue;
-
         const cat = catDoc.data();
+
+        // Primary guard: category was already handled in a previous run
+        if (cat.migrated) continue;
+
+        if (existingProjectCatIds.has(catDoc.id)) {
+            // Project already exists (legacy run without the flag) —
+            // just stamp the flag so future deletes don't re-trigger migration.
+            await updateDoc(doc(db, "users", uid, "categories", catDoc.id), { migrated: true });
+            continue;
+        }
+
         await addDoc(collection(db, "users", uid, "projects"), {
             title:            cat.name || "Untitled",
             sourceCategoryId: catDoc.id,
             // Preserve original creation time where possible
             createdAt:        cat.createdAt ?? serverTimestamp(),
         });
+
+        // Stamp the flag so this category is never re-migrated
+        await updateDoc(doc(db, "users", uid, "categories", catDoc.id), { migrated: true });
         count++;
     }
 

@@ -154,6 +154,7 @@ function openProjectForm(editId) {
         document.getElementById("field-title").value       = p.title       || "";
         document.getElementById("field-description").value = p.description || "";
         _setProjectIcon(p.icon || "");
+        document.getElementById("field-github").value      = p.githubRepo  || "";
         document.getElementById("field-type").value        = p.type        || "general";
         document.getElementById("field-status").value      = p.status      || "active";
     } else {
@@ -174,6 +175,7 @@ async function onProjectFormSubmit(e) {
         title:       document.getElementById("field-title").value.trim(),
         description: document.getElementById("field-description").value.trim(),
         icon:        document.getElementById("field-icon").value.trim(),
+        githubRepo:  document.getElementById("field-github").value.trim(),
         type:        document.getElementById("field-type").value,
         status:      document.getElementById("field-status").value,
         updatedAt:   serverTimestamp(),
