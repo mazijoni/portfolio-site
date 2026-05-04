@@ -30,7 +30,6 @@ import { openModal, closeModal,
 let _unsub      = null;
 let _pid        = null;
 let _uid        = null;
-let _colorSel   = "#1e1e1e";
 let _editingId  = null;   // id of card being in-place edited
 
 // Pan state
@@ -75,39 +74,27 @@ export function init() {
     });
 
     // Toolbar buttons
-    // (removed — now using drag-and-drop palette)
-
-    // Palette drag-and-drop
-    document.querySelectorAll("#board-palette .palette-item").forEach(item => {
-        item.addEventListener("dragstart", (e) => {
-            e.dataTransfer.setData("text/plain", item.dataset.type);
-            e.dataTransfer.effectAllowed = "copy";
+    document.querySelectorAll("#board-toolbar .btb-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const type = btn.dataset.type;
+            const cvs  = document.getElementById("board-canvas");
+            const rect = cvs?.getBoundingClientRect();
+            const cx   = (rect ? rect.width  / 2 : 400) - _panX;
+            const cy   = (rect ? rect.height / 3 : 200) - _panY;
+            if      (type === "link")  { _pendingDropX = cx; _pendingDropY = cy; _openLinkForm(); }
+            else if (type === "image") { _pendingDropX = cx; _pendingDropY = cy; _openImageForm(); }
+            else                       { _addCard(type, cx, cy); }
         });
     });
 
+    // Double-click canvas → create note
     const canvas = document.getElementById("board-canvas");
-    canvas.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "copy";
-    });
-    canvas.addEventListener("drop", (e) => {
-        e.preventDefault();
-        const type = e.dataTransfer.getData("text/plain");
-        if (!type) return;
+    canvas.addEventListener("dblclick", (e) => {
+        if (e.target.closest(".board-card")) return;
         const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left - _panX;
-        const y = e.clientY - rect.top  - _panY;
-        if (type === "link") {
-            _pendingDropX = x; _pendingDropY = y;
-            _openLinkForm();
-        } else if (type === "image") {
-            _pendingDropX = x; _pendingDropY = y;
-            _openImageForm();
-        } else if (type === "file") {
-            _openFileCard(x, y);
-        } else {
-            _addCard(type, x, y);
-        }
+        const x = Math.round(e.clientX - rect.left - _panX);
+        const y = Math.round(e.clientY - rect.top  - _panY);
+        _addCard("note", x, y);
     });
 
     // Link form
@@ -123,17 +110,6 @@ export function init() {
                 link.imageUrl || link.thumbUrl || link.url || "";
             document.getElementById("board-image-label-field").value = link.name || "";
         }));
-
-    // Color swatches (link form)
-    document.getElementById("board-color-swatches")
-        .addEventListener("click", (e) => {
-            const sw = e.target.closest(".color-swatch");
-            if (!sw) return;
-            document.querySelectorAll("#board-color-swatches .color-swatch")
-                .forEach(s => s.classList.remove("active"));
-            sw.classList.add("active");
-            _colorSel = sw.dataset.color;
-        });
 
     // Canvas pan + box-select
     canvas.addEventListener("mousedown", _onCanvasMouseDown);
@@ -158,27 +134,6 @@ export function init() {
     // Media picker form
     document.getElementById("board-media-search")
         .addEventListener("input", _filterMediaPicker);
-
-    // Board FAB + type picker
-    document.getElementById("board-fab-add")?.addEventListener("click", (e) => {
-        e.stopPropagation();
-        document.getElementById("board-type-picker")?.classList.toggle("hidden");
-    });
-    document.querySelectorAll("#board-type-picker .btp-item").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            document.getElementById("board-type-picker")?.classList.add("hidden");
-            const type = btn.dataset.type;
-            const cvs  = document.getElementById("board-canvas");
-            const rect = cvs?.getBoundingClientRect();
-            const cx   = (rect ? rect.width  / 2 : 400) - _panX;
-            const cy   = (rect ? rect.height / 2 : 300) - _panY;
-            if      (type === "link")  { _pendingDropX = cx; _pendingDropY = cy; _openLinkForm(); }
-            else if (type === "image") { _pendingDropX = cx; _pendingDropY = cy; _openImageForm(); }
-            else if (type === "file")  { _openFileCard(cx, cy); }
-            else                       { _addCard(type, cx, cy); }
-        });
-    });
 
     // Context menu: right-click on canvas or card
     document.getElementById("board-canvas")?.addEventListener("contextmenu", (e) => {
@@ -217,11 +172,8 @@ export function init() {
     // Close menus on outside click
     document.addEventListener("click", (e) => {
         if (!e.target.closest("#board-ctx-menu") &&
-            !e.target.closest("#board-color-picker") &&
-            !e.target.closest("#board-fab-add")) {
+            !e.target.closest("#board-color-picker")) {
             _hideCtxMenu();
-            if (!e.target.closest("#board-type-picker"))
-                document.getElementById("board-type-picker")?.classList.add("hidden");
         }
     });
 
@@ -609,6 +561,7 @@ async function _addCard(type, dropX, dropY) {
     if (type === "quote")   { base.content = "A great quote goes here."; }
     if (type === "divider") { base.label = ""; base.w = 300; base.h = 32; }
     if (type === "tag")     { base.content = "Tag"; }
+    if (type === "column")  { base.content = "Column"; base.w = 240; base.h = 240; }
 
     try {
         const ref = await addDoc(refs.boardItems(db, _uid, _pid), base);
@@ -617,7 +570,7 @@ async function _addCard(type, dropX, dropY) {
             setTimeout(() => _openTodoEditor(ref.id, base), 150);
         } else if (type === "code") {
             setTimeout(() => _openCodeEditor(ref.id, { ...base }), 200);
-        } else if (type !== "divider" && type !== "tag" && type !== "quote" && type !== "file") {
+        } else if (type !== "divider" && type !== "tag" && type !== "quote" && type !== "file" && type !== "column") {
             // Brief flash then start editing
             setTimeout(() => {
                 const newEl = document.querySelector(`.board-card[data-id="${ref.id}"]`);
@@ -634,9 +587,6 @@ async function _addCard(type, dropX, dropY) {
 
 function _openLinkForm() {
     document.getElementById("form-board-link").reset();
-    _colorSel = "#1e1e1e";
-    document.querySelectorAll("#board-color-swatches .color-swatch")
-        .forEach((s, i) => s.classList.toggle("active", i === 0));
     openModal("modal-board-link");
     setTimeout(() => document.getElementById("board-link-url-field").focus(), 60);
 }
@@ -766,23 +716,6 @@ function _openCodeEditor(id, data) {
     setTimeout(() => document.getElementById("board-code-content-field").focus(), 60);
 }
 
-/* ────────────────────────────────────────── file picker ── */
-
-function _openFileCard(dropX, dropY) {
-    _openMediaPicker((link) => {
-        if (!_pid || !_uid) return;
-        addDoc(refs.boardItems(db, _uid, _pid), {
-            type:     "file",
-            url:      link.url      || "",
-            label:    link.name     || link.url || "File",
-            imageUrl: link.imageUrl || link.thumbUrl || "",
-            x:        Math.round(dropX ?? 100),
-            y:        Math.round(dropY ?? 100),
-            createdAt: serverTimestamp()
-        }).catch(console.error);
-    });
-}
-
 /* ──────────────────────────────── color / context menus ── */
 
 async function _setCardColor(id, color) {
@@ -792,20 +725,18 @@ async function _setCardColor(id, color) {
 }
 
 function _showCanvasCtxMenu(screenX, screenY) {
-    const types = [
-        "note", "heading", "todo", "code", "quote",
-        "divider", "link", "image", "file", "tag"
-    ];
+    const types = ["note", "heading", "todo", "code", "link", "image", "column"];
+    const labels = { note: "Note", heading: "Heading", todo: "Checklist",
+                     code: "Code", link: "Link", image: "Image", column: "Column" };
     const menu = document.getElementById("board-ctx-menu");
     menu.innerHTML = `<div class="ctx-menu-label">Add here</div>` +
-        types.map(t => `<button class="ctx-menu-item" data-type="${t}">${t.charAt(0).toUpperCase() + t.slice(1)}</button>`).join("");
+        types.map(t => `<button class="ctx-menu-item" data-type="${t}">${labels[t]}</button>`).join("");
     menu.querySelectorAll("[data-type]").forEach(btn => {
         btn.addEventListener("click", () => {
             _hideCtxMenu();
             const type = btn.dataset.type;
             if      (type === "link")  { _pendingDropX = _ctxCanvasX; _pendingDropY = _ctxCanvasY; _openLinkForm(); }
             else if (type === "image") { _pendingDropX = _ctxCanvasX; _pendingDropY = _ctxCanvasY; _openImageForm(); }
-            else if (type === "file")  { _openFileCard(_ctxCanvasX, _ctxCanvasY); }
             else                       { _addCard(type, _ctxCanvasX, _ctxCanvasY); }
         });
     });
@@ -956,8 +887,7 @@ function _makeResizable(el, handle, id) {
 
 function _onCanvasMouseDown(e) {
     const isMiddle = e.button === 1;
-    const isSpace  = e._spaceDown;
-    if (isMiddle || isSpace) {
+    if (isMiddle || (e.button === 0 && _spaceDown)) {
         // Pan
         if (isMiddle) e.preventDefault();
         _panning  = true;
@@ -1053,14 +983,17 @@ function _onCanvasWheel(e) {
 }
 
 // Track Space key for pan mode
+let _spaceDown = false;
 document.addEventListener("keydown", (e) => {
-    if (e.code === "Space" && !e.target.matches("input,textarea")) {
+    if (e.code === "Space" && !e.target.matches("input,textarea,[contenteditable]")) {
         e.preventDefault();
+        _spaceDown = true;
         document.getElementById("board-canvas")?.classList.add("canvas-pan-mode");
     }
 });
 document.addEventListener("keyup", (e) => {
     if (e.code === "Space") {
+        _spaceDown = false;
         document.getElementById("board-canvas")?.classList.remove("canvas-pan-mode");
     }
 });

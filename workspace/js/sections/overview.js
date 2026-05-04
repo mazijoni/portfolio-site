@@ -42,6 +42,16 @@ function _loadOverview() {
     document.getElementById("meta-created").textContent = fmtDate(p.createdAt);
     document.getElementById("meta-updated").textContent = fmtDate(p.updatedAt);
 
+    const githubRow = document.getElementById("meta-github-row");
+    const githubLink = document.getElementById("meta-github");
+    if (p.githubRepo) {
+        githubLink.href        = p.githubRepo;
+        githubLink.textContent = p.githubRepo.replace(/^https?:\/\/(www\.)?github\.com\//, "");
+        githubRow.style.display = "";
+    } else {
+        githubRow.style.display = "none";
+    }
+
     document.getElementById("overview-notes").value = p.notes || "";
 
     _loadStats();
