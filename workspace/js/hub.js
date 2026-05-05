@@ -9,6 +9,17 @@ export function initHub() {
         btn.addEventListener("click", () => switchApp(btn.dataset.app));
     });
 
+    // Tutorial nav
+    document.querySelectorAll(".tut-nav-item").forEach(btn => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll(".tut-nav-item").forEach(b => b.classList.remove("active"));
+            document.querySelectorAll(".tut-page").forEach(p => p.classList.remove("active"));
+            btn.classList.add("active");
+            const page = document.getElementById("tut-" + btn.dataset.page);
+            if (page) page.classList.add("active");
+        });
+    });
+
     // Restore last active app from session storage
     const saved = sessionStorage.getItem("hub_app");
     if (saved && document.getElementById("app-" + saved)) {
