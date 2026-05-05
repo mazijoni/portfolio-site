@@ -1,4 +1,4 @@
-/* =================================================================
+﻿/* =================================================================
    WORKSPACE.CSS — Full workspace page styles for joni.no
    Scoped under #ws-shell to avoid polluting other pages
    ================================================================= */
@@ -6481,90 +6481,358 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 }
 
 /* ── date ── */
-.gmail-email-date {
-    font-size: 0.71rem;
-    font-weight: 400;
-    color: var(--text-muted);
-    min-width: 58px;
-    text-align: right;
-    flex-shrink: 0;
-    padding-right: 0.75rem;
+
+/* ==================== SHEET VIEWER APP ==================== */
+#app-sheet {
+    flex-direction: column;
+    background: var(--bg-dark);
 }
 
-/* ═══════════════════════════════════════════════════
-   GMAIL — setup / empty / loading states
-   ═══════════════════════════════════════════════════ */
+/* ── Header ── */
+.sv-header {
+    flex-shrink: 0;
+    height: 52px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0 1.5rem;
+}
 
-/* ═══════════════════════════════════════════════════
-   GMAIL — loading, setup, contacts
-   ═══════════════════════════════════════════════════ */
+.sv-title {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+}
+.sv-title svg { color: var(--text-muted); flex-shrink: 0; }
 
-.gmail-setup-msg {
+.sv-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 500;
+    padding: 0.35rem 0.85rem;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    border-radius: var(--radius);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color var(--transition), color var(--transition), background var(--transition);
+    flex-shrink: 0;
+}
+.sv-add-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+/* ── URL bar ── */
+.sv-url-bar {
+    flex-shrink: 0;
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1.5rem;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+}
+.sv-url-bar--open { display: flex; }
+
+.sv-url-input {
+    flex: 1;
+    min-width: 0;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.8rem;
+    padding: 0.36rem 0.7rem;
+    border-radius: var(--radius);
+    outline: none;
+    transition: border-color var(--transition);
+}
+.sv-url-input::placeholder { color: var(--text-muted); }
+.sv-url-input:focus { border-color: var(--accent); }
+
+.sv-url-load-btn {
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    color: #000;
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.36rem 0.9rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background var(--transition);
+}
+.sv-url-load-btn:hover { background: #d88aff; border-color: #d88aff; }
+.sv-url-load-btn:disabled { opacity: 0.55; cursor: default; }
+
+.sv-url-close-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 1rem;
+    line-height: 1;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius);
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+    transition: color var(--transition), border-color var(--transition);
+}
+.sv-url-close-btn:hover { color: var(--text-primary); border-color: var(--border-hover); }
+
+/* ── File tabs (top-level: one per file) ── */
+.sv-file-tabs {
+    flex-shrink: 0;
+    display: flex;
+    align-items: stretch;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.sv-file-tabs::-webkit-scrollbar { display: none; }
+.sv-file-tabs:empty { display: none; }
+
+.sv-file-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.4rem 0.35rem 0.9rem;
+    border: none;
+    border-right: 1px solid var(--border);
+    background: none;
+    color: var(--text-muted);
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.75rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background var(--transition), color var(--transition);
+    flex-shrink: 0;
+    max-width: 200px;
+}
+.sv-file-tab .sv-tab-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+.sv-file-tab:hover { color: var(--text-secondary); background: var(--bg-card); }
+.sv-file-tab.active { color: var(--text-primary); background: var(--bg-dark); border-bottom-color: transparent; }
+
+.sv-file-tab-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    flex-shrink: 0;
+    transition: all var(--transition);
+    padding: 0;
+}
+.sv-file-tab-close:hover { color: var(--danger); background: rgba(224,85,85,0.12); }
+
+/* ── Sub-tabs (worksheets inside an Excel file) ── */
+.sv-sub-tabs {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.4rem 1.5rem 0;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.sv-sub-tabs::-webkit-scrollbar { display: none; }
+.sv-sub-tabs:empty { display: none; }
+
+.sv-sub-tab {
+    background: none;
+    border: 1px solid transparent;
+    border-bottom: none;
+    color: var(--text-muted);
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.72rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius) var(--radius) 0 0;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all var(--transition);
+}
+.sv-sub-tab:hover { color: var(--text-secondary); }
+.sv-sub-tab.active {
+    color: var(--text-primary);
+    background: var(--bg-dark);
+    border-color: var(--border);
+    border-bottom-color: var(--bg-dark);
+}
+
+/* ── Body (drop zone / content) ── */
+.sv-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+    position: relative;
+}
+
+.sv-drop {
+    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    text-align: center;
+    justify-content: center;
     gap: 0.6rem;
-    padding: 2.5rem 1rem;
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    margin: 2rem;
+    padding: 3rem 2rem;
     color: var(--text-muted);
-    font-size: 0.82rem;
-    flex: 1;
-    justify-content: center;
+    transition: border-color var(--transition), background var(--transition);
 }
+.sv-drop.sv-drag-over { border-color: var(--accent); background: var(--accent-dim); }
 
-.gmail-loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-    padding: 3rem;
-    color: var(--text-muted);
+.sv-drop-icon { font-size: 3rem; opacity: 0.35; }
+.sv-drop-text { font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); text-align: center; }
+.sv-drop-sub { font-size: 0.8rem; color: var(--text-muted); text-align: center; }
+
+.sv-browse-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-family: 'Poppins', sans-serif;
     font-size: 0.8rem;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+.sv-browse-btn:hover { opacity: 0.8; }
+
+.sv-content {
     flex: 1;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+}
+.sv-content.sv-has-files { display: flex; }
+
+/* ── Table ── */
+.sv-table-wrap {
+    flex: 1;
+    overflow: auto;
+    background: var(--bg-dark);
 }
 
-.gmail-spin {
-    width: 18px;
-    height: 18px;
-    border: 2px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: gmail-spin 0.7s linear infinite;
+.sv-table {
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    font-family: 'Poppins', sans-serif;
+    min-width: 100%;
+    table-layout: auto;
+}
+
+/* Header row */
+.sv-table thead th {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.72rem;
+    text-align: left;
+    padding: 0.45rem 0.9rem;
+    border: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    white-space: nowrap;
+    user-select: none;
+}
+/* If cell has an explicit background colour from the sheet, use it in the header too */
+.sv-table thead th[style] {
+    color: inherit;
+    font-weight: 700;
+}
+
+/* Data cells */
+.sv-table td {
+    color: var(--text-primary);
+    background: var(--bg-dark);
+    padding: 0.32rem 0.9rem;
+    border: 1px solid var(--border);
+    min-width: 80px;
+    max-width: 400px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: text;
+    transition: outline 0.08s;
+}
+.sv-table td[style] {
+    /* Cells with explicit colours from the sheet */
+    color: inherit;
+}
+
+/* Editable cell — active focus ring like Excel */
+.sv-table td[contenteditable]:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+    white-space: pre-wrap;
+    overflow: visible;
+    max-width: none;
+    z-index: 3;
+    position: relative;
+}
+
+/* Row-number gutter + corner cell */
+.sv-table td.sv-row-num,
+.sv-table th.sv-corner {
+    color: var(--text-muted);
+    background: var(--bg-secondary) !important;
+    font-size: 0.65rem;
+    min-width: 2.5rem;
+    max-width: 2.5rem;
+    width: 2.5rem;
+    text-align: center;
+    user-select: none;
+    cursor: default;
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    border-right: 1px solid var(--border-hover);
+    contenteditable: false;
+}
+.sv-table th.sv-corner { z-index: 2; }
+.sv-table td.sv-row-num { font-style: normal; }
+
+/* Tab cloud icon for URL-saved sheets */
+.sv-tab-cloud {
+    font-size: 0.85rem;
+    opacity: 0.5;
     flex-shrink: 0;
 }
-@keyframes gmail-spin { to { transform: rotate(360deg); } }
-
-.gmail-contacts-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    padding: 1rem 1.5rem 0.75rem;
-    flex-shrink: 0;
-    border-bottom: 1px solid var(--border);
-}
-
-.gmail-grid-wrap {
-    padding: 1rem 1.5rem 1.5rem;
-    flex: 1;
-    overflow-y: auto;
-}
-
-/* ── Responsive Gmail ── */
-@media (max-width: 700px) {
-    .gmail-nav { width: 48px; min-width: 48px; padding: 0.5rem 0; }
-    .gmail-compose-btn { margin: 0 4px 0.5rem; padding: 0.6rem; justify-content: center; font-size: 0; }
-    .gmail-compose-btn svg { width: 18px; height: 18px; }
-    .gmail-nav-item { padding: 0; justify-content: center; margin-right: 4px; height: 38px; border-radius: 50%; width: 38px; align-self: center; }
-    .gmail-nav-item > span { display: none; }
-    .gmail-nav-item svg { opacity: 0.8; }
-    .gmail-nav-count, .gmail-nav-section-title, .gmail-nav-divider, .gmail-label-dot { display: none; }
-    .gmail-nav-item.active { border-radius: 50%; }
-    .gmail-email-from { width: 100px; min-width: 100px; }
-}
-
-/* ══════════ STREAMING LIBRARY ══════════ */
-
 .streaming-drawer { position: fixed; inset: 0; z-index: 1100; pointer-events: none; }
 .streaming-drawer.sd-closed { display: none; }
 .streaming-drawer:not(.sd-closed) { pointer-events: all; }
@@ -6587,7 +6855,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 }
 .streaming-drawer.sd-open .sd-panel { transform: translateX(0); }
 
-/* ── Hero ── */
+/* ΓöÇΓöÇ Hero ΓöÇΓöÇ */
 .sd-hero {
     position: relative; flex-shrink: 0;
     padding: 1.5rem 1.25rem 1.15rem;
@@ -6624,11 +6892,11 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-watch-btn:hover { background: color-mix(in srgb, var(--sd-brand, #e50914) 85%, #fff); }
 .sd-watch-btn .material-symbols-outlined { font-size: 1.1rem; }
 
-/* ── Progress track ── */
+/* ΓöÇΓöÇ Progress track ΓöÇΓöÇ */
 .sd-progress-track { height: 3px; background: rgba(255,255,255,0.06); flex-shrink: 0; }
 .sd-progress-fill { height: 100%; background: var(--sd-brand, #e50914); transition: width 0.6s ease; width: 0%; }
 
-/* ── Toolbar ── */
+/* ΓöÇΓöÇ Toolbar ΓöÇΓöÇ */
 .sd-toolbar {
     display: flex; align-items: center; justify-content: space-between;
     padding: 0.5rem 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.07);
@@ -6654,7 +6922,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-add-btn:hover { background: rgba(255,255,255,0.1); color: #fff; border-color: rgba(255,255,255,0.18); }
 .sd-add-btn .material-symbols-outlined { font-size: 13px; }
 
-/* ── Add form ── */
+/* ΓöÇΓöÇ Add form ΓöÇΓöÇ */
 .sd-add-form {
     display: flex; align-items: center; gap: 0.4rem;
     padding: 0.5rem 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.07);
@@ -6685,7 +6953,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 }
 .sd-cancel-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
 
-/* ── Body ── */
+/* ΓöÇΓöÇ Body ΓöÇΓöÇ */
 .sd-body { flex: 1; overflow-y: auto; background: #111; padding: 1rem 0.85rem 1.5rem; }
 .sd-body::-webkit-scrollbar { width: 4px; }
 .sd-body::-webkit-scrollbar-track { background: transparent; }
@@ -6698,7 +6966,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     padding: 2.5rem 1rem; text-align: center; gap: 0.65rem;
 }
 
-/* ── Sections ── */
+/* ΓöÇΓöÇ Sections ΓöÇΓöÇ */
 .sd-section { padding: 0.9rem 1rem 0.65rem; }
 .sd-section + .sd-section { border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.9rem; }
 .sd-section-hdr {
@@ -6709,7 +6977,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-section-hdr .material-symbols-outlined { font-size: 0.9rem; }
 .sd-section-count { margin-left: auto; font-size: 0.64rem; font-weight: 600; color: var(--sd-brand, #e50914); }
 
-/* ── Movies poster grid ── */
+/* ΓöÇΓöÇ Movies poster grid ΓöÇΓöÇ */
 .sd-movies-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
@@ -6757,7 +7025,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-series-card:hover .sd-del-btn { opacity: 1; }
 .sd-del-btn:hover { color: var(--sd-brand, #e50914); }
 
-/* ── Series cards ── */
+/* ΓöÇΓöÇ Series cards ΓöÇΓöÇ */
 .sd-series-card {
     background: #1a1a1a; border-radius: 5px;
     border: 1px solid rgba(255,255,255,0.06);
@@ -6787,7 +7055,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-icon-btn:hover { color: #fff; background: rgba(255,255,255,0.07); }
 .sd-icon-btn--danger:hover { color: var(--sd-brand, #e50914); background: color-mix(in srgb, var(--sd-brand, #e50914) 10%, transparent); }
 
-/* ── Season rows ── */
+/* ΓöÇΓöÇ Season rows ΓöÇΓöÇ */
 .sd-seasons { display: flex; flex-direction: column; gap: 0.5rem; }
 .sd-season-row { display: flex; align-items: center; gap: 0.55rem; }
 .sd-s-label { font-size: 0.74rem; font-weight: 700; color: rgba(255,255,255,0.35); width: 26px; flex-shrink: 0; background: none; border: none; padding: 0; font-family: inherit; cursor: pointer; }
@@ -6818,7 +7086,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-ep-count { font-size: 0.72rem; color: rgba(255,255,255,0.3); min-width: 32px; text-align: right; flex-shrink: 0; }
 .sd-no-seasons { font-size: 0.78rem; color: rgba(255,255,255,0.25); padding: 0.25rem 0; }
 
-/* ── Expand/collapse seasons toggle ── */
+/* ΓöÇΓöÇ Expand/collapse seasons toggle ΓöÇΓöÇ */
 .sd-expand-toggle {
     flex-shrink: 0; width: 22px; height: 22px; border-radius: 4px;
     background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
@@ -6829,7 +7097,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-expand-toggle:hover { background: color-mix(in srgb, var(--sd-brand, #e50914) 18%, transparent); border-color: color-mix(in srgb, var(--sd-brand, #e50914) 45%, transparent); color: var(--sd-brand, #e50914); }
 .sd-expand-toggle .material-symbols-outlined { font-size: 14px; }
 
-/* ── Season add form ── */
+/* ΓöÇΓöÇ Season add form ΓöÇΓöÇ */
 .sd-season-form {
     display: flex; align-items: center; gap: 0.4rem;
     padding: 0.4rem 0 0.15rem; flex-wrap: wrap; margin-top: 0.3rem;
@@ -6844,7 +7112,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 }
 .sd-sf-input:focus { border-color: var(--sd-brand, #e50914); }
 
-/* ── Return prompt ── */
+/* ΓöÇΓöÇ Return prompt ΓöÇΓöÇ */
 .sd-return-prompt {
     position: fixed; bottom: 1.25rem; left: 50%;
     transform: translateX(-50%) translateY(12px);
@@ -6860,10 +7128,10 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-return-prompt.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
 .sd-return-prompt strong { color: #fff; }
 
-/* ── Add-form layout with poster preview ── */
+/* ΓöÇΓöÇ Add-form layout with poster preview ΓöÇΓöÇ */
 .sd-add-form { flex-wrap: nowrap; align-items: flex-start; gap: 0.5rem; }
 
-/* ── Movie play overlay ── */
+/* ΓöÇΓöÇ Movie play overlay ΓöÇΓöÇ */
 .sd-movie-play {
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
@@ -6874,31 +7142,31 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-movie-card:hover .sd-movie-play { opacity: 1; }
 .sd-movie-play .material-symbols-outlined { font-size: 2.2rem; filter: drop-shadow(0 1px 4px rgba(0,0,0,0.7)); }
 
-/* ── Clickable item titles ── */
+/* ΓöÇΓöÇ Clickable item titles ΓöÇΓöÇ */
 .sd-movie-title-link, .sd-series-title-link {
     color: inherit; text-decoration: none;
 }
 .sd-movie-title-link:hover { color: #fff; text-decoration: underline; }
 .sd-series-title-link:hover { color: var(--sd-brand, #e50914); }
 
-/* ── Poster image inside movie card ── */
+/* ΓöÇΓöÇ Poster image inside movie card ΓöÇΓöÇ */
 .sd-movie-poster-img {
     position: absolute; inset: 0;
     width: 100%; height: 100%; object-fit: cover;
     border-radius: inherit; pointer-events: none;
 }
 
-/* ── Series thumbnail ── */
+/* ΓöÇΓöÇ Series thumbnail ΓöÇΓöÇ */
 .sd-series-thumb {
     width: 38px; height: 57px; object-fit: cover;
     border-radius: 3px; flex-shrink: 0; align-self: flex-start;
 }
 .sd-series-thumb--sm { width: 30px; height: 45px; border-radius: 2px; }
 
-/* ── Poster preview in add form ── */
+/* ΓöÇΓöÇ Poster preview in add form ΓöÇΓöÇ */
 .sd-add-form-fields { flex: 1; display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; position: relative; }
 
-/* ── Search results picker ── */
+/* ΓöÇΓöÇ Search results picker ΓöÇΓöÇ */
 .sd-search-results {
     position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
     background: #1e1e1e; border: 1px solid rgba(255,255,255,0.1);
@@ -6935,7 +7203,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     border-radius: 3px; flex-shrink: 0; align-self: center;
 }
 
-/* ── FAB add button ── */
+/* ΓöÇΓöÇ FAB add button ΓöÇΓöÇ */
 .sd-add-fab {
     width: 30px; height: 30px; border-radius: 50%;
     background: var(--sd-brand, #e50914); border: none; color: #fff; cursor: pointer;
@@ -6945,7 +7213,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 }
 .sd-add-fab:hover { background: color-mix(in srgb, var(--sd-brand, #e50914) 80%, #fff); }
 
-/* ── Add form type buttons ── */
+/* ΓöÇΓöÇ Add form type buttons ΓöÇΓöÇ */
 .sd-add-type-btns {
     display: flex; gap: 0.35rem; align-items: center; flex-shrink: 0;
 }
@@ -6960,7 +7228,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-type-btn--series { background: color-mix(in srgb, var(--sd-brand, #e50914) 55%, transparent); }
 .sd-type-btn--series:hover { background: var(--sd-brand, #e50914); }
 
-/* ── Watched toggle overlaid on card ── */
+/* ΓöÇΓöÇ Watched toggle overlaid on card ΓöÇΓöÇ */
 .sd-watched-toggle {
     position: absolute; bottom: 4px; right: 4px; z-index: 3;
     width: 22px; height: 22px; border-radius: 50%;
@@ -6973,14 +7241,14 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-movie-watched .sd-watched-toggle { opacity: 1; color: var(--sd-brand, #e50914); }
 .sd-watched-toggle .material-symbols-outlined { font-size: 14px; }
 
-/* ── Series tile progress bar ── */
+/* ΓöÇΓöÇ Series tile progress bar ΓöÇΓöÇ */
 .sd-tile-prog {
     position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
     background: rgba(255,255,255,0.1);
 }
 .sd-tile-prog-fill { height: 100%; background: var(--sd-brand, #e50914); }
 
-/* ── Season count badge (top-right of poster) ── */
+/* ΓöÇΓöÇ Season count badge (top-right of poster) ΓöÇΓöÇ */
 .sd-season-badge {
     position: absolute; top: 4px; right: 4px;
     background: rgba(0,0,0,0.72); color: rgba(255,255,255,0.82);
@@ -6989,7 +7257,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     backdrop-filter: blur(4px);
 }
 
-/* ── Series tile — clickable poster + inline expand ── */
+/* ΓöÇΓöÇ Series tile ΓÇö clickable poster + inline expand ΓöÇΓöÇ */
 .sd-series-tile .sd-movie-poster { cursor: pointer; }
 .sd-hub-series { cursor: pointer; }
 .sd-series-expand {
@@ -7039,7 +7307,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 }
 .sd-sf-add-btn:hover { color: var(--sd-brand, #e50914); }
 
-/* ── Unified grid ── */
+/* ΓöÇΓöÇ Unified grid ΓöÇΓöÇ */
 .sd-unified-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
@@ -7047,7 +7315,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     align-items: start;
 }
 
-/* ── Collection block ── */
+/* ΓöÇΓöÇ Collection block ΓöÇΓöÇ */
 .sd-coll-block {
     grid-column: 1 / -1;
     background: rgba(255,255,255,0.025);
@@ -7057,7 +7325,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 }
 .sd-coll-block.sd-drag-over { border-color: var(--sd-brand, #e50914); box-shadow: 0 0 0 1px var(--sd-brand, #e50914); }
 
-/* ── Drag insert-before / insert-after indicators ── */
+/* ΓöÇΓöÇ Drag insert-before / insert-after indicators ΓöÇΓöÇ */
 .sd-drop-before { box-shadow: -4px 0 0 0 var(--sd-brand, #e50914) !important; outline: 1px solid color-mix(in srgb, var(--sd-brand, #e50914) 30%, transparent); outline-offset: 1px; }
 .sd-drop-after  { box-shadow: 4px 0 0 0 var(--sd-brand, #e50914) !important; outline: 1px solid color-mix(in srgb, var(--sd-brand, #e50914) 30%, transparent); outline-offset: 1px; }
 .sd-coll-hdr {
@@ -7087,7 +7355,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 }
 .sd-coll-inner.sd-hidden { display: none; }
 
-/* ── Remove-from-collection drop zone ── */
+/* ΓöÇΓöÇ Remove-from-collection drop zone ΓöÇΓöÇ */
 .sd-remove-zone {
     display: flex; align-items: center; justify-content: center; gap: 0.4rem;
     margin-top: 0.6rem; padding: 0.6rem 0.85rem;
@@ -7099,7 +7367,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-remove-zone.sd-drag-over { border-color: var(--sd-brand, #e50914); color: var(--sd-brand, #e50914); background: color-mix(in srgb, var(--sd-brand, #e50914) 7%, transparent); }
 .sd-remove-zone .material-symbols-outlined { font-size: 1rem; }
 
-/* ── Hub unified grid (collections + solo cards) ── */
+/* ΓöÇΓöÇ Hub unified grid (collections + solo cards) ΓöÇΓöÇ */
 .sh-unified-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
@@ -7108,11 +7376,11 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 }
 .sh-unified-grid .sd-coll-block { grid-column: 1/-1; }
 
-/* ── Collection rename button (pencil, visible on header hover) ── */
+/* ΓöÇΓöÇ Collection rename button (pencil, visible on header hover) ΓöÇΓöÇ */
 .sd-coll-rename-btn { opacity: 0; transition: opacity 0.15s; }
 .sd-coll-hdr:hover .sd-coll-rename-btn { opacity: 1; }
 
-/* ── Collapsed collection: stacked poster card (reuses .sd-movie-card) ── */
+/* ΓöÇΓöÇ Collapsed collection: stacked poster card (reuses .sd-movie-card) ΓöÇΓöÇ */
 .sd-movie-card.sd-coll-collapsed { overflow: visible; }
 .sd-coll-stack-btn {
     cursor: pointer; border: none;
@@ -7155,7 +7423,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     letter-spacing: 0.04em;
 }
 
-/* ── Drag handle ── */
+/* ΓöÇΓöÇ Drag handle ΓöÇΓöÇ */
 .sd-drag-handle {
     position: absolute; top: 4px; left: 4px;
     background: rgba(0,0,0,0.65); border-radius: 3px;
@@ -7178,7 +7446,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-unit-dragging { opacity: 0.3; pointer-events: none; }
 .sd-movie-card.sd-drag-over { border-color: #e50914; box-shadow: 0 0 0 2px rgba(229,9,20,0.35); transform: scale(1.04); }
 
-/* ── Card footer (edit + delete buttons) ── */
+/* ΓöÇΓöÇ Card footer (edit + delete buttons) ΓöÇΓöÇ */
 .sd-card-footer {
     display: flex; align-items: center; justify-content: space-between;
     padding: 0 3px 3px;
@@ -7188,7 +7456,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-edit-btn { color: rgba(255,255,255,0.3); }
 .sd-edit-btn:hover { color: #fff !important; background: rgba(255,255,255,0.08) !important; }
 
-/* ── Item edit modal ── */
+/* ΓöÇΓöÇ Item edit modal ΓöÇΓöÇ */
 .sd-iem-overlay {
     position: fixed; inset: 0; z-index: 1200;
     background: rgba(0,0,0,0.72);
@@ -7208,10 +7476,10 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .sd-iem-btns { display: flex; justify-content: flex-end; gap: 0.45rem; margin-top: 0.2rem; }
 .sd-iem-btns .sd-cancel-btn { width: auto; padding: 0 0.85rem; font-size: 0.77rem; font-weight: 500; }
 
-/* ── Streaming hub wrapper ── */
+/* ΓöÇΓöÇ Streaming hub wrapper ΓöÇΓöÇ */
 .streaming-hub { padding: 1rem 1.25rem; }
 
-/* ── Mobile responsive ── */
+/* ΓöÇΓöÇ Mobile responsive ΓöÇΓöÇ */
 @media (max-width: 560px) {
     .sd-panel { width: 100vw; }
     .sd-hero { padding: 1.1rem 1rem 0.9rem; }
@@ -7250,7 +7518,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     height: 100%;
 }
 
-/* ── Sidebar nav ── */
+/* ΓöÇΓöÇ Sidebar nav ΓöÇΓöÇ */
 .tut-nav {
     width: 210px;
     flex-shrink: 0;
@@ -7295,14 +7563,14 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .tut-nav-item.active { background: var(--accent-dim); color: var(--accent); }
 .tut-nav-item.active svg { opacity: 1; }
 
-/* ── Content area ── */
+/* ΓöÇΓöÇ Content area ΓöÇΓöÇ */
 .tut-content {
     flex: 1;
     overflow-y: auto;
     padding: 2.5rem 3rem;
 }
 
-/* ── Pages ── */
+/* ΓöÇΓöÇ Pages ΓöÇΓöÇ */
 .tut-page { display: none; max-width: 780px; }
 .tut-page.active { display: block; }
 
@@ -7452,7 +7720,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     border-radius: 3px;
 }
 
-/* ── Getting started: step list ── */
+/* ΓöÇΓöÇ Getting started: step list ΓöÇΓöÇ */
 .tut-steps {
     display: flex;
     flex-direction: column;
@@ -7496,7 +7764,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     margin: 0;
 }
 
-/* ── Getting started: feature cards ── */
+/* ΓöÇΓöÇ Getting started: feature cards ΓöÇΓöÇ */
 .tut-cards {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -7541,7 +7809,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     text-overflow: ellipsis;
 }
 
-/* ── Kanban column demo pills ── */
+/* ΓöÇΓöÇ Kanban column demo pills ΓöÇΓöÇ */
 .tut-cols-demo {
     display: flex;
     gap: 0.5rem;
@@ -7562,14 +7830,14 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 .tut-col-review     { background: rgba(224,170,68,0.12); color: var(--warn); }
 .tut-col-done       { background: rgba(85,200,122,0.1);  color: var(--success); }
 
-/* ── Priority demo row ── */
+/* ΓöÇΓöÇ Priority demo row ΓöÇΓöÇ */
 .tut-priority-row {
     display: flex;
     gap: 0.5rem;
     margin: 0.5rem 0;
 }
 
-/* ── Keyboard shortcut table ── */
+/* ΓöÇΓöÇ Keyboard shortcut table ΓöÇΓöÇ */
 .tut-kbd-table {
     display: flex;
     flex-direction: column;
@@ -7604,7 +7872,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     .tut-kbd-row kbd { min-width: 100px; }
 }
 
-/* ── Mobile: horizontal scrolling tab strip at the top ── */
+/* ΓöÇΓöÇ Mobile: horizontal scrolling tab strip at the top ΓöÇΓöÇ */
 @media (max-width: 560px) {
     .tut-shell {
         flex-direction: column;

@@ -28,6 +28,7 @@ import { runMigrations }   from "./migrate.js";
 import { initHub }         from "./hub.js";
 import { initLinks }       from "./apps/links.js";
 import { initGmail }       from "./apps/gmail.js";
+import { initSheet, initSheetUser } from "./apps/sheet.js";
 
 /* ── Firebase bootstrap ── */
 let firebaseConfig;
@@ -46,6 +47,7 @@ export { auth, db, tmdbKey };
 /* ── Boot sequence ── */
 initHub();
 initUI();
+initSheet();
 initAuth(auth, db, onUserReady);
 _initBlueMap();
 
@@ -103,4 +105,5 @@ function onUserReady(user) {
     initSections();
     initLinks(db, user);
     initGmail(db, user, googleClientId ?? "");
+    initSheetUser(db, user.uid);
 }
