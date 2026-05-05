@@ -27,6 +27,9 @@
         <button class="hub-app-btn" data-app="links" title="Link Gallery">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
         </button>
+        <button class="hub-app-btn" data-app="sheet" title="Sheet Viewer">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+        </button>
         <button class="hub-app-btn" data-app="gmail" title="Gmail">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>
         </button>
@@ -434,6 +437,45 @@
         <div class="ws-placeholder">Loading&#8230;</div>
     </div>
 </div><!-- /app-links -->
+
+<!-- ==================== SHEET VIEWER APP ==================== -->
+<div id="app-sheet" class="hub-app">
+    <div class="sv-header">
+        <div class="sv-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+            Sheet Viewer
+        </div>
+        <button class="sv-add-btn" id="sv-url-btn" title="Load from URL">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            Load URL
+        </button>
+        <label class="sv-add-btn" title="Add file (CSV / Excel)">
+            <input type="file" id="sv-file-input" accept=".xlsx,.xls,.csv,.tsv" multiple style="display:none">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add file
+        </label>
+    </div>
+    <div class="sv-url-bar" id="sv-url-bar">
+        <input type="url" id="sv-url-input" class="sv-url-input" placeholder="https://… paste a link to an .xlsx, .csv, or SharePoint/Google Sheets file" autocomplete="off">
+        <button id="sv-url-load" class="sv-url-load-btn">Load</button>
+        <button id="sv-url-close" class="sv-url-close-btn">&times;</button>
+    </div>
+    <div class="sv-file-tabs" id="sv-file-tabs"></div>
+    <div class="sv-sub-tabs" id="sv-sub-tabs"></div>
+    <div class="sv-body">
+        <div class="sv-drop" id="sv-drop">
+            <span class="material-symbols-outlined sv-drop-icon">table_view</span>
+            <div class="sv-drop-text">Drop Excel or CSV files here</div>
+            <div class="sv-drop-sub">Supports .xlsx, .xls, .csv, .tsv &mdash; handles Norwegian characters</div>
+            <div class="sv-drop-sub" style="margin-top:0.35rem">or <button class="sv-browse-btn" id="sv-browse">browse files</button></div>
+        </div>
+        <div class="sv-content" id="sv-content">
+            <div class="sv-table-wrap">
+                <table id="sv-table" class="sv-table"></table>
+            </div>
+        </div>
+    </div>
+</div><!-- /app-sheet -->
 
 <!-- ==================== GMAIL APP ==================== -->
 <div id="app-gmail" class="hub-app">

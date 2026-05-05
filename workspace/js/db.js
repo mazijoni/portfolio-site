@@ -61,4 +61,8 @@ export const refs = {
     /** users/{uid}/projects/{pid} — single project doc */
     project: (db, uid, pid) =>
         doc(db, "users", uid, "projects", pid),
+
+    /** users/{uid}/sheet-sources — saved URL-based sheets for the Sheet Viewer app */
+    sheetSources: (db, uid) =>
+        collection(db, "users", uid, "sheet-sources"),
 };
