@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
     <link rel="stylesheet" href="workspace.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 </head>
 <body>
 
@@ -31,6 +32,9 @@
         </button>
         <button class="hub-app-btn" data-app="bluemap" id="hub-btn-bluemap" title="BlueMap">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
+        </button>
+        <button class="hub-app-btn" data-app="settings" title="Help &amp; Settings" id="hub-btn-settings">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor" stroke="none"/></svg>
         </button>
     </div>
     <div class="hub-nav-footer">
@@ -88,6 +92,10 @@
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             Portfolio
         </a>
+        <a href="../Jonatan Lund Ermesjo CV.pdf" class="ws-nav-item">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            CV
+        </a>
 
 
     </aside>
@@ -141,6 +149,10 @@
             <button class="ws-tab" data-section="kanban">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="3" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="9" rx="1"/></svg>
                 <span class="tab-label">Kanban</span>
+            </button>
+            <button class="ws-tab" data-section="files">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h6l2 3h10a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/></svg>
+                <span class="tab-label">Files</span>
             </button>
         </nav>
 
@@ -213,12 +225,39 @@
                         </div>
                     </div>
                 </div>
+                <!-- GitHub repo info (shown only when project has a GitHub repo) -->
+                <div id="github-info-section" class="overview-card overview-github-card" style="display:none;margin-bottom:1rem;">
+                    <div class="github-card-header">
+                        <div class="overview-card-label" style="margin-bottom:0">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px;margin-right:4px"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.463-1.11-1.463-.908-.620.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.269 2.75 1.026A9.578 9.578 0 0 1 12 6.836c.85.004 1.705.114 2.504.336 1.909-1.295 2.747-1.026 2.747-1.026.546 1.378.203 2.397.1 2.65.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.741 0 .267.18.578.688.48C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z"/></svg>
+                            GitHub
+                        </div>
+                        <div id="github-load-state" class="github-load-state"></div>
+                    </div>
+                    <div id="github-repo-stats" class="github-repo-stats"></div>
+                    <div id="github-commits-section" style="display:none">
+                        <div class="github-commits-label">Recent Commits</div>
+                        <div id="github-commits" class="github-commits-list"></div>
+                    </div>
+                </div>
+
                 <div class="overview-notes-area">
-                    <div class="overview-card-label">Quick Notes</div>
-                    <textarea id="overview-notes" class="overview-notes-input" placeholder="Jot down quick notes for this project&#8230;" rows="6" maxlength="4000"></textarea>
+                    <div class="readme-header">
+                        <div class="overview-card-label readme-label">
+                            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="margin-right:5px;vertical-align:-2px;opacity:.7"><path d="M0 1.75A.75.75 0 0 1 .75 1h4.253c1.227 0 2.317.59 3 1.501A3.743 3.743 0 0 1 11.006 1h4.245a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75h-4.507a2.25 2.25 0 0 0-1.591.659l-.622.621a.75.75 0 0 1-1.06 0l-.622-.621A2.25 2.25 0 0 0 5.258 13H.75a.75.75 0 0 1-.75-.75Zm7.251 10.324.004-5.073-.002-2.253A2.25 2.25 0 0 0 5.003 2.5H1.5v9h3.757a3.75 3.75 0 0 1 1.994.574ZM8.755 4.75l-.004 7.322a3.752 3.752 0 0 1 1.992-.572H14.5v-9h-3.495a2.25 2.25 0 0 0-2.25 2.25Z"/></svg>
+                            README.md
+                        </div>
+                        <div class="readme-tabs">
+                            <button id="readme-tab-preview" class="readme-tab active">Preview</button>
+                            <button id="readme-tab-edit"    class="readme-tab">Edit</button>
+                        </div>
+                    </div>
+                    <div id="readme-status" class="readme-status"></div>
+                    <div id="readme-preview" class="readme-preview"></div>
+                    <textarea id="overview-notes" class="overview-notes-input" placeholder="Write your README.md here&#8230;" rows="10" maxlength="100000" spellcheck="false" style="display:none"></textarea>
                     <div class="notes-save-row">
                         <span id="notes-saved-hint" class="notes-hint"></span>
-                        <button id="btn-save-notes" class="ws-btn ws-btn-accent">Save Notes</button>
+                        <button id="btn-save-notes" class="ws-btn ws-btn-accent">Save README</button>
                     </div>
                 </div>
             </div>
@@ -268,6 +307,13 @@
                         Kanban Board
                     </div>
                     <div class="section-toolbar-actions">
+                        <button class="ws-btn ws-btn-ghost" id="btn-kanban-gh-sync" style="display:none" title="Sync issues from GitHub">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.463-1.11-1.463-.908-.620.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.269 2.75 1.026A9.578 9.578 0 0 1 12 6.836c.85.004 1.705.114 2.504.336 1.909-1.295 2.747-1.026 2.747-1.026.546 1.378.203 2.397.1 2.65.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.741 0 .267.18.578.688.48C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z"/></svg>
+                            Sync Issues
+                        </button>
+                        <button class="ws-icon-btn" id="btn-kanban-gh-settings" style="display:none" title="GitHub token settings">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        </button>
                         <button class="ws-btn ws-btn-ghost" id="btn-add-kanban-task">+ Task</button>
                     </div>
                 </div>
@@ -316,6 +362,39 @@
             </div>
         </section>
 
+        <!-- FILES -->
+        <section id="section-files" class="ws-section">
+            <div class="ws-section-body ws-section-body--fill">
+                <div class="section-toolbar">
+                    <div class="section-toolbar-title">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h6l2 3h10a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/></svg>
+                        Files
+                    </div>
+                    <div class="section-toolbar-actions">
+                        <button class="ws-icon-btn" id="btn-files-refresh" title="Refresh file tree">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div id="files-no-repo" class="ws-empty-state" style="display:none">
+                    <div class="ws-empty-icon">
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M3 3h6l2 3h10a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/></svg>
+                    </div>
+                    <p>No GitHub repository connected to this project.</p>
+                </div>
+                <div id="files-tree-wrap" class="files-tree-wrap" style="display:none">
+                    <div id="files-search-bar" class="files-search-bar">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input type="text" id="files-search" class="files-search-input" placeholder="Filter files…" autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="ft-table">
+                        <div id="files-header" class="ft-hdr"></div>
+                        <div id="repo-filetree" class="repo-filetree"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
     </div>
         <!-- Sidebar overlay (scoped to workspace app) -->
         <div id="ws-sidebar-overlay"></div>
@@ -329,6 +408,10 @@
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
             <span>Link Gallery</span>
         </div>
+        <button id="btn-add-link" class="ws-btn ws-btn-accent">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span class="btn-label">Add Link</span>
+        </button>
         <div class="links-toolbar-right">
             <input type="text" id="links-search" class="links-search-input" placeholder="Search&#8230;" autocomplete="off">
             <select id="links-sort-select" class="links-sort-select" title="Sort order">
@@ -340,11 +423,7 @@
             </select>
             <button id="btn-links-select-mode" class="ws-btn ws-btn-ghost" title="Select items to bulk delete">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                Select
-            </button>
-            <button id="btn-add-link" class="ws-btn ws-btn-accent">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Add Link
+                <span class="btn-label">Select</span>
             </button>
         </div>
     </div>
@@ -378,6 +457,358 @@
     </div>
     <div id="bluemap-content" class="bluemap-content"></div>
 </div><!-- /app-bluemap -->
+
+<!-- ── APP: SETTINGS / HELP ── -->
+<div id="app-settings" class="hub-app">
+    <div class="tut-shell">
+        <!-- Sidebar nav -->
+        <nav class="tut-nav">
+            <div class="tut-nav-title">Help &amp; Tutorial</div>
+            <button class="tut-nav-item active" data-page="start">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <span>Getting Started</span>
+            </button>
+            <button class="tut-nav-item" data-page="projects">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                <span>Projects</span>
+            </button>
+            <button class="tut-nav-item" data-page="overview">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                <span>Overview Tab</span>
+            </button>
+            <button class="tut-nav-item" data-page="kanban">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="3" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="9" rx="1"/></svg>
+                <span>Kanban Board</span>
+            </button>
+            <button class="tut-nav-item" data-page="github">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.269 2.75 1.026A9.578 9.578 0 0 1 12 6.836c.85.004 1.705.114 2.504.336 1.909-1.295 2.747-1.026 2.747-1.026.546 1.378.203 2.397.1 2.65.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.741 0 .267.18.578.688.48C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z"/></svg>
+                <span>GitHub Integration</span>
+            </button>
+            <button class="tut-nav-item" data-page="board">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                <span>Visual Board</span>
+            </button>
+            <button class="tut-nav-item" data-page="media">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 19 16 19 16 8"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="1 17 5 12 9 14.5 12 11 16 15"/></svg>
+                <span>Media &amp; Links</span>
+            </button>
+            <button class="tut-nav-item" data-page="shortcuts">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
+                <span>Keyboard Shortcuts</span>
+            </button>
+        </nav>
+
+        <!-- Pages -->
+        <div class="tut-content">
+
+            <!-- ── Getting Started ── -->
+            <div class="tut-page active" id="tut-start">
+                <h1 class="tut-h1">Welcome to Workspace</h1>
+                <p class="tut-lead">Your personal project hub. Manage tasks, track ideas, store media, and connect to GitHub — all in one place.</p>
+
+                <div class="tut-steps">
+                    <div class="tut-step">
+                        <div class="tut-step-num">1</div>
+                        <div class="tut-step-body">
+                            <strong>Create a project</strong>
+                            <p>Click <span class="tut-ui">+ New Project</span> in the left sidebar. Give it a title, icon, type, status, and optionally a GitHub repo URL.</p>
+                        </div>
+                    </div>
+                    <div class="tut-step">
+                        <div class="tut-step-num">2</div>
+                        <div class="tut-step-body">
+                            <strong>Pick a section</strong>
+                            <p>Use the tabs at the top to switch between <span class="tut-ui">Overview</span>, <span class="tut-ui">Board</span>, <span class="tut-ui">Kanban</span>, <span class="tut-ui">Media</span>, and <span class="tut-ui">Nodes</span>.</p>
+                        </div>
+                    </div>
+                    <div class="tut-step">
+                        <div class="tut-step-num">3</div>
+                        <div class="tut-step-body">
+                            <strong>Use the hub apps</strong>
+                            <p>Switch between apps using the icon bar on the far left: <span class="tut-ui">Workspace</span>, <span class="tut-ui">Link Gallery</span>, <span class="tut-ui">Gmail</span>, and <span class="tut-ui">BlueMap</span>.</p>
+                        </div>
+                    </div>
+                    <div class="tut-step">
+                        <div class="tut-step-num">4</div>
+                        <div class="tut-step-body">
+                            <strong>Connect GitHub</strong>
+                            <p>Add a GitHub repo URL when creating or editing a project. On the Kanban board a <span class="tut-ui">Sync Issues</span> button will appear.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tut-cards">
+                    <div class="tut-card">
+                        <div class="tut-card-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="3" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="9" rx="1"/></svg>
+                        </div>
+                        <div class="tut-card-body">
+                            <strong>Kanban Board</strong>
+                            <span>5 columns · drag &amp; drop · GitHub Issues sync</span>
+                        </div>
+                    </div>
+                    <div class="tut-card">
+                        <div class="tut-card-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                        </div>
+                        <div class="tut-card-body">
+                            <strong>Visual Board</strong>
+                            <span>Freeform canvas · sticky notes · images · code</span>
+                        </div>
+                    </div>
+                    <div class="tut-card">
+                        <div class="tut-card-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 19 16 19 16 8"/></svg>
+                        </div>
+                        <div class="tut-card-body">
+                            <strong>Media &amp; Links</strong>
+                            <span>Images · videos · sites · organised by project</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Projects ── -->
+            <div class="tut-page" id="tut-projects">
+                <h1 class="tut-h1">Projects</h1>
+                <p class="tut-lead">Every piece of content in the Workspace belongs to a project. Projects are the top-level organiser.</p>
+
+                <h2 class="tut-h2">Creating a project</h2>
+                <ol class="tut-list">
+                    <li>Click <span class="tut-ui">+ New Project</span> in the sidebar.</li>
+                    <li>Enter a <strong>Title</strong> (required).</li>
+                    <li>Optionally add a <strong>Description</strong>, pick an <strong>icon</strong>, set the <strong>Type</strong> and <strong>Status</strong>.</li>
+                    <li>Paste a <strong>GitHub Repository URL</strong> to unlock GitHub integration (see the GitHub page).</li>
+                    <li>Click <span class="tut-ui">Create Project</span>.</li>
+                </ol>
+
+                <h2 class="tut-h2">Editing &amp; deleting</h2>
+                <p>Select a project, then click the <span class="tut-ui">edit (✎)</span> icon in the top bar to open the form again. Click the <span class="tut-ui">trash</span> icon to permanently delete the project and all its data.</p>
+
+                <div class="tut-callout tut-callout--warn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    Deleting a project is permanent and cannot be undone. All tasks, board items, media, and notes inside it are also deleted.
+                </div>
+
+                <h2 class="tut-h2">Project fields</h2>
+                <div class="tut-table-wrap">
+                    <table class="tut-table">
+                        <thead><tr><th>Field</th><th>Description</th></tr></thead>
+                        <tbody>
+                            <tr><td>Title</td><td>Required. Shown in the sidebar and top bar.</td></tr>
+                            <tr><td>Icon</td><td>Material Symbol icon shown next to the project name.</td></tr>
+                            <tr><td>GitHub Repo</td><td>Full URL e.g. <code>https://github.com/user/repo</code>. Unlocks GitHub features.</td></tr>
+                            <tr><td>Type</td><td>Game Dev, Web/IT, School, etc. — purely for labelling.</td></tr>
+                            <tr><td>Status</td><td>Active, Planning, Paused, Archived, Done.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ── Overview ── -->
+            <div class="tut-page" id="tut-overview">
+                <h1 class="tut-h1">Overview Tab</h1>
+                <p class="tut-lead">A snapshot of the project — details, stats, live GitHub data, and quick notes.</p>
+
+                <h2 class="tut-h2">Details card</h2>
+                <p>Shows the project type, status, creation date, last-updated date, and a clickable link to the GitHub repo (if set).</p>
+
+                <h2 class="tut-h2">Activity card</h2>
+                <p>Live counts of <strong>Tasks</strong> (Kanban) and <strong>Media</strong> items linked to this project.</p>
+
+                <h2 class="tut-h2">GitHub card</h2>
+                <p>Appears automatically when the project has a GitHub repo URL. Fetches live data from the GitHub API:</p>
+                <ul class="tut-list">
+                    <li>Primary language with colour dot</li>
+                    <li>Star count, fork count, open issues, last-push time</li>
+                    <li>Last 7 commits with author avatar, message, and a link to each commit</li>
+                </ul>
+                <div class="tut-callout tut-callout--info">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    GitHub data uses the public API (no token needed for public repos). Rate limit: 60 requests/hour per IP.
+                </div>
+
+                <h2 class="tut-h2">Quick Notes</h2>
+                <p>A freeform text area that saves per-project. Click <span class="tut-ui">Save Notes</span> or use <span class="tut-kbd">Ctrl+S</span> — a brief "Saved" hint confirms the write.</p>
+            </div>
+
+            <!-- ── Kanban ── -->
+            <div class="tut-page" id="tut-kanban">
+                <h1 class="tut-h1">Kanban Board</h1>
+                <p class="tut-lead">A classic 5-column board for tracking work. Each task can optionally be linked to a GitHub Issue.</p>
+
+                <h2 class="tut-h2">Columns</h2>
+                <div class="tut-cols-demo">
+                    <div class="tut-col-pill tut-col-backlog">Backlog</div>
+                    <div class="tut-col-pill tut-col-todo">To Do</div>
+                    <div class="tut-col-pill tut-col-inprogress">In Progress</div>
+                    <div class="tut-col-pill tut-col-review">Review</div>
+                    <div class="tut-col-pill tut-col-done">Done</div>
+                </div>
+
+                <h2 class="tut-h2">Creating a task</h2>
+                <ol class="tut-list">
+                    <li>Click <span class="tut-ui">+ Task</span> in the toolbar, or <span class="tut-ui">+ Add task</span> at the bottom of any column.</li>
+                    <li>Enter a title, optional description, priority (Low/Medium/High), and target column.</li>
+                    <li>Click <span class="tut-ui">Save Task</span>.</li>
+                    <li>If GitHub integration is set up, an issue is created automatically.</li>
+                </ol>
+
+                <h2 class="tut-h2">Drag &amp; drop</h2>
+                <p>Drag a card from one column to another. If the card is linked to a GitHub Issue, the issue state updates automatically: moving to <strong>Done</strong> closes it, moving back out reopens it.</p>
+
+                <h2 class="tut-h2">Editing &amp; deleting tasks</h2>
+                <p>Hover a card to reveal the <span class="tut-ui">✎ edit</span> and <span class="tut-ui">✕ delete</span> buttons. Editing a linked task syncs the updated title/description to GitHub. Deleting closes the linked issue.</p>
+
+                <h2 class="tut-h2">Priority levels</h2>
+                <div class="tut-priority-row">
+                    <span class="kanban-priority kanban-priority--low">low</span>
+                    <span class="kanban-priority kanban-priority--medium">medium</span>
+                    <span class="kanban-priority kanban-priority--high">high</span>
+                </div>
+            </div>
+
+            <!-- ── GitHub ── -->
+            <div class="tut-page" id="tut-github">
+                <h1 class="tut-h1">GitHub Integration</h1>
+                <p class="tut-lead">Connect a project to a GitHub repository to sync Kanban tasks with a real GitHub Projects board. Tasks are created as GitHub Issues and added to the board automatically — moving a card updates the Status column in real time.</p>
+
+                <h2 class="tut-h2">Step 1 — Add a repo URL</h2>
+                <p>When creating or editing a project, paste the repository URL into the <span class="tut-ui">GitHub Repository URL</span> field. This identifies the owner (user or org) who will own the GitHub Project.</p>
+                <div class="tut-code">https://github.com/yourusername/your-repo</div>
+
+                <h2 class="tut-h2">Step 2 — Create a Personal Access Token</h2>
+                <ol class="tut-list">
+                    <li>Go to <strong>github.com → Settings → Developer settings → Personal access tokens</strong>.</li>
+                    <li><strong>Classic token:</strong> enable the <strong>repo</strong> and <strong>project</strong> scopes.</li>
+                    <li><strong>Fine-grained token:</strong> under <em>Repository permissions</em> set <strong>Issues</strong> to <strong>Read and write</strong>, and under <em>User permissions</em> set <strong>Projects</strong> to <strong>Read and write</strong>.</li>
+                </ol>
+                <div class="tut-callout tut-callout--info">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    The token is stored only in your private Firestore account. It is never sent anywhere except directly to the GitHub GraphQL API.
+                </div>
+
+                <h2 class="tut-h2">Step 3 — Connect the GitHub Project</h2>
+                <p>Open the <strong>Kanban</strong> tab, click the <span class="tut-ui">⚙</span> gear icon, paste your token, and either:</p>
+                <ul class="tut-list">
+                    <li>Leave the <strong>GitHub Project URL</strong> blank to <strong>automatically create</strong> a new project named after your workspace project.</li>
+                    <li>Or paste an existing project URL (e.g. <code>https://github.com/users/you/projects/3</code>) to <strong>link</strong> that board.</li>
+                </ul>
+                <p style="margin-top:0.75rem">Click <span class="tut-ui">Connect</span>. The board's <strong>Status</strong> field is automatically configured with the five columns: Backlog, Todo, In Progress, Review, Done.</p>
+
+                <h2 class="tut-h2">What syncs automatically</h2>
+                <div class="tut-table-wrap">
+                    <table class="tut-table">
+                        <thead><tr><th>Action in Workspace</th><th>Effect on GitHub Project</th></tr></thead>
+                        <tbody>
+                            <tr><td>Create task</td><td>Opens a GitHub Issue in your repo and adds it to the project board with the matching Status</td></tr>
+                            <tr><td>Edit task title/desc</td><td>Updates the Issue title and body on GitHub</td></tr>
+                            <tr><td>Drag card to any column</td><td>Updates the item's <strong>Status</strong> field to match the column</td></tr>
+                            <tr><td>Delete task</td><td>Removes the item from the project board and closes the GitHub Issue</td></tr>
+                            <tr><td>Click <em>Sync</em></td><td>Imports items from the GitHub board that aren't on the local board yet, and updates any column or priority changes</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="tut-callout tut-callout--info">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    Tasks are created as real GitHub Issues in your repository and added to the project board. Deleting a task closes the Issue.
+                </div>
+            </div>
+
+            <!-- ── Visual Board ── -->
+            <div class="tut-page" id="tut-board">
+                <h1 class="tut-h1">Visual Board</h1>
+                <p class="tut-lead">A freeform infinite canvas — drag cards anywhere, build visual layouts, and brainstorm freely.</p>
+
+                <h2 class="tut-h2">Card types</h2>
+                <div class="tut-table-wrap">
+                    <table class="tut-table">
+                        <thead><tr><th>Type</th><th>Description</th></tr></thead>
+                        <tbody>
+                            <tr><td>📝 Note</td><td>Coloured sticky note with editable text. Click to edit in-place.</td></tr>
+                            <tr><td>🔗 Link</td><td>Bookmark with a screenshot preview. Opens on click.</td></tr>
+                            <tr><td>🖼 Image</td><td>Image card from a URL or picked from your Media.</td></tr>
+                            <tr><td>☑ Todo</td><td>Checklist card with title and multiple items.</td></tr>
+                            <tr><td>&lt;/&gt; Code</td><td>Syntax-highlighted code snippet.</td></tr>
+                            <tr><td>H Heading</td><td>Large section label for organising the canvas.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2 class="tut-h2">Canvas navigation</h2>
+                <ul class="tut-list">
+                    <li><span class="tut-kbd">Middle-mouse drag</span> or <span class="tut-kbd">Space + drag</span> to pan</li>
+                    <li><span class="tut-kbd">Scroll</span> to zoom (if enabled)</li>
+                    <li>Click any card text to edit it in-place</li>
+                    <li>Right-click a card for colour picker and context menu</li>
+                    <li>Drag the card header to reposition</li>
+                    <li><span class="tut-kbd">Ctrl + A</span> to select all cards</li>
+                    <li>Box-select by dragging on empty canvas</li>
+                </ul>
+
+                <h2 class="tut-h2">Adding cards</h2>
+                <p>Use the toolbar palette at the top to drag or click any card type onto the canvas. Cards are automatically saved to Firestore in real time.</p>
+            </div>
+
+            <!-- ── Media ── -->
+            <div class="tut-page" id="tut-media">
+                <h1 class="tut-h1">Media &amp; Links</h1>
+                <p class="tut-lead">Attach images, videos, sites, and files to a project. Media is organised per-project and searchable.</p>
+
+                <h2 class="tut-h2">Adding a link</h2>
+                <ol class="tut-list">
+                    <li>Click <span class="tut-ui">+ Link</span> in the Media toolbar.</li>
+                    <li>Paste a URL. The title and thumbnail are usually fetched automatically.</li>
+                    <li>Choose a <strong>type</strong>: Image, Video, YouTube, Site, File, etc.</li>
+                    <li>Add tags or assign a person if relevant.</li>
+                    <li>Click <span class="tut-ui">Save</span>.</li>
+                </ol>
+
+                <h2 class="tut-h2">Views</h2>
+                <p>Toggle between <span class="tut-ui">Grid</span> and <span class="tut-ui">List</span> view using the layout buttons in the toolbar. Use the search bar to filter by title or URL.</p>
+
+                <h2 class="tut-h2">Using media on the board</h2>
+                <p>When adding an Image card on the Visual Board, click <span class="tut-ui">From Media</span> to pick an existing image from this project instead of entering a URL manually.</p>
+            </div>
+
+            <!-- ── Shortcuts ── -->
+            <div class="tut-page" id="tut-shortcuts">
+                <h1 class="tut-h1">Keyboard Shortcuts</h1>
+                <p class="tut-lead">Speed up common actions.</p>
+
+                <h2 class="tut-h2">Global</h2>
+                <div class="tut-kbd-table">
+                    <div class="tut-kbd-row"><kbd>Esc</kbd><span>Close open modal or panel</span></div>
+                    <div class="tut-kbd-row"><kbd>Ctrl S</kbd><span>Save Quick Notes (when focused)</span></div>
+                </div>
+
+                <h2 class="tut-h2">Visual Board</h2>
+                <div class="tut-kbd-table">
+                    <div class="tut-kbd-row"><kbd>Space + drag</kbd><span>Pan the canvas</span></div>
+                    <div class="tut-kbd-row"><kbd>Middle mouse drag</kbd><span>Pan the canvas</span></div>
+                    <div class="tut-kbd-row"><kbd>Ctrl A</kbd><span>Select all cards</span></div>
+                    <div class="tut-kbd-row"><kbd>Delete / Backspace</kbd><span>Delete selected cards</span></div>
+                    <div class="tut-kbd-row"><kbd>Ctrl D</kbd><span>Duplicate selected card</span></div>
+                    <div class="tut-kbd-row"><kbd>Drag on canvas</kbd><span>Box-select multiple cards</span></div>
+                    <div class="tut-kbd-row"><kbd>Right-click card</kbd><span>Context menu (colour, duplicate, delete)</span></div>
+                </div>
+
+                <h2 class="tut-h2">Kanban</h2>
+                <div class="tut-kbd-table">
+                    <div class="tut-kbd-row"><kbd>Drag card</kbd><span>Move to a different column</span></div>
+                </div>
+
+                <h2 class="tut-h2">Link Gallery</h2>
+                <div class="tut-kbd-table">
+                    <div class="tut-kbd-row"><kbd>Click card</kbd><span>Open URL in new tab</span></div>
+                    <div class="tut-kbd-row"><kbd>Ctrl + search</kbd><span>Focus the search bar</span></div>
+                </div>
+            </div>
+
+        </div><!-- /tut-content -->
+    </div><!-- /tut-shell -->
+</div><!-- /app-settings -->
 
 </div><!-- /hub-content -->
 
@@ -601,6 +1032,42 @@
             <input type="text" id="board-media-search" class="ws-input" placeholder="Search media&#8230;">
         </div>
         <div id="board-media-picker-list" class="bmp-grid"></div>
+    </div>
+</div>
+
+<!-- GitHub token settings modal -->
+<div id="modal-gh-settings" class="ws-modal-overlay hidden">
+    <div class="ws-modal ws-modal--sm">
+        <div class="ws-modal-header">
+            <h2>Connect GitHub Project</h2>
+            <button class="ws-modal-close" data-modal="modal-gh-settings">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form id="form-gh-settings" class="ws-modal-form" autocomplete="off">
+            <div class="form-group">
+                <label for="gh-pat-field">Personal Access Token</label>
+                <input type="password" id="gh-pat-field" placeholder="github_pat_… or ghp_…" maxlength="256" autocomplete="new-password">
+                <div style="font-size:0.72rem;color:var(--text-muted);margin-top:5px;line-height:1.5">
+                    Classic PAT: enable the <strong>repo</strong> and <strong>project</strong> scopes.<br>
+                    Fine-grained PAT: set <strong>Issues</strong> + <strong>Projects</strong> → <strong>Read and write</strong>.<br>
+                    Token is stored in your private Firestore account only.
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="gh-project-url-field">GitHub Project URL <span style="font-weight:400;color:var(--text-muted)">(leave blank to create new)</span></label>
+                <input type="url" id="gh-project-url-field" placeholder="https://github.com/users/you/projects/1" maxlength="300">
+                <div style="font-size:0.72rem;color:var(--text-muted);margin-top:5px;line-height:1.5">
+                    Open any GitHub Project board, copy the URL, and paste it here.
+                    The board's <strong>Status</strong> field will be configured with your 5 columns automatically.
+                </div>
+            </div>
+            <div class="ws-modal-footer">
+                <button type="button" class="ws-btn ws-btn-ghost" id="btn-gh-token-clear">Disconnect</button>
+                <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-gh-settings">Cancel</button>
+                <button type="submit" class="ws-btn ws-btn-accent">Connect</button>
+            </div>
+        </form>
     </div>
 </div>
 
