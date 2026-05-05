@@ -513,6 +513,11 @@ async function _onGhSettingsSubmit(e) {
 
         closeModal("modal-gh-settings");
         toast("GitHub Project connected!", "success");
+
+        // Push any existing local tasks that aren't on GitHub yet
+        _pushLocalTasksToGh().catch(err =>
+            console.warn("Push local tasks to GitHub failed:", err.message)
+        );
     } catch (err) {
         console.error(err);
         toast(`Setup failed: ${err.message}`, "error");
@@ -520,6 +525,42 @@ async function _onGhSettingsSubmit(e) {
         btn.disabled = false;
         btn.textContent = "Connect";
     }
+}
+
+/** Push existing local kanban tasks (no githubProjectItemId) up to the newly connected GitHub project. */
+async function _pushLocalTasksToGh() {
+    if (!_ghToken || !_ghProjectId || !_ghFieldId) return;
+
+    const snap = await getDocs(refs.kanbanTasks(db, _uid, _pid));
+    const unsynced = [];
+    snap.forEach(d => {
+        if (!d.data().githubProjectItemId) unsynced.push({ id: d.id, data: d.data() });
+    });
+    if (unsynced.length === 0) return;
+
+    let pushed = 0;
+    for (const { id, data } of unsynced) {
+        try {
+            const ids = await _ghAddItem(data.title, data.desc || "", data.col || "todo", data.priority || "medium");
+            if (ids.itemId) {
+                await _ghSetItemPriority(ids.itemId, data.priority || "medium").catch(() => {});
+                await updateDoc(
+                    doc(db, "users", _uid, "projects", _pid, "kanban_tasks", id),
+                    {
+                        githubProjectItemId: ids.itemId,
+                        githubIssueId:       ids.issueId,
+                        githubIssueNumber:   ids.issueNumber,
+                        updatedAt:           serverTimestamp(),
+                    }
+                );
+                pushed++;
+            }
+        } catch (err) {
+            console.warn(`Failed to push task "${data.title}" to GitHub:`, err.message);
+        }
+    }
+
+    if (pushed > 0) toast(`${pushed} existing task${pushed > 1 ? "s" : ""} pushed to GitHub`, "success");
 }
 
 async function _saveProjectConfig(projectId, projectUrl, fieldId, options, priorityFieldId, priorityOptions) {
