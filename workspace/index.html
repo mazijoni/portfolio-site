@@ -114,6 +114,11 @@
                 <span id="project-status-badge" class="ws-status-badge">active</span>
             </div>
             <div class="ws-topbar-right">
+                <button id="btn-share-project" class="ws-btn ws-btn-ghost" title="Share project">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    Share
+                </button>
+                <span id="project-member-role" class="ws-member-role-badge" style="display:none"></span>
                 <button id="btn-edit-project" class="ws-btn ws-btn-ghost">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     Edit
@@ -126,6 +131,10 @@
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="19" r="1.5" fill="currentColor"/></svg>
                     </button>
                     <div class="topbar-more-popup" id="topbar-more-popup">
+                        <button class="topbar-more-item" id="btn-topbar-share">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            Share
+                        </button>
                         <button class="topbar-more-item" id="btn-topbar-edit">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                             Edit
@@ -1425,6 +1434,43 @@
 </div>
 
 <!-- Confirm delete modal -->
+<!-- Share Project modal -->
+<div id="modal-share" class="ws-modal-overlay hidden">
+    <div class="ws-modal ws-modal--share">
+        <div class="ws-modal-header">
+            <h2>Share <span id="share-project-name"></span></h2>
+            <button class="ws-modal-close" data-modal="modal-share">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="ws-modal-body share-modal-body">
+            <div class="share-members-section">
+                <div class="share-section-label">Members</div>
+                <div id="share-members-list" class="share-members-list"></div>
+            </div>
+            <div id="share-add-section" class="share-add-section">
+                <div class="share-section-label">Add member</div>
+                <div class="share-picker-header">
+                    <input type="search" id="share-user-search" class="share-email-input"
+                           placeholder="Search accounts by name or email…" autocomplete="off">
+                    <select id="share-add-role" class="ws-select-sm">
+                        <option value="contributor">Contributor</option>
+                        <option value="viewer">Viewer</option>
+                    </select>
+                </div>
+                <div id="share-user-list" class="share-user-list">
+                    <p class="share-user-loading">Loading accounts…</p>
+                </div>
+                <p id="share-add-error" class="share-add-error"></p>
+                <p class="share-role-hint">
+                    <strong>Contributor</strong> can view and edit project content.<br>
+                    <strong>Viewer</strong> can view project content only.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="modal-confirm" class="ws-modal-overlay hidden">
     <div class="ws-modal ws-modal--sm">
         <div class="ws-modal-header">

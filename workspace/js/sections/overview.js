@@ -8,7 +8,7 @@ import {
 
 import { auth, db }                     from "../app.js";
 import { currentProjectId,
-         currentProject }               from "../projects.js";
+         currentProject, getDataUid }    from "../projects.js";
 import { refs }                         from "../db.js";
 import { toast, escHtml, fmtDate }      from "../ui.js";
 import { marked }                        from "https://cdn.jsdelivr.net/npm/marked@14/lib/marked.esm.js";
@@ -337,7 +337,7 @@ async function _loadGithubInfo(repoUrl) {
 
 async function _loadStats() {
     if (!currentProjectId) return;
-    const uid = auth.currentUser?.uid;
+    const uid = getDataUid();
     if (!uid) return;
 
     try {
@@ -353,7 +353,7 @@ async function _loadStats() {
 
 async function saveNotes() {
     if (!currentProjectId) return;
-    const uid     = auth.currentUser?.uid;
+    const uid     = getDataUid();
     const content = document.getElementById("overview-notes").value;
     const p       = currentProject;
 

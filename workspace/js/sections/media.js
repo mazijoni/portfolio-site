@@ -20,7 +20,7 @@ import {
 
 import { auth, db }                from "../app.js";
 import { currentProjectId,
-         currentProject }          from "../projects.js";
+         currentProject, getDataUid } from "../projects.js";
 import { escHtml, toast, confirm,
          openModal, closeModal }    from "../ui.js";
 
@@ -89,11 +89,12 @@ export function init() {
 
     // Re-subscribe whenever the selected project changes
     window.addEventListener("projectSelected", () => {
+        _uid  = getDataUid();
         _catId = currentProject?.sourceCategoryId ?? currentProjectId ?? null;
         _subscribe();
     });
 
-    _uid = auth.currentUser?.uid;
+    _uid = getDataUid() || auth.currentUser?.uid;
     if (_uid) {
         _catId = currentProject?.sourceCategoryId ?? currentProjectId ?? null;
         _subscribe();
@@ -273,7 +274,7 @@ function _makeSubGroup(typeKey, label, gridEl) {
             if (currentProject) {
                 currentProject.mediaSectionOrder = newOrder;
                 const { updateDoc, doc } = await import("https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js");
-                updateDoc(doc(db, "users", auth.currentUser.uid, "projects", currentProject.id), { mediaSectionOrder: newOrder }).catch(console.error);
+                updateDoc(doc(db, "users", getDataUid(), "projects", currentProject.id), { mediaSectionOrder: newOrder }).catch(console.error);
             }
         }
     });

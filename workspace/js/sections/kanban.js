@@ -19,7 +19,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
 import { auth, db }                        from "../app.js";
-import { currentProjectId, currentProject } from "../projects.js";
+import { currentProjectId, currentProject, getDataUid } from "../projects.js";
 import { refs }                            from "../db.js";
 import { openModal, closeModal,
          setModalTitle, toast,
@@ -60,7 +60,7 @@ let _ghLabelsEnsured   = false;  // true after priority labels verified to exist
 export function init() {
     window.addEventListener("projectSelected", ({ detail }) => {
         _pid = detail.id;
-        _uid = auth.currentUser?.uid;
+        _uid = getDataUid();
         _subscribe();
         _loadGhSettings();
     });
@@ -68,7 +68,7 @@ export function init() {
     window.addEventListener("sectionActivated", (e) => {
         if (e.detail.section === "kanban" && currentProjectId !== _pid) {
             _pid = currentProjectId;
-            _uid = auth.currentUser?.uid;
+            _uid = getDataUid();
             _subscribe();
             _loadGhSettings();
         }
@@ -95,7 +95,7 @@ export function init() {
         .addEventListener("click", async () => {
             document.getElementById("gh-pat-field").value         = "";
             document.getElementById("gh-project-url-field").value = "";
-            await setDoc(doc(db, "users", _uid, "settings", "github"), { pat: "" }, { merge: true });
+            await setDoc(doc(db, "users", auth.currentUser?.uid, "settings", "github"), { pat: "" }, { merge: true });
             await _saveProjectConfig(null, null, null, {}, null, {});
             _ghToken = null; _ghProjectId = null; _ghProjectUrl = null;
             _ghFieldId = null; _ghOptions = {};
@@ -109,7 +109,7 @@ export function init() {
 
     if (currentProjectId) {
         _pid = currentProjectId;
-        _uid = auth.currentUser?.uid;
+        _uid = getDataUid();
         _subscribe();
         _loadGhSettings();
     }

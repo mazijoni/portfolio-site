@@ -3,6 +3,7 @@
  */
 
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-auth.js";
+import { doc, setDoc }                from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
 /**
  * @param {import("firebase/auth").Auth} auth
@@ -17,6 +18,14 @@ export function initAuth(auth, db, onReady) {
         }
 
         _updateHeaderUI(user);
+
+        // Write/refresh the user's public profile so others can find them by email
+        setDoc(doc(db, "user_profiles", user.uid), {
+            uid:         user.uid,
+            email:       user.email        || "",
+            displayName: user.displayName  || "",
+            photoURL:    user.photoURL     || "",
+        }, { merge: true }).catch(console.error);
 
         document.getElementById("btn-signout")?.addEventListener("click", async () => {
             await signOut(auth);

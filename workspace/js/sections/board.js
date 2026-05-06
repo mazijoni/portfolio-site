@@ -21,7 +21,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
 import { auth, db }                    from "../app.js";
-import { currentProjectId, currentProject } from "../projects.js";
+import { currentProjectId, currentProject, getDataUid } from "../projects.js";
 import { refs }                        from "../db.js";
 import { openModal, closeModal,
          toast, confirm, escHtml }     from "../ui.js";
@@ -70,7 +70,7 @@ let _selectedArrowId = null;
 export function init() {
     window.addEventListener("projectSelected", ({ detail }) => {
         _pid = detail.id;
-        _uid = auth.currentUser?.uid;
+        _uid = getDataUid();
         _subscribe();
         _subscribeArrows();
     });
@@ -78,7 +78,7 @@ export function init() {
     window.addEventListener("sectionActivated", (e) => {
         if (e.detail.section === "board" && currentProjectId !== _pid) {
             _pid = currentProjectId;
-            _uid = auth.currentUser?.uid;
+            _uid = getDataUid();
             _subscribe();
             _subscribeArrows();
         }
@@ -282,7 +282,7 @@ export function init() {
 
     if (currentProjectId) {
         _pid = currentProjectId;
-        _uid = auth.currentUser?.uid;
+        _uid = getDataUid();
         _subscribe();
         _subscribeArrows();
     }
