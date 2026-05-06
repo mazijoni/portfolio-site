@@ -56,6 +56,12 @@ let _ctxMenuId  = null;
 let _ctxCanvasX = 0;
 let _ctxCanvasY = 0;
 
+// Arrow/connection state
+let _arrowUnsub   = null;
+let _arrowData    = new Map(); // arrowId → { fromId, toId, fromAnchor, toAnchor }
+let _drawingArrow = null;      // { fromId, fromAnchor, tempPath, tempEndX, tempEndY }
+let _selectedArrowId = null;
+
 /* ──────────────────────────────────────────────────────── init ── */
 
 export function init() {
@@ -63,6 +69,7 @@ export function init() {
         _pid = detail.id;
         _uid = auth.currentUser?.uid;
         _subscribe();
+        _subscribeArrows();
     });
 
     window.addEventListener("sectionActivated", (e) => {
@@ -70,10 +77,11 @@ export function init() {
             _pid = currentProjectId;
             _uid = auth.currentUser?.uid;
             _subscribe();
+            _subscribeArrows();
         }
     });
 
-    // Toolbar buttons
+    // Toolbar buttons — click to add at center
     document.querySelectorAll("#board-toolbar .btb-btn").forEach(btn => {
         btn.addEventListener("click", () => {
             const type = btn.dataset.type;
@@ -83,12 +91,40 @@ export function init() {
             const cy   = (rect ? rect.height / 3 : 200) - _panY;
             if      (type === "link")  { _pendingDropX = cx; _pendingDropY = cy; _openLinkForm(); }
             else if (type === "image") { _pendingDropX = cx; _pendingDropY = cy; _openImageForm(); }
+            else if (type === "embed") { _pendingDropX = cx; _pendingDropY = cy; _openEmbedForm(); }
             else                       { _addCard(type, cx, cy); }
+        });
+
+        // Drag-from-toolbar
+        btn.setAttribute("draggable", "true");
+        btn.addEventListener("dragstart", (e) => {
+            e.dataTransfer.setData("board-type", btn.dataset.type);
+            e.dataTransfer.effectAllowed = "copy";
         });
     });
 
-    // Double-click canvas → create note
+    // Canvas drop handler for drag-from-toolbar
     const canvas = document.getElementById("board-canvas");
+    canvas.addEventListener("dragover", (e) => {
+        if (e.dataTransfer.types.includes("board-type")) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "copy";
+        }
+    });
+    canvas.addEventListener("drop", (e) => {
+        const type = e.dataTransfer.getData("board-type");
+        if (!type) return;
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.round(e.clientX - rect.left - _panX);
+        const y = Math.round(e.clientY - rect.top  - _panY);
+        if      (type === "link")  { _pendingDropX = x; _pendingDropY = y; _openLinkForm(); }
+        else if (type === "image") { _pendingDropX = x; _pendingDropY = y; _openImageForm(); }
+        else if (type === "embed") { _pendingDropX = x; _pendingDropY = y; _openEmbedForm(); }
+        else                       { _addCard(type, x, y); }
+    });
+
+    // Double-click canvas → create note
     canvas.addEventListener("dblclick", (e) => {
         if (e.target.closest(".board-card")) return;
         const rect = canvas.getBoundingClientRect();
@@ -105,11 +141,25 @@ export function init() {
     document.getElementById("form-board-image")
         .addEventListener("submit", _onImageSubmit);
     document.getElementById("btn-board-from-media")
-        .addEventListener("click", () => _openMediaPicker((link) => {
+        .addEventListener("click", () => _openMediaPicker((item) => {
             document.getElementById("board-image-url-field").value =
-                link.imageUrl || link.thumbUrl || link.url || "";
-            document.getElementById("board-image-label-field").value = link.name || "";
+                item.imageUrl || item.thumbUrl || item.url || "";
+            document.getElementById("board-image-label-field").value = item.name || "";
         }));
+
+    // Embed form
+    document.getElementById("form-board-embed")
+        ?.addEventListener("submit", _onEmbedSubmit);
+
+    // Media picker source tabs
+    document.querySelectorAll("#board-media-tabs .bmp-tab").forEach(tab => {
+        tab.addEventListener("click", () => {
+            _pickerSource = tab.dataset.source;
+            document.querySelectorAll("#board-media-tabs .bmp-tab").forEach(t => t.classList.remove("active"));
+            tab.classList.add("active");
+            _filterMediaPicker();
+        });
+    });
 
     // Canvas pan + box-select
     canvas.addEventListener("mousedown", _onCanvasMouseDown);
@@ -117,11 +167,21 @@ export function init() {
     document.addEventListener("mouseup",   _onCanvasMouseUp);
     canvas.addEventListener("wheel", _onCanvasWheel, { passive: false });
 
-    // Delete key removes selected cards
+    // Delete key removes selected cards or selected arrow
     document.addEventListener("keydown", (e) => {
         if (e.key !== "Delete" && e.key !== "Backspace") return;
         if (!document.getElementById("section-board").classList.contains("active")) return;
         if (e.target.matches("input, textarea, [contenteditable]")) return;
+
+        // Delete selected arrow
+        if (_selectedArrowId) {
+            const aid = _selectedArrowId;
+            _selectedArrowId = null;
+            _deselectArrow();
+            deleteDoc(doc(db, "users", _uid, "projects", _pid, "board_arrows", aid)).catch(console.error);
+            return;
+        }
+
         if (!_boardSel.size || !_pid || !_uid) return;
         e.preventDefault();
         const ids = [..._boardSel];
@@ -150,8 +210,24 @@ export function init() {
         }
     });
 
-    // Code copy button (delegated)
+    // Delegated canvas click: embed activate + code copy
     document.getElementById("board-canvas")?.addEventListener("click", (e) => {
+        // Activate embed iframe on placeholder click
+        const placeholder = e.target.closest(".board-embed-placeholder");
+        if (placeholder) {
+            e.stopPropagation();
+            const wrap     = placeholder.closest(".board-embed-wrap");
+            const embedUrl = wrap?.dataset.embed;
+            if (!embedUrl) return;
+            const iframe   = document.createElement("iframe");
+            iframe.src     = embedUrl;
+            iframe.allowFullscreen = true;
+            iframe.allow   = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+            iframe.style.cssText = "width:100%;height:100%;border:none;display:block;position:absolute;inset:0;";
+            placeholder.replaceWith(iframe);
+            return;
+        }
+
         const btn = e.target.closest(".board-code-copy");
         if (!btn) return;
         const code = btn.closest(".board-card")?.querySelector("code")?.textContent || "";
@@ -181,6 +257,7 @@ export function init() {
         _pid = currentProjectId;
         _uid = auth.currentUser?.uid;
         _subscribe();
+        _subscribeArrows();
     }
 }
 
@@ -290,6 +367,17 @@ function _renderCard(id, data) {
                 if (ev.key === "Escape") { inp.value = prev2;   inp.blur(); }
             });
         });
+    } else if (data.type === "shape") {
+        const contentEl = el.querySelector(".board-shape-text");
+        if (contentEl) {
+            contentEl.addEventListener("click", (e) => { e.stopPropagation(); _startEdit(el, id, data); });
+        } else {
+            el.addEventListener("dblclick", (e) => {
+                if (e.target.closest(".board-card-del") || e.target.closest(".board-card-resize")) return;
+                e.stopPropagation();
+                _startEdit(el, id, data);
+            });
+        }
     }
 
     // Checkbox toggles (todo)
@@ -308,6 +396,7 @@ function _renderCard(id, data) {
     });
 
     _makeDraggable(el, id);
+    _addConnDots(el, id);
     inner.appendChild(el);
 }
 
@@ -432,6 +521,47 @@ function _cardHTML(id, data) {
                 <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
         </div>`;
+    }
+
+    if (type === "embed") {
+        const eUrl  = _toEmbedUrl(data.url || "");
+        const thumb = _embedThumb(data.url || "");
+        const plat  = _detectPlatform(data.url || "");
+        return `<div class="board-card-actions">${dupBtn}${del}</div>
+            <div class="board-embed-wrap" ${eUrl ? `data-embed="${escHtml(eUrl)}"` : ''}>
+                ${eUrl
+                    ? `<div class="board-embed-placeholder">
+                        ${thumb ? `<img class="board-embed-thumb" src="${escHtml(thumb)}" alt="" onerror="this.style.display='none'">` : ""}
+                        <div class="board-embed-overlay">
+                            <button class="board-embed-play" title="Load embed">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            </button>
+                            ${plat ? `<div class="board-embed-platform">${escHtml(plat)}</div>` : ""}
+                        </div>
+                    </div>`
+                    : `<div class="board-embed-fallback">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".4"><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="10 9 15 12 10 15 10 9"/></svg>
+                        <span>No URL set</span>
+                      </div>`}
+            </div>
+            ${data.label ? `<div class="board-embed-label">${escHtml(data.label)}</div>` : ""}
+            ${resize}`;
+    }
+
+    if (type === "swatch") {
+        return `<div class="board-card-actions">${dupBtn}${del}</div>
+            <div class="board-swatch-fill"></div>
+            ${data.label ? `<div class="board-swatch-label">${escHtml(data.label)}</div>` : ""}`;
+    }
+
+    if (type === "shape") {
+        const shapeClass = "board-shape--" + (data.shape || "rect");
+        const shapeStyle = data.shapeColor ? `background:${data.shapeColor}` : "";
+        return `<div class="board-card-actions">${editBtn}${dupBtn}${del}</div>
+            <div class="board-shape-inner ${shapeClass}" style="${shapeStyle}">
+                ${data.content ? `<div class="board-card-text board-shape-text">${escHtml(data.content)}</div>` : ""}
+            </div>
+            ${resize}`;
     }
 
     return `<div class="board-card-content">${escHtml(data.content || "")}</div>${del}`;
@@ -562,6 +692,9 @@ async function _addCard(type, dropX, dropY) {
     if (type === "divider") { base.label = ""; base.w = 300; base.h = 32; }
     if (type === "tag")     { base.content = "Tag"; }
     if (type === "column")  { base.content = "Column"; base.w = 240; base.h = 240; }
+    if (type === "embed")   { base.url = ""; base.label = ""; base.w = 320; base.h = 200; }
+    if (type === "swatch")  { base.label = ""; base.w = 140; base.h = 140; base.color = "#F9E4A5"; }
+    if (type === "shape")   { base.shape = "rect"; base.shapeColor = "#c772fe"; base.content = ""; base.w = 140; base.h = 140; }
 
     try {
         const ref = await addDoc(refs.boardItems(db, _uid, _pid), base);
@@ -570,7 +703,7 @@ async function _addCard(type, dropX, dropY) {
             setTimeout(() => _openTodoEditor(ref.id, base), 150);
         } else if (type === "code") {
             setTimeout(() => _openCodeEditor(ref.id, { ...base }), 200);
-        } else if (type !== "divider" && type !== "tag" && type !== "quote" && type !== "file" && type !== "column") {
+        } else if (type !== "divider" && type !== "tag" && type !== "quote" && type !== "file" && type !== "column" && type !== "embed" && type !== "swatch" && type !== "shape") {
             // Brief flash then start editing
             setTimeout(() => {
                 const newEl = document.querySelector(`.board-card[data-id="${ref.id}"]`);
@@ -653,6 +786,96 @@ async function _onImageSubmit(e) {
     }
 }
 
+/* ── Embed form ── */
+
+function _openEmbedForm() {
+    document.getElementById("form-board-embed")?.reset();
+    openModal("modal-board-embed");
+    setTimeout(() => document.getElementById("board-embed-url-field")?.focus(), 60);
+}
+
+async function _onEmbedSubmit(e) {
+    e.preventDefault();
+    if (!_pid || !_uid) return;
+    const url   = document.getElementById("board-embed-url-field").value.trim();
+    const label = document.getElementById("board-embed-label-field").value.trim();
+    if (!url) return;
+    let x, y;
+    if (_pendingDropX != null && _pendingDropY != null) {
+        x = _pendingDropX; y = _pendingDropY;
+        _pendingDropX = _pendingDropY = null;
+    } else {
+        const inner = document.getElementById("board-canvas-inner");
+        const count = inner.querySelectorAll(".board-card").length;
+        x = 32 + (count % 4) * 340 - _panX;
+        y = 32 + Math.floor(count / 4) * 240 - _panY;
+    }
+    try {
+        await addDoc(refs.boardItems(db, _uid, _pid), {
+            type: "embed", url, label, x, y, w: 320, h: 200, createdAt: serverTimestamp()
+        });
+        closeModal("modal-board-embed");
+    } catch (err) {
+        console.error(err);
+        toast("Error adding embed", "error");
+    }
+}
+
+function _toEmbedUrl(url) {
+    if (!url) return null;
+    try {
+        const u = new URL(url);
+        if (u.hostname.includes("youtube.com") || u.hostname.includes("youtu.be")) {
+            const id = u.hostname === "youtu.be" ? u.pathname.slice(1).split("?")[0] : u.searchParams.get("v");
+            return id ? `https://www.youtube.com/embed/${id}?rel=0` : null;
+        }
+        if (u.hostname.includes("vimeo.com")) {
+            const id = u.pathname.split("/").filter(Boolean).pop();
+            return id ? `https://player.vimeo.com/video/${id}` : null;
+        }
+        if (u.hostname.includes("spotify.com")) {
+            return url.replace("open.spotify.com/", "open.spotify.com/embed/").split("?")[0];
+        }
+        if (u.hostname.includes("figma.com")) {
+            return `https://www.figma.com/embed?embed_host=share&url=${encodeURIComponent(url)}`;
+        }
+        if (u.hostname.includes("loom.com")) {
+            const id = u.pathname.split("/").filter(Boolean).pop();
+            return id ? `https://www.loom.com/embed/${id}` : null;
+        }
+        if (u.hostname.includes("codepen.io")) {
+            return url.replace("/pen/", "/embed/") + "?theme-id=dark&default-tab=result";
+        }
+        return null;
+    } catch { return null; }
+}
+
+function _embedThumb(url) {
+    if (!url) return "";
+    try {
+        const u = new URL(url);
+        if (u.hostname.includes("youtube.com") || u.hostname.includes("youtu.be")) {
+            const id = u.hostname === "youtu.be" ? u.pathname.slice(1).split("?")[0] : u.searchParams.get("v");
+            return id ? `https://img.youtube.com/vi/${id}/mqdefault.jpg` : "";
+        }
+    } catch {}
+    return _getScreenshot(url);
+}
+
+function _detectPlatform(url) {
+    if (!url) return "";
+    try {
+        const h = new URL(url).hostname;
+        if (h.includes("youtube.com") || h.includes("youtu.be")) return "YouTube";
+        if (h.includes("vimeo.com"))   return "Vimeo";
+        if (h.includes("spotify.com")) return "Spotify";
+        if (h.includes("figma.com"))   return "Figma";
+        if (h.includes("loom.com"))    return "Loom";
+        if (h.includes("codepen.io"))  return "CodePen";
+    } catch {}
+    return "";
+}
+
 async function _deleteCard(id) {
     _boardSel.delete(id);
     try {
@@ -725,9 +948,9 @@ async function _setCardColor(id, color) {
 }
 
 function _showCanvasCtxMenu(screenX, screenY) {
-    const types = ["note", "heading", "todo", "code", "link", "image", "column"];
-    const labels = { note: "Note", heading: "Heading", todo: "Checklist",
-                     code: "Code", link: "Link", image: "Image", column: "Column" };
+    const types  = ["note", "heading", "todo", "code", "link", "image", "embed", "swatch", "shape", "column"];
+    const labels = { note: "Note", heading: "Heading", todo: "Checklist", code: "Code",
+                     link: "Link", image: "Image", embed: "Embed", swatch: "Color", shape: "Shape", column: "Column" };
     const menu = document.getElementById("board-ctx-menu");
     menu.innerHTML = `<div class="ctx-menu-label">Add here</div>` +
         types.map(t => `<button class="ctx-menu-item" data-type="${t}">${labels[t]}</button>`).join("");
@@ -737,6 +960,7 @@ function _showCanvasCtxMenu(screenX, screenY) {
             const type = btn.dataset.type;
             if      (type === "link")  { _pendingDropX = _ctxCanvasX; _pendingDropY = _ctxCanvasY; _openLinkForm(); }
             else if (type === "image") { _pendingDropX = _ctxCanvasX; _pendingDropY = _ctxCanvasY; _openImageForm(); }
+            else if (type === "embed") { _pendingDropX = _ctxCanvasX; _pendingDropY = _ctxCanvasY; _openEmbedForm(); }
             else                       { _addCard(type, _ctxCanvasX, _ctxCanvasY); }
         });
     });
@@ -838,6 +1062,7 @@ function _makeDraggable(el, id) {
                 g.el.style.left = (g.left + dx) + "px";
                 g.el.style.top  = (g.top  + dy) + "px";
             });
+            _renderAllArrows();
         };
         const onUp = () => {
             group.forEach(c => c.classList.remove("dragging"));
@@ -849,6 +1074,7 @@ function _makeDraggable(el, id) {
                     { x: parseInt(g.el.style.left), y: parseInt(g.el.style.top) })
                     .catch(console.error);
             });
+            _renderAllArrows();
         };
         document.addEventListener("mousemove", onMove);
         document.addEventListener("mouseup",   onUp);
@@ -954,6 +1180,10 @@ function _onCanvasMouseUp(e) {
     // Tiny drag / plain click on empty canvas → deselect
     if (selRight - selLeft < 4 && selBottom - selTop < 4) {
         _clearBoardSel();
+        if (_selectedArrowId) {
+            _selectedArrowId = null;
+            _renderAllArrows();
+        }
         return;
     }
     _clearBoardSel();
@@ -1000,61 +1230,73 @@ document.addEventListener("keyup", (e) => {
 
 /* ────────────────────────────────────────────── media picker ── */
 
-let _mediaLinks = [];
+let _pickerSource = "links";
+let _pickerItems  = { project: [], links: [], gallery: [] };
 
 async function _openMediaPicker(cb) {
     _mediaCb = cb;
-    _mediaLinks = [];
-    const listEl = document.getElementById("board-media-picker-list");
+    _pickerItems = { project: [], links: [], gallery: [] };
+
+    const listEl   = document.getElementById("board-media-picker-list");
+    const searchEl = document.getElementById("board-media-search");
     listEl.innerHTML = `<div class="bmp-loading">Loading…</div>`;
-    document.getElementById("board-media-search").value = "";
+    searchEl.value = "";
     openModal("modal-board-media");
 
+    // Sync active tab UI
+    document.querySelectorAll("#board-media-tabs .bmp-tab").forEach(t =>
+        t.classList.toggle("active", t.dataset.source === _pickerSource));
+
     try {
-        const snap = await getDocs(
-            query(collection(db, "users", _uid, "links"), orderBy("createdAt"))
-        );
-        _mediaLinks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        _renderMediaPicker(_mediaLinks);
+        const [projectSnap, linksSnap, gallerySnap] = await Promise.all([
+            _pid ? getDocs(query(refs.media(db, _uid, _pid), orderBy("createdAt"))).catch(() => ({ docs: [] })) : Promise.resolve({ docs: [] }),
+            getDocs(query(refs.links(db, _uid), orderBy("createdAt"))).catch(() => ({ docs: [] })),
+            getDocs(query(refs.galleryLinks(db, _uid), orderBy("createdAt"))).catch(() => ({ docs: [] })),
+        ]);
+        _pickerItems.project = projectSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        _pickerItems.links   = linksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        _pickerItems.gallery = gallerySnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        _filterMediaPicker();
     } catch (err) {
         console.error(err);
         listEl.innerHTML = `<div class="bmp-loading">Failed to load.</div>`;
     }
 }
 
-function _renderMediaPicker(links) {
+function _renderMediaPicker(items) {
     const listEl = document.getElementById("board-media-picker-list");
-    if (!links.length) {
-        listEl.innerHTML = `<div class="bmp-loading">No media found in your Media tab.</div>`;
+    if (!items.length) {
+        listEl.innerHTML = `<div class="bmp-loading">Nothing found here.</div>`;
         return;
     }
     listEl.innerHTML = "";
-    links.forEach(link => {
-        const item = document.createElement("button");
-        item.type = "button";
-        item.className = "bmp-item";
-        const thumb = link.imageUrl || link.thumbUrl || link.avatarUrl || "";
-        const favicon = _getFavicon(link.url);
-        item.innerHTML = `
+    items.forEach(item => {
+        const btn     = document.createElement("button");
+        btn.type      = "button";
+        btn.className = "bmp-item";
+        const thumb   = item.imageUrl || item.thumbUrl || item.avatarUrl || "";
+        const favicon = _getFavicon(item.url || "");
+        btn.innerHTML = `
             <div class="bmp-thumb">
                 ${thumb
                     ? `<img src="${escHtml(thumb)}" alt="" onerror="this.style.display='none'">`
                     : `<img src="${escHtml(favicon)}" alt="" style="width:24px;height:24px;object-fit:contain" onerror="this.style.display='none'">`}
             </div>
-            <div class="bmp-name">${escHtml(link.name || link.url || "")}</div>`;
-        item.addEventListener("click", () => {
-            if (_mediaCb) _mediaCb(link);
+            <div class="bmp-name">${escHtml(item.name || item.url || "")}</div>`;
+        btn.addEventListener("click", () => {
+            if (_mediaCb) _mediaCb(item);
             closeModal("modal-board-media");
         });
-        listEl.appendChild(item);
+        listEl.appendChild(btn);
     });
 }
 
 function _filterMediaPicker() {
-    const q = document.getElementById("board-media-search").value.toLowerCase();
-    const filtered = _mediaLinks.filter(l =>
-        (l.name || "").toLowerCase().includes(q) ||
-        (l.url  || "").toLowerCase().includes(q));
+    const q      = (document.getElementById("board-media-search")?.value || "").toLowerCase();
+    const items  = _pickerItems[_pickerSource] || [];
+    const filtered = q
+        ? items.filter(i => (i.name || "").toLowerCase().includes(q) || (i.url || "").toLowerCase().includes(q))
+        : items;
     _renderMediaPicker(filtered);
 }
 
@@ -1081,4 +1323,188 @@ function _getExt(url) {
         const ext  = path.split(".").pop()?.toUpperCase();
         return ext && ext.length <= 5 ? ext : "FILE";
     } catch { return "FILE"; }
+}
+
+/* ─────────────────────────────── arrows / connections ── */
+
+function _getArrowCollection() {
+    return collection(db, "users", _uid, "projects", _pid, "board_arrows");
+}
+
+function _subscribeArrows() {
+    if (_arrowUnsub) _arrowUnsub();
+    if (!_pid || !_uid) return;
+
+    _arrowUnsub = onSnapshot(query(_getArrowCollection(), orderBy("createdAt")), (snap) => {
+        _arrowData.clear();
+        snap.forEach(d => _arrowData.set(d.id, d.data()));
+        _renderAllArrows();
+    });
+}
+
+/** Get the center of an anchor edge on a card in canvas coords */
+function _anchorPoint(cardId, anchor) {
+    const el = document.querySelector(`.board-card[data-id="${cardId}"]`);
+    if (!el) return null;
+    const x = parseInt(el.style.left) || 0;
+    const y = parseInt(el.style.top)  || 0;
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    switch (anchor) {
+        case "top":    return { x: x + w / 2, y };
+        case "bottom": return { x: x + w / 2, y: y + h };
+        case "left":   return { x, y: y + h / 2 };
+        case "right":  return { x: x + w, y: y + h / 2 };
+        default:       return { x: x + w / 2, y: y + h / 2 };
+    }
+}
+
+function _arrowPath(from, to) {
+    if (!from || !to) return "";
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const cx1 = from.x + dx * 0.5;
+    const cy1 = from.y;
+    const cx2 = from.x + dx * 0.5;
+    const cy2 = to.y;
+    return `M ${from.x} ${from.y} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${to.x} ${to.y}`;
+}
+
+function _renderAllArrows() {
+    const svg = document.getElementById("board-arrows-svg");
+    if (!svg) return;
+
+    // Remove existing rendered arrows (keep marker defs)
+    svg.querySelectorAll(".board-arrow-path, .board-arrow-hit").forEach(e => e.remove());
+
+    _arrowData.forEach((data, id) => {
+        const from = _anchorPoint(data.fromId, data.fromAnchor);
+        const to   = _anchorPoint(data.toId,   data.toAnchor);
+        if (!from || !to) return;
+
+        const d = _arrowPath(from, to);
+        const isSelected = _selectedArrowId === id;
+
+        // Visible path
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("class", "board-arrow-path" + (isSelected ? " selected" : ""));
+        path.setAttribute("d", d);
+        path.setAttribute("marker-end", "url(#board-arrow-head)");
+        path.dataset.arrowId = id;
+        svg.appendChild(path);
+
+        // Wider invisible hit area
+        const hit = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        hit.setAttribute("class", "board-arrow-hit");
+        hit.setAttribute("d", d);
+        hit.dataset.arrowId = id;
+        hit.addEventListener("click", (e) => {
+            e.stopPropagation();
+            _selectArrow(id);
+        });
+        svg.appendChild(hit);
+    });
+
+    // Render temp drawing arrow
+    if (_drawingArrow) {
+        const from = _anchorPoint(_drawingArrow.fromId, _drawingArrow.fromAnchor);
+        if (from) {
+            const d = _arrowPath(from, { x: _drawingArrow.tempEndX, y: _drawingArrow.tempEndY });
+            const temp = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            temp.setAttribute("class", "board-arrow-path board-arrow-temp");
+            temp.setAttribute("d", d);
+            temp.setAttribute("marker-end", "url(#board-arrow-head)");
+            svg.appendChild(temp);
+        }
+    }
+}
+
+function _selectArrow(id) {
+    _selectedArrowId = id;
+    _renderAllArrows();
+}
+
+function _deselectArrow() {
+    _selectedArrowId = null;
+    _renderAllArrows();
+}
+
+/** Add 4 connection dots to a card element */
+function _addConnDots(el, id) {
+    ["top", "right", "bottom", "left"].forEach(anchor => {
+        const dot = document.createElement("div");
+        dot.className = `board-conn-dot board-conn-dot--${anchor}`;
+        dot.title = "Draw connection";
+        dot.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            _startArrowDraw(id, anchor, e);
+        });
+        el.appendChild(dot);
+    });
+}
+
+function _startArrowDraw(fromId, fromAnchor, startEvent) {
+    const canvas = document.getElementById("board-canvas");
+    const rect   = canvas.getBoundingClientRect();
+
+    const toCanvasCoords = (e) => ({
+        x: (e.clientX - rect.left - _panX),
+        y: (e.clientY - rect.top  - _panY),
+    });
+
+    const start = toCanvasCoords(startEvent);
+    _drawingArrow = {
+        fromId,
+        fromAnchor,
+        tempEndX: start.x,
+        tempEndY: start.y,
+    };
+
+    const onMove = (e) => {
+        if (!_drawingArrow) return;
+        const pt = toCanvasCoords(e);
+        _drawingArrow.tempEndX = pt.x;
+        _drawingArrow.tempEndY = pt.y;
+        _renderAllArrows();
+    };
+
+    const onUp = async (e) => {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup",   onUp);
+        const drawing = _drawingArrow;
+        _drawingArrow = null;
+
+        // Hit-test: which card did we drop on?
+        const targetCard = document.elementFromPoint(e.clientX, e.clientY)?.closest(".board-card");
+        if (targetCard && targetCard.dataset.id && targetCard.dataset.id !== drawing.fromId) {
+            const toId     = targetCard.dataset.id;
+            const toAnchor = _closestAnchor(toId, e.clientX, e.clientY, rect);
+            try {
+                await addDoc(_getArrowCollection(), {
+                    fromId: drawing.fromId,
+                    fromAnchor: drawing.fromAnchor,
+                    toId,
+                    toAnchor,
+                    createdAt: serverTimestamp(),
+                });
+            } catch (err) { console.error(err); }
+        } else {
+            _renderAllArrows();
+        }
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup",   onUp);
+}
+
+function _closestAnchor(cardId, clientX, clientY, canvasRect) {
+    const el = document.querySelector(`.board-card[data-id="${cardId}"]`);
+    if (!el) return "top";
+    const cx = parseInt(el.style.left) + el.offsetWidth  / 2 + _panX + canvasRect.left;
+    const cy = parseInt(el.style.top)  + el.offsetHeight / 2 + _panY + canvasRect.top;
+    const dx = clientX - cx;
+    const dy = clientY - cy;
+    if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? "right" : "left";
+    return dy > 0 ? "bottom" : "top";
 }

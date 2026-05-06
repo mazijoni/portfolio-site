@@ -1623,6 +1623,8 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
 
     transform-origin: 0 0;
 
+    z-index: 2;
+
 }
 
 
@@ -2711,7 +2713,491 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
 
     padding: 2rem;
 
+    text-align: center;
+
+    font-size: 0.82rem;
+
+    color: var(--text-muted);
+
+    padding: 2rem;
+
 }
+
+/* ══ QUOTE CARD ══ */
+.board-card--quote {
+    padding: 0.7rem 0.9rem;
+    border-left: 3px solid var(--accent);
+}
+.board-quote-accent {
+    display: none; /* border-left handles the accent */
+}
+.board-quote-text {
+    font-size: 0.84rem;
+    line-height: 1.6;
+    color: var(--text-secondary, #ccc);
+    font-style: italic;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+.board-quote-author {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+    font-style: normal;
+}
+
+/* ══ DIVIDER CARD ══ */
+.board-card--divider {
+    background: transparent;
+    border-color: transparent;
+    min-height: 32px;
+    padding: 6px 8px;
+    min-width: 120px;
+}
+.board-card--divider:hover { border-color: var(--border-hover); }
+.board-divider-inner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    height: 100%;
+}
+.board-divider-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.board-divider-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border-hover);
+}
+
+/* ══ FILE CARD ══ */
+.board-card--file {
+    padding: 0;
+    overflow: hidden;
+    min-width: 200px;
+}
+.board-file-inner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.6rem 0.75rem;
+    text-decoration: none;
+    color: inherit;
+}
+.board-file-thumb {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: var(--bg-dark);
+    flex-shrink: 0;
+    overflow: hidden;
+}
+.board-file-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.board-file-ext-badge {
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+}
+.board-file-meta { flex: 1; min-width: 0; }
+.board-file-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.board-file-url {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 2px;
+}
+
+/* ══ TAG CARD ══ */
+.board-card--tag {
+    background: transparent;
+    border-color: var(--border);
+    border-radius: 999px;
+    min-width: 60px;
+    min-height: 26px;
+    padding: 0;
+}
+.board-card--tag:hover { border-color: var(--accent); }
+.board-tag-inner {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    height: 100%;
+}
+.board-tag-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+}
+.board-tag-text {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+.board-tag-input {
+    background: none;
+    border: none;
+    outline: none;
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    width: 80px;
+}
+.board-tag-del {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+}
+.board-card--tag:hover .board-tag-del { opacity: 1; }
+.board-tag-del:hover { color: var(--danger, #e05555); }
+
+/* ══ MEDIA PICKER SEARCH ══ */
+.bmp-search {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.82rem;
+    padding: 7px 12px;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color var(--transition);
+}
+.bmp-search:focus { border-color: var(--accent); }
+
+/* ── Media picker source tabs ── */
+.bmp-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 8px 20px 4px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 10px;
+}
+.bmp-tab {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    color: var(--text-muted);
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 4px 12px;
+    cursor: pointer;
+    transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+.bmp-tab:hover { color: var(--text-primary); background: var(--bg-card); }
+.bmp-tab.active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-dim);
+}
+
+/* ══ EMBED CARD ══ */
+.board-card--embed {
+    padding: 0;
+    overflow: hidden;
+    min-width: 240px;
+    min-height: 140px;
+    background: #0a0a0a;
+    border-color: var(--border);
+    display: flex;
+    flex-direction: column;
+}
+
+.board-embed-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #000;
+    min-height: 120px;
+}
+
+.board-embed-placeholder {
+    position: absolute;
+    inset: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.board-embed-thumb {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.board-embed-placeholder:hover .board-embed-thumb { opacity: 0.5; }
+
+.board-embed-overlay {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.board-embed-play {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.7);
+    border: 2px solid rgba(255,255,255,0.8);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.15s;
+    backdrop-filter: blur(4px);
+}
+.board-embed-placeholder:hover .board-embed-play {
+    background: var(--accent);
+    border-color: var(--accent);
+    transform: scale(1.08);
+}
+
+.board-embed-platform {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.8);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    background: rgba(0,0,0,0.5);
+    padding: 2px 8px;
+    border-radius: 10px;
+    backdrop-filter: blur(4px);
+}
+
+.board-embed-fallback {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 100%;
+    padding: 16px;
+    min-height: 100px;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+.board-embed-fallback a { color: var(--accent); word-break: break-all; }
+
+.board-embed-label {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    padding: 5px 10px 6px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ══ SWATCH CARD ══ */
+.board-card--swatch {
+    padding: 0;
+    overflow: hidden;
+    min-width: 80px;
+    min-height: 80px;
+    border-color: var(--border);
+    display: flex;
+    flex-direction: column;
+}
+
+.board-swatch-fill {
+    flex: 1;
+    background: var(--card-bg, var(--accent));
+    min-height: 60px;
+}
+
+/* When a color is set via --card-bg, swatch fill uses it */
+.board-card--swatch[style*="--card-bg"] .board-swatch-fill {
+    background: var(--card-bg);
+}
+
+.board-swatch-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    padding: 4px 8px 5px;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border);
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ══ SHAPE CARD ══ */
+.board-card--shape {
+    padding: 0;
+    background: transparent;
+    border: 1px solid transparent;
+    min-width: 80px;
+    min-height: 80px;
+    overflow: visible;
+}
+
+.board-card--shape:hover { border-color: var(--border-hover); }
+
+.board-shape-inner {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 80px;
+    background: var(--accent);
+    transition: filter 0.15s;
+}
+
+.board-shape--rect  { border-radius: 4px; }
+.board-shape--circle { border-radius: 50%; }
+.board-shape--pill   { border-radius: 999px; }
+
+.board-card--shape:hover .board-shape-inner { filter: brightness(1.08); }
+
+.board-shape-text {
+    color: #fff;
+    font-size: 0.84rem;
+    font-weight: 600;
+    text-align: center;
+    padding: 8px;
+    word-break: break-word;
+    mix-blend-mode: overlay;
+}
+
+/* ── form hint text ── */
+.form-hint {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* ==================== BOARD ARROWS + CONNECTION DOTS ==================== */
+
+/* SVG overlay — inside board-canvas-inner, so it follows the pan transform */
+.board-arrows-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 6000px;
+    height: 6000px;
+    pointer-events: none;
+    z-index: 1;
+    overflow: visible;
+}
+
+.board-arrow-path {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2;
+    stroke-linecap: round;
+    opacity: 0.85;
+    transition: opacity 0.15s;
+}
+
+.board-arrow-path.selected {
+    stroke: #fff;
+    opacity: 1;
+    stroke-width: 2.5;
+}
+
+.board-arrow-path.board-arrow-temp {
+    opacity: 0.5;
+    stroke-dasharray: 6 4;
+}
+
+/* Wide invisible hit area for arrow click selection */
+.board-arrow-hit {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 16;
+    pointer-events: stroke;
+    cursor: pointer;
+}
+
+/* Connection dots — appear on card hover */
+.board-conn-dot {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg-dark);
+    cursor: crosshair;
+    opacity: 0;
+    pointer-events: all;
+    transition: opacity 0.15s, transform 0.15s;
+    z-index: 20;
+}
+
+.board-card:hover .board-conn-dot { opacity: 1; }
+
+.board-conn-dot--top    { top: -6px;  left: 50%; transform: translateX(-50%); }
+.board-conn-dot--bottom { bottom: -6px; left: 50%; transform: translateX(-50%); }
+.board-conn-dot--left   { left: -6px; top: 50%; transform: translateY(-50%); }
+.board-conn-dot--right  { right: -6px; top: 50%; transform: translateY(-50%); }
+
+.board-conn-dot:hover {
+    transform: translateX(-50%) scale(1.4);
+    opacity: 1;
+}
+.board-conn-dot--left:hover,
+.board-conn-dot--right:hover {
+    transform: translateY(-50%) scale(1.4);
+}
+
+/* Card color override — pastels need dark text */
+.board-card[style*="--card-bg: #F"],
+.board-card[style*="--card-bg: #B"],
+.board-card[style*="--card-bg: #D"] {
+    --card-text: #1a1a1a;
+    color: var(--card-text);
+}
+.board-card[style*="--card-bg: #F"] .board-card-text,
+.board-card[style*="--card-bg: #B"] .board-card-text,
+.board-card[style*="--card-bg: #D"] .board-card-text { color: var(--card-text); }
 
 
 /* ==================== NODES ==================== */
