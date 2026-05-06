@@ -9,9 +9,11 @@
  */
 
 import {
-    onSnapshot, addDoc, updateDoc, deleteDoc,
-    doc, query, orderBy, serverTimestamp
+    onSnapshot, addDoc, updateDoc, deleteDoc, getDoc,
+    doc, query, orderBy, serverTimestamp, getDocs
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
+
+import { auth } from "./app.js";
 
 import { refs }                    from "./db.js";
 import { openModal, closeModal,
@@ -20,13 +22,24 @@ import { openModal, closeModal,
 import { materialIcons }           from "./icons.js";
 
 /* ── Module state ── */
-let _db          = null;
-let _user        = null;
-let _unsub       = null;
-let _projects    = [];    // [{id, ...data}]
+let _db             = null;
+let _user           = null;
+let _unsub          = null;
+let _unsubMemberships = null;
+let _projects       = [];    // [{id, ...data}]  — own projects
+let _sharedProjects = [];    // [{id, ...data, ownerUid, _isShared}]
 
 export let currentProjectId = null;
 export let currentProject   = null;
+
+/**
+ * Returns the uid that owns the data for the currently selected project.
+ * For own projects this equals the logged-in uid; for shared projects it is
+ * the original owner's uid.
+ */
+export function getDataUid() {
+    return currentProject?.ownerUid ?? auth.currentUser?.uid;
+}
 
 /* ── Init ── */
 export function initProjects(db, user) {
@@ -42,6 +55,10 @@ export function initProjects(db, user) {
         .addEventListener("click", () => openProjectForm(currentProjectId));
     document.getElementById("btn-delete-project")
         .addEventListener("click", deleteCurrentProject);
+    document.getElementById("btn-share-project")
+        ?.addEventListener("click", () => {
+            import("./sharing.js").then(m => m.openShareModal());
+        });
 
     document.getElementById("form-project")
         .addEventListener("submit", onProjectFormSubmit);
@@ -59,6 +76,7 @@ export function initProjects(db, user) {
 
     // Live project list
     _subscribeProjects();
+    _subscribeMemberships();
 }
 
 let _restored = false;
@@ -70,7 +88,7 @@ function _subscribeProjects() {
         _projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         _renderProjectList();
         // Keep currentProject in sync with Firestore data
-        if (currentProjectId) {
+        if (currentProjectId && !currentProject?._isShared) {
             const updated = _projects.find(p => p.id === currentProjectId);
             if (updated) currentProject = updated;
         }
@@ -78,9 +96,53 @@ function _subscribeProjects() {
         if (!_restored) {
             _restored = true;
             const savedId = sessionStorage.getItem("ws_project");
-            if (savedId && _projects.find(p => p.id === savedId)) {
+            const inOwn    = _projects.find(p => p.id === savedId);
+            const inShared = _sharedProjects.find(p => p.id === savedId);
+            if (savedId && (inOwn || inShared)) {
                 selectProject(savedId);
             }
+        }
+    });
+}
+
+function _subscribeMemberships() {
+    if (_unsubMemberships) _unsubMemberships();
+    _unsubMemberships = onSnapshot(refs.memberships(_db, _user.uid), async (snap) => {
+        // Fetch each shared project doc
+        const fetched = await Promise.all(
+            snap.docs.map(async (d) => {
+                const { ownerUid, projectId, role } = d.data();
+                if (!ownerUid || !projectId) return null;
+                try {
+                    const pSnap = await getDoc(refs.project(_db, ownerUid, projectId));
+                    if (!pSnap.exists()) return null;
+                    return {
+                        id: pSnap.id,
+                        ...pSnap.data(),
+                        ownerUid,
+                        memberRole: role,
+                        _isShared: true,
+                    };
+                } catch {
+                    return null;
+                }
+            })
+        );
+        _sharedProjects = fetched.filter(Boolean);
+        _renderProjectList();
+
+        // Restore shared project on first load if needed
+        if (!_restored) {
+            _restored = true;
+            const savedId  = sessionStorage.getItem("ws_project");
+            const inShared = _sharedProjects.find(p => p.id === savedId);
+            if (savedId && inShared) selectProject(savedId);
+        }
+
+        // Sync currentProject if it is a shared project
+        if (currentProjectId && currentProject?._isShared) {
+            const updated = _sharedProjects.find(p => p.id === currentProjectId);
+            if (updated) currentProject = updated;
         }
     });
 }
@@ -89,32 +151,57 @@ function _renderProjectList() {
     const list = document.getElementById("project-list");
     list.innerHTML = "";
 
-    if (_projects.length === 0) {
+    const allProjects = [
+        ..._projects,
+        ..._sharedProjects.filter(s => !_projects.some(p => p.id === s.id)),
+    ];
+
+    if (allProjects.length === 0) {
         list.innerHTML = `<p style="font-size:0.74rem;color:#444;padding:0.4rem 0.9rem;">No projects yet.</p>`;
         return;
     }
 
-    _projects.forEach(p => {
-        const btn = document.createElement("button");
-        btn.className = "ws-project-item" + (p.id === currentProjectId ? " active" : "");
-        btn.dataset.id = p.id;
-        
-        const iconName = p.icon ? p.icon.trim() : "";
-        const iconHtml = iconName 
-            ? `<span class="material-symbols-outlined ws-project-item-icon">${escHtml(iconName)}</span>`
-            : `<span class="ws-project-item-dot"></span>`;
+    // Own projects
+    if (_projects.length > 0) {
+        _projects.forEach(p => list.appendChild(_makeProjectBtn(p)));
+    }
 
-        btn.innerHTML = `
-            ${iconHtml}
-            <span class="ws-project-item-name">${escHtml(p.title)}</span>`;
-        btn.addEventListener("click", () => selectProject(p.id));
-        list.appendChild(btn);
-    });
+    // Shared projects section
+    if (_sharedProjects.length > 0) {
+        const label = document.createElement("div");
+        label.className = "ws-sb-section-label ws-sb-shared-label";
+        label.textContent = "Shared with me";
+        list.appendChild(label);
+        _sharedProjects.forEach(p => list.appendChild(_makeProjectBtn(p)));
+    }
+}
+
+function _makeProjectBtn(p) {
+    const btn = document.createElement("button");
+    btn.className = "ws-project-item" + (p.id === currentProjectId ? " active" : "");
+    btn.dataset.id = p.id;
+
+    const iconName = p.icon ? p.icon.trim() : "";
+    const iconHtml = iconName
+        ? `<span class="material-symbols-outlined ws-project-item-icon">${escHtml(iconName)}</span>`
+        : `<span class="ws-project-item-dot"></span>`;
+
+    const sharedBadge = p._isShared
+        ? `<span class="ws-project-shared-badge" title="Shared · ${escHtml(p.memberRole || 'viewer')}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>`
+        : "";
+
+    btn.innerHTML = `
+        ${iconHtml}
+        <span class="ws-project-item-name">${escHtml(p.title)}</span>
+        ${sharedBadge}`;
+    btn.addEventListener("click", () => selectProject(p.id));
+    return btn;
 }
 
 /* ── Select project ── */
 export function selectProject(id) {
-    const project = _projects.find(p => p.id === id);
+    const project = _projects.find(p => p.id === id)
+        || _sharedProjects.find(p => p.id === id);
     if (!project) return;
 
     currentProjectId = id;
@@ -136,12 +223,37 @@ export function selectProject(id) {
 function _setTopBar(p) {
     document.getElementById("ws-topbar").classList.remove("hidden");
     document.getElementById("ws-tabs").classList.remove("hidden");
-    document.getElementById("project-title").textContent   = p.title;
+    document.getElementById("project-title").textContent      = p.title;
     document.getElementById("project-type-badge").textContent = p.type || "general";
 
     const statusBadge = document.getElementById("project-status-badge");
-    statusBadge.textContent = p.status || "active";
+    statusBadge.textContent    = p.status || "active";
     statusBadge.dataset.status = p.status || "active";
+
+    // Share button: only visible to the project owner
+    const isOwner = !p.ownerUid || p.ownerUid === _user.uid;
+    const shareBtn = document.getElementById("btn-share-project");
+    if (shareBtn) shareBtn.style.display = isOwner ? "" : "none";
+
+    // Role badge for shared projects
+    const roleEl = document.getElementById("project-member-role");
+    if (roleEl) {
+        if (p._isShared) {
+            roleEl.textContent = p.memberRole || "viewer";
+            roleEl.style.display = "";
+        } else {
+            roleEl.style.display = "none";
+        }
+    }
+
+    // Edit/delete buttons hidden for viewers and shared contributors too (server-enforced via rules)
+    const canEdit = isOwner || p.memberRole === "contributor";
+    document.getElementById("btn-edit-project")?.style && (
+        document.getElementById("btn-edit-project").style.display = isOwner ? "" : "none"
+    );
+    document.getElementById("btn-delete-project")?.style && (
+        document.getElementById("btn-delete-project").style.display = isOwner ? "" : "none"
+    );
 }
 
 /* ── Project form (create / edit) ── */

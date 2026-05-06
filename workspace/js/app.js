@@ -29,6 +29,7 @@ import { initHub }         from "./hub.js";
 import { initLinks }       from "./apps/links.js";
 import { initGmail }       from "./apps/gmail.js";
 import { initSheet, initSheetUser } from "./apps/sheet.js";
+import { initSharing }     from "./sharing.js";
 
 /* ── Firebase bootstrap ── */
 let firebaseConfig;
@@ -103,6 +104,7 @@ function onUserReady(user) {
     runMigrations(user.uid);   // auto-import private.html categories as projects
     initProjects(db, user);
     initSections();
+    initSharing(db, user);
     initLinks(db, user);
     initGmail(db, user, googleClientId ?? "");
     initSheetUser(db, user.uid);

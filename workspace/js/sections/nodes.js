@@ -11,7 +11,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
 import { auth, db }             from "../app.js";
-import { currentProjectId }     from "../projects.js";
+import { currentProjectId, getDataUid } from "../projects.js";
 import { refs }                 from "../db.js";
 import { openModal, closeModal,
          toast, confirm, escHtml } from "../ui.js";
@@ -31,14 +31,14 @@ let _nodeBoxSel = null;     // { startX, startY, el } for drag box-select
 export function init() {
     window.addEventListener("projectSelected", ({ detail }) => {
         _pid = detail.id;
-        _uid = auth.currentUser?.uid;
+        _uid = getDataUid();
         _subscribe();
     });
 
     window.addEventListener("sectionActivated", (e) => {
         if (e.detail.section === "nodes" && currentProjectId !== _pid) {
             _pid = currentProjectId;
-            _uid = auth.currentUser?.uid;
+            _uid = getDataUid();
             _subscribe();
         }
     });
@@ -197,7 +197,7 @@ export function init() {
 
     if (currentProjectId) {
         _pid = currentProjectId;
-        _uid = auth.currentUser?.uid;
+        _uid = getDataUid();
         _subscribe();
     }
 }

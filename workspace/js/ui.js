@@ -43,11 +43,17 @@ export function initUI() {
     const topbarMorePopup = document.getElementById("topbar-more-popup");
     const btnTopbarEdit   = document.getElementById("btn-topbar-edit");
     const btnTopbarDelete = document.getElementById("btn-topbar-delete");
+    const btnTopbarShare  = document.getElementById("btn-topbar-share");
 
     if (topbarMoreBtn && topbarMorePopup) {
         topbarMoreBtn.addEventListener("click", (e) => {
             e.stopPropagation();
             topbarMorePopup.classList.toggle("open");
+        });
+
+        btnTopbarShare && btnTopbarShare.addEventListener("click", () => {
+            topbarMorePopup.classList.remove("open");
+            document.getElementById("btn-share-project")?.click();
         });
 
         btnTopbarEdit && btnTopbarEdit.addEventListener("click", () => {

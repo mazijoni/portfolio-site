@@ -65,4 +65,20 @@ export const refs = {
     /** users/{uid}/sheet-sources — saved URL-based sheets for the Sheet Viewer app */
     sheetSources: (db, uid) =>
         collection(db, "users", uid, "sheet-sources"),
+
+    /** user_profiles/{uid} — public profile written on login (email, displayName) */
+    userProfile: (db, uid) =>
+        doc(db, "user_profiles", uid),
+
+    /** user_profiles — top-level collection for user lookups by email */
+    userProfiles: (db) =>
+        collection(db, "user_profiles"),
+
+    /** users/{uid}/memberships — projects shared with this user */
+    memberships: (db, uid) =>
+        collection(db, "users", uid, "memberships"),
+
+    /** users/{uid}/memberships/{membershipId} — single membership doc */
+    membershipDoc: (db, uid, membershipId) =>
+        doc(db, "users", uid, "memberships", membershipId),
 };
