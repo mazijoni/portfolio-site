@@ -12,9 +12,10 @@ import {
     query, where, arrayUnion
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
-import { refs }                                 from "./db.js";
-import { currentProjectId, currentProject }     from "./projects.js";
-import { openModal, toast, escHtml }            from "./ui.js";
+import { refs }                                    from "./db.js";
+import { currentProjectId, currentProject,
+         isCurrentUserAdmin, getDataUid }          from "./projects.js";
+import { openModal, toast, escHtml }               from "./ui.js";
 
 let _db        = null;
 let _user      = null;
@@ -47,7 +48,8 @@ export function initSharing(db, user) {
 export async function openShareModal() {
     if (!currentProjectId || !currentProject) return;
 
-    const isOwner = !currentProject.ownerUid || currentProject.ownerUid === _user.uid;
+    const isOwner = !currentProject.ownerUid || currentProject.ownerUid === _user.uid
+        || isCurrentUserAdmin();
 
     document.getElementById("share-project-name").textContent = currentProject.title || "Project";
     document.getElementById("share-add-section").style.display = isOwner ? "" : "none";
@@ -175,18 +177,19 @@ async function _addMember(memberUid, displayName, email) {
     if (btn) { btn.disabled = true; btn.textContent = "Adding…"; }
 
     try {
+        const ownerUid       = getDataUid();
         const memberEntry    = { role, email, displayName };
         const updatedMembers = { ...(currentProject.members || {}), [memberUid]: memberEntry };
 
-        await updateDoc(refs.project(_db, _user.uid, currentProjectId), { members: updatedMembers });
+        await updateDoc(refs.project(_db, ownerUid, currentProjectId), { members: updatedMembers });
 
         await setDoc(refs.membershipDoc(_db, memberUid, currentProjectId), {
-            ownerUid:  _user.uid,
+            ownerUid:  ownerUid,
             projectId: currentProjectId,
             role,
             title:     currentProject.title || "",
             icon:      currentProject.icon  || "",
-            ownerName: _user.displayName || _user.email || "",
+            ownerName: (currentProject._ownerName) || _user.displayName || _user.email || "",
         });
 
         toast(`${displayName} added as ${role}`, "success");
@@ -203,11 +206,12 @@ async function _addMember(memberUid, displayName, email) {
 async function _changeRole(memberUid, newRole) {
     if (!currentProjectId) return;
     try {
+        const ownerUid = getDataUid();
         const existing = { ...(currentProject.members || {}) };
         if (!existing[memberUid]) return;
         existing[memberUid] = { ...existing[memberUid], role: newRole };
 
-        await updateDoc(refs.project(_db, _user.uid, currentProjectId), { members: existing });
+        await updateDoc(refs.project(_db, ownerUid, currentProjectId), { members: existing });
         await setDoc(refs.membershipDoc(_db, memberUid, currentProjectId), { role: newRole }, { merge: true });
 
         toast("Role updated", "success");
@@ -221,11 +225,12 @@ async function _changeRole(memberUid, newRole) {
 async function _removeMember(memberUid) {
     if (!currentProjectId) return;
     try {
+        const ownerUid = getDataUid();
         const existing = { ...(currentProject.members || {}) };
         const name = existing[memberUid]?.displayName || existing[memberUid]?.email || memberUid;
         delete existing[memberUid];
 
-        await updateDoc(refs.project(_db, _user.uid, currentProjectId), { members: existing });
+        await updateDoc(refs.project(_db, ownerUid, currentProjectId), { members: existing });
         await deleteDoc(refs.membershipDoc(_db, memberUid, currentProjectId));
 
         toast(`${name} removed`, "success");

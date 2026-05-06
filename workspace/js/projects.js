@@ -8,6 +8,9 @@
  * Emits a custom event "projectSelected" on window when the user selects a project.
  */
 
+/** Admin account — has full read/write access to all users' data. */
+const ADMIN_EMAIL = "maze.development.admin@gmail.com";
+
 import {
     onSnapshot, addDoc, updateDoc, deleteDoc, getDoc,
     doc, query, orderBy, serverTimestamp, getDocs
@@ -28,6 +31,8 @@ let _unsub          = null;
 let _unsubMemberships = null;
 let _projects       = [];    // [{id, ...data}]  — own projects
 let _sharedProjects = [];    // [{id, ...data, ownerUid, _isShared}]
+let _adminProjects  = [];    // [{id, ...data, ownerUid, _isAdmin}] — all users' projects (admin only)
+let _adminFilterUid = null;  // null = all accounts; string = filter by ownerUid
 
 export let currentProjectId = null;
 export let currentProject   = null;
@@ -41,11 +46,17 @@ export function getDataUid() {
     return currentProject?.ownerUid ?? auth.currentUser?.uid;
 }
 
+/** Returns true if the currently logged-in user is the global admin. */
+export function isCurrentUserAdmin() {
+    return auth.currentUser?.email === ADMIN_EMAIL;
+}
+
 /**
  * Returns true if the current user can add/edit/delete items in the active project.
- * Owners and contributors can edit; viewers cannot.
+ * Owners, contributors, and the admin can edit; viewers cannot.
  */
 export function canCurrentUserEdit() {
+    if (isCurrentUserAdmin()) return true;
     if (!currentProject) return true;
     const isOwner = !currentProject.ownerUid || currentProject.ownerUid === auth.currentUser?.uid;
     return isOwner || currentProject.memberRole === "contributor";
@@ -83,6 +94,11 @@ export function initProjects(db, user) {
     // Live project list
     _subscribeProjects();
     _subscribeMemberships();
+
+    // Admin: also load every other user's projects
+    if (user.email === ADMIN_EMAIL) {
+        _loadAllUsersProjects();
+    }
 }
 
 let _restored = false;
@@ -153,10 +169,134 @@ function _subscribeMemberships() {
     });
 }
 
+/* ── Admin: load every user's projects ── */
+async function _loadAllUsersProjects() {
+    try {
+        const profilesSnap = await getDocs(refs.userProfiles(_db));
+        const allUsers = profilesSnap.docs.map(d => ({ uid: d.id, ...d.data() }));
+        const otherUsers = allUsers.filter(u => u.uid !== _user.uid);
+
+        const fetched = await Promise.all(
+            otherUsers.map(async (u) => {
+                try {
+                    const projectsSnap = await getDocs(
+                        query(refs.projects(_db, u.uid), orderBy("createdAt", "desc"))
+                    );
+                    return projectsSnap.docs.map(d => ({
+                        id: d.id,
+                        ...d.data(),
+                        ownerUid:    u.uid,
+                        _ownerEmail: u.email       || u.uid,
+                        _ownerName:  u.displayName || u.email || u.uid,
+                        memberRole:  "contributor",
+                        _isShared:   true,
+                        _isAdmin:    true,
+                    }));
+                } catch {
+                    return [];
+                }
+            })
+        );
+
+        _adminProjects = fetched.flat();
+        _renderProjectList();
+        _renderAdminUserFilter(allUsers);
+    } catch (err) {
+        console.error("Admin: failed to load all users' projects:", err);
+    }
+}
+
+function _renderAdminUserFilter(allUsers) {
+    const filterWrap = document.getElementById("adm-user-filter");
+    if (!filterWrap) return;
+    filterWrap.style.display = "";
+
+    const users = [...allUsers].sort((a, b) => (a.email || "").localeCompare(b.email || ""));
+
+    // Build the user list UI
+    filterWrap.innerHTML = `
+        <div class="ws-sb-section-label" style="margin-bottom:0.15rem">
+            Account
+            <button class="adm-user-refresh-btn" title="Refresh" id="adm-user-refresh">
+                <span class="material-symbols-outlined" style="font-size:13px">refresh</span>
+            </button>
+        </div>
+        <div id="adm-user-list" class="adm-user-list"></div>
+    `;
+
+    const userList = filterWrap.querySelector("#adm-user-list");
+
+    // "All" entry
+    const allBtn = document.createElement("button");
+    allBtn.className = "adm-user-item" + (_adminFilterUid === null ? " active" : "");
+    allBtn.dataset.uid = "";
+    allBtn.innerHTML = `
+        <span class="adm-user-item-avatar">★</span>
+        <span class="adm-user-item-label">All accounts</span>
+        <span class="adm-user-item-count">${_adminProjects.length}</span>
+    `;
+    allBtn.addEventListener("click", () => _selectAdminUser(null, users));
+    userList.appendChild(allBtn);
+
+    // One button per user
+    users.forEach(u => {
+        const count = _adminProjects.filter(p => p.ownerUid === u.uid).length;
+        const initials = ((u.displayName || u.email || "?")[0]).toUpperCase();
+        const btn = document.createElement("button");
+        btn.className = "adm-user-item" + (_adminFilterUid === u.uid ? " active" : "");
+        btn.dataset.uid = u.uid;
+        btn.innerHTML = `
+            <span class="adm-user-item-avatar">${escHtml(initials)}</span>
+            <span class="adm-user-item-label">${escHtml(u.displayName || u.email || u.uid)}</span>
+            <span class="adm-user-item-count">${count}</span>
+        `;
+        btn.addEventListener("click", () => _selectAdminUser(u.uid, users));
+        userList.appendChild(btn);
+    });
+
+    // Refresh button
+    filterWrap.querySelector("#adm-user-refresh")
+        ?.addEventListener("click", () => _loadAllUsersProjects());
+
+    // Show/hide "Projects" label
+    const projectsLabel = document.getElementById("adm-projects-label");
+    if (projectsLabel) projectsLabel.style.display = _adminFilterUid !== null ? "" : "none";
+}
+
+function _selectAdminUser(uid, users) {
+    _adminFilterUid = uid;
+
+    // Update active state on user buttons
+    document.querySelectorAll(".adm-user-item").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.uid === (uid || ""));
+    });
+
+    // Show/hide "Projects" label below user list
+    const projectsLabel = document.getElementById("adm-projects-label");
+    if (projectsLabel) projectsLabel.style.display = uid !== null ? "" : "none";
+
+    _renderProjectList();
+}
+
 function _renderProjectList() {
     const list = document.getElementById("project-list");
     list.innerHTML = "";
 
+    // Admin: when a user is selected, show only their projects
+    if (isCurrentUserAdmin()) {
+        if (_adminFilterUid !== null) {
+            const filtered = _adminProjects.filter(a => a.ownerUid === _adminFilterUid);
+            if (filtered.length === 0) {
+                list.innerHTML = `<p style="font-size:0.74rem;color:#666;padding:0.4rem 0.9rem;">No projects for this user.</p>`;
+            } else {
+                filtered.forEach(p => list.appendChild(_makeProjectBtn(p)));
+            }
+        }
+        // When no user selected (All), project list stays empty — pick a user first
+        return;
+    }
+
+    // Normal user path below
     const allProjects = [
         ..._projects,
         ..._sharedProjects.filter(s => !_projects.some(p => p.id === s.id)),
@@ -167,12 +307,8 @@ function _renderProjectList() {
         return;
     }
 
-    // Own projects
-    if (_projects.length > 0) {
-        _projects.forEach(p => list.appendChild(_makeProjectBtn(p)));
-    }
+    _projects.forEach(p => list.appendChild(_makeProjectBtn(p)));
 
-    // Shared projects section
     if (_sharedProjects.length > 0) {
         const label = document.createElement("div");
         label.className = "ws-sb-section-label ws-sb-shared-label";
@@ -207,7 +343,8 @@ function _makeProjectBtn(p) {
 /* ── Select project ── */
 export function selectProject(id) {
     const project = _projects.find(p => p.id === id)
-        || _sharedProjects.find(p => p.id === id);
+        || _sharedProjects.find(p => p.id === id)
+        || _adminProjects.find(p => p.id === id);
     if (!project) return;
 
     currentProjectId = id;
@@ -223,7 +360,8 @@ export function selectProject(id) {
     _setTopBar(project);
 
     // Notify sections
-    const isOwner = !project.ownerUid || project.ownerUid === _user.uid;
+    const isAdmin = isCurrentUserAdmin();
+    const isOwner = !project.ownerUid || project.ownerUid === _user.uid || isAdmin;
     const canEdit = isOwner || project.memberRole === "contributor";
     window.dispatchEvent(new CustomEvent("projectSelected", { detail: { project, id, canEdit } }));
 }
@@ -238,8 +376,8 @@ function _setTopBar(p) {
     statusBadge.textContent    = p.status || "active";
     statusBadge.dataset.status = p.status || "active";
 
-    // Share button: only visible to the project owner
-    const isOwner = !p.ownerUid || p.ownerUid === _user.uid;
+    // Share button: visible to the project owner and admin
+    const isOwner = !p.ownerUid || p.ownerUid === _user.uid || isCurrentUserAdmin();
     const shareBtn = document.getElementById("btn-share-project");
     if (shareBtn) shareBtn.style.display = isOwner ? "" : "none";
 
@@ -254,10 +392,10 @@ function _setTopBar(p) {
         }
     }
 
-    // Edit/delete buttons hidden for viewers and shared contributors too (server-enforced via rules)
+    // Edit/delete buttons hidden for viewers (admin always sees them)
     const canEdit = isOwner || p.memberRole === "contributor";
     document.getElementById("btn-edit-project")?.style && (
-        document.getElementById("btn-edit-project").style.display = isOwner ? "" : "none"
+        document.getElementById("btn-edit-project").style.display = canEdit ? "" : "none"
     );
     document.getElementById("btn-delete-project")?.style && (
         document.getElementById("btn-delete-project").style.display = isOwner ? "" : "none"
