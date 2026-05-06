@@ -10,10 +10,26 @@ import { doc, setDoc }                from "https://www.gstatic.com/firebasejs/1
  * @param {import("firebase/firestore").Firestore} db
  * @param {(user: object) => void} onReady  called when user is authenticated
  */
+const ADMIN_EMAIL = "maze.development.admin@gmail.com";
+
 export function initAuth(auth, db, onReady) {
     onAuthStateChanged(auth, (user) => {
         if (!user) {
             window.location.href = "../login.html?redirect=workspace/";
+            return;
+        }
+
+        // Redirect admin to admin panel instead of normal workspace
+        if (user.email === ADMIN_EMAIL &&
+            !window.location.pathname.includes("admin.html")) {
+            window.location.href = "admin.html";
+            return;
+        }
+
+        // Redirect non-admin away from admin.html
+        if (user.email !== ADMIN_EMAIL &&
+            window.location.pathname.includes("admin.html")) {
+            window.location.href = "index.html";
             return;
         }
 
