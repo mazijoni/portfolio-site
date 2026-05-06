@@ -17,11 +17,11 @@
 
 import {
     onSnapshot, addDoc, deleteDoc, updateDoc, getDocs,
-    query, orderBy, doc, serverTimestamp, collection
+    query, orderBy, where, doc, serverTimestamp, collection, deleteField
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
 import { auth, db }                    from "../app.js";
-import { currentProjectId }            from "../projects.js";
+import { currentProjectId, currentProject } from "../projects.js";
 import { refs }                        from "../db.js";
 import { openModal, closeModal,
          toast, confirm, escHtml }     from "../ui.js";
@@ -50,6 +50,9 @@ let _boxSel = null; // { startX, startY, el } in canvas-relative coords
 
 // Card data cache id → data (for duplicate, context menu)
 let _cardData = new Map();
+
+// Prevents accidental link-click / embed-activation after a drag
+let _justDragged = false;
 
 // Context menu / color picker state
 let _ctxMenuId  = null;
@@ -90,7 +93,7 @@ export function init() {
             const cx   = (rect ? rect.width  / 2 : 400) - _panX;
             const cy   = (rect ? rect.height / 3 : 200) - _panY;
             if      (type === "link")  { _pendingDropX = cx; _pendingDropY = cy; _openLinkForm(); }
-            else if (type === "image") { _pendingDropX = cx; _pendingDropY = cy; _openImageForm(); }
+            else if (type === "image") { _openImagePicker(cx, cy); }
             else if (type === "embed") { _pendingDropX = cx; _pendingDropY = cy; _openEmbedForm(); }
             else                       { _addCard(type, cx, cy); }
         });
@@ -119,7 +122,7 @@ export function init() {
         const x = Math.round(e.clientX - rect.left - _panX);
         const y = Math.round(e.clientY - rect.top  - _panY);
         if      (type === "link")  { _pendingDropX = x; _pendingDropY = y; _openLinkForm(); }
-        else if (type === "image") { _pendingDropX = x; _pendingDropY = y; _openImageForm(); }
+        else if (type === "image") { _openImagePicker(x, y); }
         else if (type === "embed") { _pendingDropX = x; _pendingDropY = y; _openEmbedForm(); }
         else                       { _addCard(type, x, y); }
     });
@@ -137,15 +140,9 @@ export function init() {
     document.getElementById("form-board-link")
         .addEventListener("submit", _onLinkSubmit);
 
-    // Image form
+    // Image form (legacy URL form - keep listener safe)
     document.getElementById("form-board-image")
-        .addEventListener("submit", _onImageSubmit);
-    document.getElementById("btn-board-from-media")
-        .addEventListener("click", () => _openMediaPicker((item) => {
-            document.getElementById("board-image-url-field").value =
-                item.imageUrl || item.thumbUrl || item.url || "";
-            document.getElementById("board-image-label-field").value = item.name || "";
-        }));
+        ?.addEventListener("submit", _onImageSubmit);
 
     // Embed form
     document.getElementById("form-board-embed")
@@ -212,6 +209,8 @@ export function init() {
 
     // Delegated canvas click: embed activate + code copy
     document.getElementById("board-canvas")?.addEventListener("click", (e) => {
+        // Suppress click that immediately follows a drag (prevents link nav + embed load)
+        if (_justDragged) { e.preventDefault(); _justDragged = false; return; }
         // Activate embed iframe on placeholder click
         const placeholder = e.target.closest(".board-embed-placeholder");
         if (placeholder) {
@@ -245,10 +244,38 @@ export function init() {
         _hideCtxMenu();
     });
 
+    // Custom color input
+    const bcpCustom = document.getElementById("bcp-custom-color");
+    const bcpHex    = document.getElementById("bcp-hex-input");
+    if (bcpCustom && bcpHex) {
+        bcpCustom.addEventListener("input", () => { bcpHex.value = bcpCustom.value.toUpperCase(); });
+        bcpHex.addEventListener("input", () => {
+            if (/^#[0-9A-Fa-f]{6}$/.test(bcpHex.value)) bcpCustom.value = bcpHex.value;
+        });
+        const applyCustomColor = () => {
+            if (!_ctxMenuId) return;
+            const hex = bcpHex.value.trim();
+            if (!/^#[0-9A-Fa-f]{6}$/.test(hex)) return;
+            _setCardColor(_ctxMenuId, hex);
+            _hideCtxMenu();
+        };
+        bcpHex.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); applyCustomColor(); } });
+        document.getElementById("bcp-apply-btn")?.addEventListener("click", applyCustomColor);
+    }
+
+    // Shape picker
+    document.getElementById("board-shape-picker")?.addEventListener("click", (e) => {
+        const btn = e.target.closest(".bsp-btn");
+        if (!btn || !_ctxMenuId) return;
+        _setCardShape(_ctxMenuId, btn.dataset.shape);
+        document.getElementById("board-shape-picker").classList.add("hidden");
+    });
+
     // Close menus on outside click
     document.addEventListener("click", (e) => {
         if (!e.target.closest("#board-ctx-menu") &&
-            !e.target.closest("#board-color-picker")) {
+            !e.target.closest("#board-color-picker") &&
+            !e.target.closest("#board-shape-picker")) {
             _hideCtxMenu();
         }
     });
@@ -278,7 +305,13 @@ function _subscribe() {
         if (snap.empty) { empty.style.display = ""; return; }
         empty.style.display = "none";
 
-        snap.forEach(d => _renderCard(d.id, d.data()));
+        const docs = snap.docs.map(d => ({ id: d.id, data: d.data() }));
+        // 1) Render columns first so their bodies exist
+        docs.filter(d => d.data.type === "column").forEach(d => _renderCard(d.id, d.data));
+        // 2) Top-level canvas cards
+        docs.filter(d => d.data.type !== "column" && !d.data.columnId).forEach(d => _renderCard(d.id, d.data));
+        // 3) Column children
+        docs.filter(d => d.data.type !== "column" && d.data.columnId).forEach(d => _renderCard(d.id, d.data));
     });
 }
 
@@ -295,7 +328,8 @@ function _renderCard(id, data) {
     el.style.top     = (data.y ?? 40) + "px";
     if (data.w) el.style.width  = data.w + "px";
     if (data.h) el.style.height = data.h + "px";
-    if (data.color) el.style.setProperty("--card-bg", data.color);
+    if (data.color) _applyCardColor(el, data.color);
+    else if (data.type === "shape" && data.shapeColor) _applyCardColor(el, data.shapeColor);
 
     el.innerHTML = _cardHTML(id, data);
 
@@ -395,9 +429,63 @@ function _renderCard(id, data) {
         _duplicateCard(id, data);
     });
 
-    _makeDraggable(el, id);
-    _addConnDots(el, id);
-    inner.appendChild(el);
+    // ── DOM insertion + type-specific finishing ──
+    if (data.type === "column") {
+        // Save title on blur/enter
+        const titleInput = el.querySelector(".board-column-title");
+        if (titleInput) {
+            const saveTitle = async () => {
+                const val = titleInput.value.trim() || "Group";
+                if (val !== (data.content || "Group")) {
+                    await updateDoc(doc(db, "users", _uid, "projects", _pid, "board_items", id),
+                        { content: val }).catch(console.error);
+                }
+            };
+            titleInput.addEventListener("blur", saveTitle);
+            titleInput.addEventListener("keydown", (e) => {
+                if (e.key === "Enter")  { e.preventDefault(); titleInput.blur(); }
+                if (e.key === "Escape") { titleInput.value = data.content || "Group"; titleInput.blur(); }
+            });
+            titleInput.addEventListener("mousedown", (e) => e.stopPropagation());
+            titleInput.addEventListener("click", (e) => e.stopPropagation());
+        }
+        // Columns sit behind all other cards
+        inner.prepend(el);
+        _makeDraggable(el, id);
+        // no conn dots on columns
+
+    } else if (data.columnId) {
+        // ── Column child ──
+        el.classList.add("board-card--column-child");
+        // Override position so it flows naturally in the column body
+        el.style.left = "";
+        el.style.top  = "";
+        el.style.width  = el.style.width  || "";
+        el.style.height = el.style.height || "";
+
+        // Add eject button to pull the card back onto the canvas
+        const ejectBtn = document.createElement("button");
+        ejectBtn.type      = "button";
+        ejectBtn.className = "board-col-eject";
+        ejectBtn.title     = "Remove from group";
+        ejectBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`;
+        ejectBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            _ejectFromColumn(id, data.columnId);
+        });
+        const actions = el.querySelector(".board-card-actions");
+        if (actions) actions.prepend(ejectBtn);
+
+        const colEl = document.querySelector(`.board-card[data-id="${data.columnId}"]`);
+        const body  = colEl?.querySelector(".board-column-body");
+        (body || inner).appendChild(el);
+        // Column children are not free-draggable; no conn dots
+
+    } else {
+        inner.appendChild(el);
+        _makeDraggable(el, id);
+        _addConnDots(el, id);
+    }
 }
 
 function _cardHTML(id, data) {
@@ -556,11 +644,23 @@ function _cardHTML(id, data) {
 
     if (type === "shape") {
         const shapeClass = "board-shape--" + (data.shape || "rect");
-        const shapeStyle = data.shapeColor ? `background:${data.shapeColor}` : "";
         return `<div class="board-card-actions">${editBtn}${dupBtn}${del}</div>
-            <div class="board-shape-inner ${shapeClass}" style="${shapeStyle}">
+            <div class="board-shape-inner ${shapeClass}">
                 ${data.content ? `<div class="board-card-text board-shape-text">${escHtml(data.content)}</div>` : ""}
             </div>
+            ${resize}`;
+    }
+
+    if (type === "column") {
+        return `
+            <div class="board-column-header">
+                <div class="board-column-drag-handle" title="Drag to move">
+                    <svg width="8" height="12" viewBox="0 0 8 12" fill="currentColor" opacity=".45"><circle cx="2" cy="2" r="1.5"/><circle cx="6" cy="2" r="1.5"/><circle cx="2" cy="6" r="1.5"/><circle cx="6" cy="6" r="1.5"/><circle cx="2" cy="10" r="1.5"/><circle cx="6" cy="10" r="1.5"/></svg>
+                </div>
+                <input class="board-column-title" value="${escHtml(data.content || 'Group')}" placeholder="Group…" spellcheck="false">
+                <div class="board-column-actions">${dupBtn}${del}</div>
+            </div>
+            <div class="board-column-body"></div>
             ${resize}`;
     }
 
@@ -694,7 +794,7 @@ async function _addCard(type, dropX, dropY) {
     if (type === "column")  { base.content = "Column"; base.w = 240; base.h = 240; }
     if (type === "embed")   { base.url = ""; base.label = ""; base.w = 320; base.h = 200; }
     if (type === "swatch")  { base.label = ""; base.w = 140; base.h = 140; base.color = "#F9E4A5"; }
-    if (type === "shape")   { base.shape = "rect"; base.shapeColor = "#c772fe"; base.content = ""; base.w = 140; base.h = 140; }
+    if (type === "shape")   { base.shape = "rect"; base.color = "#c772fe"; base.content = ""; base.w = 140; base.h = 140; }
 
     try {
         const ref = await addDoc(refs.boardItems(db, _uid, _pid), base);
@@ -943,14 +1043,41 @@ function _openCodeEditor(id, data) {
 
 async function _setCardColor(id, color) {
     if (!_pid || !_uid || !id) return;
+    // Update immediately in DOM, don't wait for snapshot
+    const el = document.querySelector(`.board-card[data-id="${id}"]`);
+    if (el) _applyCardColor(el, color || null);
     await updateDoc(doc(db, "users", _uid, "projects", _pid, "board_items", id),
         { color }).catch(console.error);
 }
 
+async function _setCardShape(id, shape) {
+    if (!_pid || !_uid || !id) return;
+    await updateDoc(doc(db, "users", _uid, "projects", _pid, "board_items", id),
+        { shape }).catch(console.error);
+}
+
+function _showShapePicker(id, screenX, screenY) {
+    _ctxMenuId = id;
+    const data = _cardData.get(id);
+    const currentShape = data?.shape || "rect";
+    const picker = document.getElementById("board-shape-picker");
+    picker.querySelectorAll(".bsp-btn").forEach(btn =>
+        btn.classList.toggle("active", btn.dataset.shape === currentShape));
+    picker.style.left = screenX + "px";
+    picker.style.top  = screenY + "px";
+    picker.classList.remove("hidden");
+    requestAnimationFrame(() => {
+        const pw = picker.offsetWidth  || 200;
+        const ph = picker.offsetHeight || 100;
+        picker.style.left = Math.max(4, Math.min(screenX, window.innerWidth  - pw - 8)) + "px";
+        picker.style.top  = Math.max(4, Math.min(screenY, window.innerHeight - ph - 8)) + "px";
+    });
+}
+
 function _showCanvasCtxMenu(screenX, screenY) {
-    const types  = ["note", "heading", "todo", "code", "link", "image", "embed", "swatch", "shape", "column"];
+    const types  = ["note", "heading", "todo", "code", "link", "embed", "swatch", "shape", "column"];
     const labels = { note: "Note", heading: "Heading", todo: "Checklist", code: "Code",
-                     link: "Link", image: "Image", embed: "Embed", swatch: "Color", shape: "Shape", column: "Column" };
+                     link: "Link", embed: "Embed", swatch: "Color", shape: "Shape", column: "Group" };
     const menu = document.getElementById("board-ctx-menu");
     menu.innerHTML = `<div class="ctx-menu-label">Add here</div>` +
         types.map(t => `<button class="ctx-menu-item" data-type="${t}">${labels[t]}</button>`).join("");
@@ -968,21 +1095,37 @@ function _showCanvasCtxMenu(screenX, screenY) {
 }
 
 function _showCardCtxMenu(id, screenX, screenY) {
-    const menu = document.getElementById("board-ctx-menu");
+    const menu     = document.getElementById("board-ctx-menu");
+    const cardData = _cardData.get(id);
+    const isShape  = cardData?.type === "shape";
+    const inGroup  = !!cardData?.columnId;
     menu.innerHTML = `
+        ${inGroup ? `<button class="ctx-menu-item" data-action="eject">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            Remove from Group
+        </button>
+        <div class="ctx-menu-sep"></div>` : ""}
         <button class="ctx-menu-item" data-action="dup">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             Duplicate
         </button>
         <button class="ctx-menu-item" data-action="color">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 0 20 5 5 0 0 0 0-10 5 5 0 0 1 0-10z"/></svg>
             Change Color
         </button>
+        ${isShape ? `<button class="ctx-menu-item" data-action="shape">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/><polyline points="21 15 16 10 5 21"/></svg>
+            Change Shape
+        </button>` : ""}
         <div class="ctx-menu-sep"></div>
         <button class="ctx-menu-item ctx-menu-item--danger" data-action="del">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
             Delete
         </button>`;
+    menu.querySelector("[data-action='eject']")?.addEventListener("click", () => {
+        _hideCtxMenu();
+        _ejectFromColumn(id, cardData.columnId);
+    });
     menu.querySelector("[data-action='dup']").addEventListener("click", () => {
         _hideCtxMenu();
         _duplicateCard(id, _cardData.get(id));
@@ -998,6 +1141,10 @@ function _showCardCtxMenu(id, screenX, screenY) {
             picker.style.left = rect.left + "px";
         }
         picker.classList.remove("hidden");
+    });
+    menu.querySelector("[data-action='shape']")?.addEventListener("click", () => {
+        _hideCtxMenu();
+        _showShapePicker(id, screenX, screenY);
     });
     menu.querySelector("[data-action='del']").addEventListener("click", () => {
         _hideCtxMenu();
@@ -1019,6 +1166,7 @@ function _positionCtxMenu(menu, x, y) {
 function _hideCtxMenu() {
     document.getElementById("board-ctx-menu")?.classList.add("hidden");
     document.getElementById("board-color-picker")?.classList.add("hidden");
+    document.getElementById("board-shape-picker")?.classList.add("hidden");
 }
 
 /* ────────────────────────────────────────────── drag ── */
@@ -1030,7 +1178,7 @@ function _makeDraggable(el, id) {
             e.target.closest(".board-card-resize") ||
             e.target.closest(".board-card-textarea") ||
             e.target.closest(".board-card-text") ||
-            e.target.closest("a") ||
+            e.target.closest(".board-column-title") ||
             e.target.closest(".board-todo-check") ||
             e.button !== 0) return;
         e.preventDefault();
@@ -1054,6 +1202,8 @@ function _makeDraggable(el, id) {
 
         group.forEach(c => c.classList.add("dragging"));
 
+        const isColumn = el.classList.contains("board-card--column");
+
         const onMove = (ev) => {
             moved = true;
             const dx = ev.clientX - startX;
@@ -1063,12 +1213,36 @@ function _makeDraggable(el, id) {
                 g.el.style.top  = (g.top  + dy) + "px";
             });
             _renderAllArrows();
+            // Highlight column drop target (not for columns themselves)
+            if (!isColumn) {
+                const allUnder  = document.elementsFromPoint(ev.clientX, ev.clientY);
+                const hoverBody = allUnder.find(e => e.classList.contains("board-column-body"));
+                document.querySelectorAll(".board-column-body.col-drop-active")
+                    .forEach(b => b.classList.remove("col-drop-active"));
+                if (hoverBody) hoverBody.classList.add("col-drop-active");
+            }
         };
-        const onUp = () => {
+        const onUp = (ev) => {
             group.forEach(c => c.classList.remove("dragging"));
+            document.querySelectorAll(".board-column-body.col-drop-active")
+                .forEach(b => b.classList.remove("col-drop-active"));
             document.removeEventListener("mousemove", onMove);
             document.removeEventListener("mouseup",   onUp);
             if (!moved) return;
+            _justDragged = true; // suppress the click that fires right after mouseup
+
+            // Snap single card into a column if released over its body
+            if (!isColumn && starts.length === 1) {
+                const allUnder  = document.elementsFromPoint(ev.clientX, ev.clientY);
+                const hoverBody = allUnder.find(e => e.classList.contains("board-column-body"));
+                const hoverCol  = hoverBody?.closest(".board-card");
+                if (hoverCol && hoverCol.dataset.id !== id) {
+                    updateDoc(doc(db, "users", _uid, "projects", _pid, "board_items", id),
+                        { columnId: hoverCol.dataset.id }).catch(console.error);
+                    return;
+                }
+            }
+
             starts.forEach(g => {
                 updateDoc(doc(db, "users", _uid, "projects", _pid, "board_items", g.id),
                     { x: parseInt(g.el.style.left), y: parseInt(g.el.style.top) })
@@ -1078,6 +1252,34 @@ function _makeDraggable(el, id) {
         };
         document.addEventListener("mousemove", onMove);
         document.addEventListener("mouseup",   onUp);
+    });
+}
+
+/* ─────────────────────────────── eject card from column ── */
+
+async function _ejectFromColumn(id, colId) {
+    const colEl = document.querySelector(`.board-card[data-id="${colId}"]`);
+    const cx = parseInt(colEl?.style.left || "60") + (colEl?.offsetWidth || 260) + 20;
+    const cy = parseInt(colEl?.style.top  || "60");
+    await updateDoc(doc(db, "users", _uid, "projects", _pid, "board_items", id),
+        { columnId: deleteField(), x: cx, y: cy }).catch(console.error);
+}
+
+/* ─────────────────────────────── image picker (direct) ── */
+
+function _openImagePicker(dropX, dropY) {
+    _pickerSource = "project";
+    _openMediaPicker((item) => {
+        if (!_pid || !_uid) return;
+        const url   = item.imageUrl || item.thumbUrl || item.url || "";
+        const label = item.name || "";
+        addDoc(refs.boardItems(db, _uid, _pid), {
+            type: "image", url, label,
+            x: Math.round(dropX ?? 60),
+            y: Math.round(dropY ?? 60),
+            w: 240, h: 180,
+            createdAt: serverTimestamp()
+        }).catch(console.error);
     });
 }
 
@@ -1248,8 +1450,12 @@ async function _openMediaPicker(cb) {
         t.classList.toggle("active", t.dataset.source === _pickerSource));
 
     try {
+        // Project media lives in users/{uid}/links filtered by categoryId
+        const catId = currentProject?.sourceCategoryId || _pid;
         const [projectSnap, linksSnap, gallerySnap] = await Promise.all([
-            _pid ? getDocs(query(refs.media(db, _uid, _pid), orderBy("createdAt"))).catch(() => ({ docs: [] })) : Promise.resolve({ docs: [] }),
+            (catId && _uid)
+                ? getDocs(query(refs.links(db, _uid), where("categoryId", "==", catId))).catch(() => ({ docs: [] }))
+                : Promise.resolve({ docs: [] }),
             getDocs(query(refs.links(db, _uid), orderBy("createdAt"))).catch(() => ({ docs: [] })),
             getDocs(query(refs.galleryLinks(db, _uid), orderBy("createdAt"))).catch(() => ({ docs: [] })),
         ]);
@@ -1274,15 +1480,23 @@ function _renderMediaPicker(items) {
         const btn     = document.createElement("button");
         btn.type      = "button";
         btn.className = "bmp-item";
-        const thumb   = item.imageUrl || item.thumbUrl || item.avatarUrl || "";
+        const thumb   = item.imageUrl?.trim() || item.thumbUrl?.trim() || item.avatarUrl?.trim() || "";
         const favicon = _getFavicon(item.url || "");
+        const screenshot = item.url ? _getScreenshot(item.url) : "";
+        const pretty  = item.url ? _prettyUrl(item.url) : "";
+        // Use explicit thumb first, then screenshot as fallback, then favicon
+        const thumbSrc = thumb || screenshot;
         btn.innerHTML = `
             <div class="bmp-thumb">
-                ${thumb
-                    ? `<img src="${escHtml(thumb)}" alt="" onerror="this.style.display='none'">`
-                    : `<img src="${escHtml(favicon)}" alt="" style="width:24px;height:24px;object-fit:contain" onerror="this.style.display='none'">`}
+                ${thumbSrc
+                    ? `<img src="${escHtml(thumbSrc)}" alt="" loading="lazy"
+                           onerror="this.src='${escHtml(favicon)}';this.className='bmp-favicon'">`
+                    : `<img src="${escHtml(favicon)}" alt="" class="bmp-favicon">`}
             </div>
-            <div class="bmp-name">${escHtml(item.name || item.url || "")}</div>`;
+            <div class="bmp-info">
+                <div class="bmp-name">${escHtml(item.name || pretty || "")}</div>
+                ${pretty ? `<div class="bmp-url">${escHtml(pretty)}</div>` : ""}
+            </div>`;
         btn.addEventListener("click", () => {
             if (_mediaCb) _mediaCb(item);
             closeModal("modal-board-media");
@@ -1301,6 +1515,29 @@ function _filterMediaPicker() {
 }
 
 /* ────────────────────────────────────────────── helpers ── */
+
+function _getLuminance(hex) {
+    if (!hex || hex.length < 7) return 0;
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const lin = c => c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+function _applyCardColor(el, color) {
+    if (color) {
+        el.style.setProperty("--card-bg", color);
+        if (_getLuminance(color) > 0.35) {
+            el.style.setProperty("--card-text", "#1a1a1a");
+        } else {
+            el.style.removeProperty("--card-text");
+        }
+    } else {
+        el.style.removeProperty("--card-bg");
+        el.style.removeProperty("--card-text");
+    }
+}
 
 function _getFavicon(url) {
     try { return `https://www.google.com/s2/favicons?sz=32&domain=${new URL(url).hostname}`; }
