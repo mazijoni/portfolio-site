@@ -5,7 +5,7 @@
  * the first time its tab is activated to avoid unnecessary Firestore subscriptions.
  */
 
-const SECTIONS = ["empty", "overview", "media", "kanban", "files"];
+const SECTIONS = ["empty", "overview", "board", "media", "kanban", "files"];
 
 let _activeSection = "empty";
 const _loaded = new Set();
@@ -71,6 +71,7 @@ function _showSection(name) {
 async function _importSection(name) {
     const moduleMap = {
         overview: "./sections/overview.js",
+        board:    "./sections/board.js",
         media:    "./sections/media.js",
         kanban:   "./sections/kanban.js",
         files:    "./sections/files.js",
