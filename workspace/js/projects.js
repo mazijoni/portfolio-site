@@ -41,6 +41,16 @@ export function getDataUid() {
     return currentProject?.ownerUid ?? auth.currentUser?.uid;
 }
 
+/**
+ * Returns true if the current user can add/edit/delete items in the active project.
+ * Owners and contributors can edit; viewers cannot.
+ */
+export function canCurrentUserEdit() {
+    if (!currentProject) return true;
+    const isOwner = !currentProject.ownerUid || currentProject.ownerUid === auth.currentUser?.uid;
+    return isOwner || currentProject.memberRole === "contributor";
+}
+
 /* ── Init ── */
 export function initProjects(db, user) {
     _db   = db;
@@ -55,10 +65,6 @@ export function initProjects(db, user) {
         .addEventListener("click", () => openProjectForm(currentProjectId));
     document.getElementById("btn-delete-project")
         .addEventListener("click", deleteCurrentProject);
-    document.getElementById("btn-share-project")
-        ?.addEventListener("click", () => {
-            import("./sharing.js").then(m => m.openShareModal());
-        });
 
     document.getElementById("form-project")
         .addEventListener("submit", onProjectFormSubmit);
@@ -217,7 +223,9 @@ export function selectProject(id) {
     _setTopBar(project);
 
     // Notify sections
-    window.dispatchEvent(new CustomEvent("projectSelected", { detail: { project, id } }));
+    const isOwner = !project.ownerUid || project.ownerUid === _user.uid;
+    const canEdit = isOwner || project.memberRole === "contributor";
+    window.dispatchEvent(new CustomEvent("projectSelected", { detail: { project, id, canEdit } }));
 }
 
 function _setTopBar(p) {

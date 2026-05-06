@@ -11,13 +11,14 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
 import { auth, db }             from "../app.js";
-import { currentProjectId, getDataUid } from "../projects.js";
+import { currentProjectId, getDataUid, canCurrentUserEdit } from "../projects.js";
 import { refs }                 from "../db.js";
 import { openModal, closeModal,
          toast, confirm, escHtml } from "../ui.js";
 
 let _pid        = null;
 let _uid        = null;
+let _canEdit    = true;
 let _unsubNodes = null;
 let _unsubEdges = null;
 let _nodes      = {};  // { id: { data, el } }
@@ -32,6 +33,7 @@ export function init() {
     window.addEventListener("projectSelected", ({ detail }) => {
         _pid = detail.id;
         _uid = getDataUid();
+        _canEdit = detail.canEdit ?? true;
         _subscribe();
     });
 
@@ -39,6 +41,7 @@ export function init() {
         if (e.detail.section === "nodes" && currentProjectId !== _pid) {
             _pid = currentProjectId;
             _uid = getDataUid();
+            _canEdit = canCurrentUserEdit();
             _subscribe();
         }
     });
@@ -522,6 +525,7 @@ function _updateNodeFields() {
 async function _onNodeFormSubmit(e) {
     e.preventDefault();
     if (!_pid || !_uid) return;
+    if (!_canEdit) { toast("View-only access", "info"); return; }
 
     const label    = document.getElementById("node-field-label").value.trim();
     const type     = document.getElementById("node-field-type").value;

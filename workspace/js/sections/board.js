@@ -21,7 +21,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
 import { auth, db }                    from "../app.js";
-import { currentProjectId, currentProject, getDataUid } from "../projects.js";
+import { currentProjectId, currentProject, getDataUid, canCurrentUserEdit } from "../projects.js";
 import { refs }                        from "../db.js";
 import { openModal, closeModal,
          toast, confirm, escHtml }     from "../ui.js";
@@ -30,6 +30,7 @@ import { openModal, closeModal,
 let _unsub      = null;
 let _pid        = null;
 let _uid        = null;
+let _canEdit    = true;
 let _editingId  = null;   // id of card being in-place edited
 
 // Pan state
@@ -71,6 +72,7 @@ export function init() {
     window.addEventListener("projectSelected", ({ detail }) => {
         _pid = detail.id;
         _uid = getDataUid();
+        _canEdit = detail.canEdit ?? true;
         _subscribe();
         _subscribeArrows();
     });
@@ -79,6 +81,7 @@ export function init() {
         if (e.detail.section === "board" && currentProjectId !== _pid) {
             _pid = currentProjectId;
             _uid = getDataUid();
+            _canEdit = canCurrentUserEdit();
             _subscribe();
             _subscribeArrows();
         }
@@ -87,6 +90,7 @@ export function init() {
     // Toolbar buttons — click to add at center
     document.querySelectorAll("#board-toolbar .btb-btn").forEach(btn => {
         btn.addEventListener("click", () => {
+            if (!_canEdit) { toast("View-only access", "info"); return; }
             const type = btn.dataset.type;
             const cvs  = document.getElementById("board-canvas");
             const rect = cvs?.getBoundingClientRect();

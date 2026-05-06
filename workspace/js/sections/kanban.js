@@ -19,7 +19,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
 import { auth, db }                        from "../app.js";
-import { currentProjectId, currentProject, getDataUid } from "../projects.js";
+import { currentProjectId, currentProject, getDataUid, canCurrentUserEdit } from "../projects.js";
 import { refs }                            from "../db.js";
 import { openModal, closeModal,
          setModalTitle, toast,
@@ -36,6 +36,7 @@ const COL_LABELS = {
 
 let _pid        = null;
 let _uid        = null;
+let _canEdit    = true;
 let _unsub      = null;
 let _editId     = null;
 let _defaultCol = "todo";
@@ -61,6 +62,7 @@ export function init() {
     window.addEventListener("projectSelected", ({ detail }) => {
         _pid = detail.id;
         _uid = getDataUid();
+        _canEdit = detail.canEdit ?? true;
         _subscribe();
         _loadGhSettings();
     });
@@ -69,16 +71,17 @@ export function init() {
         if (e.detail.section === "kanban" && currentProjectId !== _pid) {
             _pid = currentProjectId;
             _uid = getDataUid();
+            _canEdit = canCurrentUserEdit();
             _subscribe();
             _loadGhSettings();
         }
     });
 
     document.getElementById("btn-add-kanban-task")
-        .addEventListener("click", () => _openForm(null, "todo"));
+        .addEventListener("click", () => { if (!_canEdit) { toast("View-only access", "info"); return; } _openForm(null, "todo"); });
 
     document.querySelectorAll(".kanban-add-inline").forEach(btn => {
-        btn.addEventListener("click", () => _openForm(null, btn.dataset.col || "todo"));
+        btn.addEventListener("click", () => { if (!_canEdit) { toast("View-only access", "info"); return; } _openForm(null, btn.dataset.col || "todo"); });
     });
 
     document.getElementById("form-kanban-task")

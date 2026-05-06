@@ -8,7 +8,7 @@ import {
 
 import { auth, db }                     from "../app.js";
 import { currentProjectId,
-         currentProject, getDataUid }    from "../projects.js";
+         currentProject, getDataUid, canCurrentUserEdit } from "../projects.js";
 import { refs }                         from "../db.js";
 import { toast, escHtml, fmtDate }      from "../ui.js";
 import { marked }                        from "https://cdn.jsdelivr.net/npm/marked@14/lib/marked.esm.js";
@@ -353,6 +353,7 @@ async function _loadStats() {
 
 async function saveNotes() {
     if (!currentProjectId) return;
+    if (!canCurrentUserEdit()) { toast("View-only access", "info"); return; }
     const uid     = getDataUid();
     const content = document.getElementById("overview-notes").value;
     const p       = currentProject;
