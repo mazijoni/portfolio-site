@@ -20,11 +20,12 @@ import {
 
 import { auth, db }                from "../app.js";
 import { currentProjectId,
-         currentProject, getDataUid } from "../projects.js";
+         currentProject, getDataUid, canCurrentUserEdit } from "../projects.js";
 import { escHtml, toast, confirm,
          openModal, closeModal }    from "../ui.js";
 
 let _uid        = null;
+let _canEdit    = true;
 let _unsub      = null;
 let _links      = [];
 let _catId      = null;   // categoryId value to filter links by
@@ -68,7 +69,10 @@ export function init() {
     });
 
     document.getElementById("btn-add-media-link")
-        .addEventListener("click", () => _openLinkModal(null));
+        .addEventListener("click", () => {
+            if (!_canEdit) { toast("View-only access", "info"); return; }
+            _openLinkModal(null);
+        });
 
     document.getElementById("form-media-link")
         .addEventListener("submit", _onLinkSubmit);
@@ -91,6 +95,7 @@ export function init() {
     window.addEventListener("projectSelected", () => {
         _uid  = getDataUid();
         _catId = currentProject?.sourceCategoryId ?? currentProjectId ?? null;
+        _canEdit = canCurrentUserEdit();
         _subscribe();
     });
 
