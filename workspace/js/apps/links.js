@@ -2263,7 +2263,7 @@ const _STREAMING_DOMAINS = [
     "peacocktv.com", "paramountplus.com", "discoveryplus.com", "crunchyroll.com",
     "funimation.com", "mubi.com", "curiositystream.com", "tubi.tv", "pluto.tv",
     "dazn.com", "sky.com/watch", "nowtv.com", "britbox.com", "acorn.tv",
-    "viaplay.com", "ruutu.fi", "tv2play.dk", "tvplay.lv", "nrk.no", "tv2.no",
+    "viaplay.com", "ruutu.fi", "tv.nrk.no", "play.tv2.no",
     "svtplay.se", "areena.yle.fi", "plex.tv", "jellyfin", "emby.media",
     "pstream",
 ];
