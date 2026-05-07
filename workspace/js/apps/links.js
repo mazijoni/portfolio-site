@@ -305,6 +305,9 @@ export function initLinks(db, user) {
     document.getElementById("links-sort-select")
         .addEventListener("change", e => { _sortMode = e.target.value; _render(); });
 
+    document.getElementById("links-cat-select")
+        .addEventListener("change", e => { _activeCat = e.target.value; _render(); });
+
     document.getElementById("links-cat-bar")
         .addEventListener("click", e => {
             const addBtn = e.target.closest("[data-cat-action='add-cat']");
@@ -392,6 +395,16 @@ function _renderCatBar() {
         : "";
     const addBtn = `<button class="links-cat-add-btn" data-cat-action="add-cat"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Category</button>`;
     bar.innerHTML = allHtml + catBtns + uncatBtn + addBtn;
+
+    // Mobile: sync the <select> dropdown
+    const sel = document.getElementById("links-cat-select");
+    if (sel) {
+        sel.innerHTML = [
+            `<option value="all"${_activeCat === "all" ? " selected" : ""}>All</option>`,
+            ..._cats.map(c => `<option value="${escHtml(c.name)}"${_activeCat === c.name ? " selected" : ""}>${escHtml(c.name)}</option>`),
+            ...(hasUncat ? [`<option value="_uncat"${_activeCat === "_uncat" ? " selected" : ""}>Uncategorised</option>`] : [])
+        ].join("");
+    }
 }
 
 /* ── Category lock helpers ── */
@@ -715,19 +728,18 @@ async function _renderStreamingHub(body, cat) {
     hub.innerHTML = `
         <div class="sh-services-bar" id="sh-services-bar">
             ${pillsHtml}
-            <button class="sh-pill sh-pill-add" id="sh-add-service-btn">
+            <button class="sh-pill sh-pill-add" id="sh-add-service-btn" title="Add a streaming service">
                 <span class="material-symbols-outlined" style="font-size:1rem">add</span>
                 <span class="sh-pill-name">Add Service</span>
-            </button>
-            <button class="sh-pill sh-pill-add" id="sh-add-item-btn">
-                <span class="material-symbols-outlined" style="font-size:1rem">movie</span>
-                <span class="sh-pill-name">Add Movie/Show</span>
             </button>
         </div>
         <div class="sh-tab-bar" id="sh-tab-bar">
             <button class="sh-tab${_shActiveTab==="all"?" sh-tab-active":""}" data-sh-tab="all">All</button>
             <button class="sh-tab${_shActiveTab==="movie"?" sh-tab-active":""}" data-sh-tab="movie">Movies</button>
             <button class="sh-tab${_shActiveTab==="series"?" sh-tab-active":""}" data-sh-tab="series">Series</button>
+            <button class="sh-add-item-btn" id="sh-add-item-btn" title="Add a movie or show to a service">
+                <span class="material-symbols-outlined">add</span>
+            </button>
             <button class="sh-lucky-btn" id="sh-lucky-btn" title="Pick a random movie or next episode">
                 <span class="material-symbols-outlined">casino</span>
                 <span class="sh-lucky-btn-label">I&#8217;m Feeling Lucky</span>
@@ -754,22 +766,14 @@ async function _renderStreamingHub(body, cat) {
         const pill = e.target.closest("[data-sh-link-id]");
         if (pill) { _openLibrary(pill.dataset.shLinkId); return; }
         if (e.target.closest("#sh-add-service-btn")) {
-            _openForm(null);
-            setTimeout(() => {
-                const cf = document.getElementById("link-cat-field");
-                const tf = document.getElementById("link-type-field");
-                if (cf) cf.value = cat.name;
-                if (tf) { tf.value = "streaming-service"; _updateTypeHint("streaming-service"); }
-            }, 80);
+            _openServicePicker(cat);
             return;
-        }
-        if (e.target.closest("#sh-add-item-btn")) {
-            _openHubItemForm(services);
         }
     });
 
     hub.querySelector("#sh-tab-bar").addEventListener("click", e => {
         if (e.target.closest("#sh-lucky-btn")) { _showLuckyPick(services); return; }
+        if (e.target.closest("#sh-add-item-btn")) { _openHubItemForm(services); return; }
         const tab = e.target.closest("[data-sh-tab]");
         if (!tab) return;
         _shActiveTab = tab.dataset.shTab;
@@ -1559,6 +1563,11 @@ function _render() {
     _renderCatBar();
     const body = document.getElementById("links-body");
     if (!body) return;
+
+    // Mark app container with active prefab for CSS-driven UI hiding
+    const _appEl = document.getElementById("app-links");
+    const _activePrefab = _cats.find(c => c.name === _activeCat)?.prefab ?? null;
+    _appEl?.setAttribute("data-prefab", _activePrefab ?? "");
 
     // Global search while on All tab: show matching links flat
     if (_activeCat === "all" && _search) {
@@ -2506,6 +2515,34 @@ let _shCatName        = "";
 let _sdActiveTab      = "all";
 let _shActiveTab      = "all"; // streaming hub: "all"|"movie"|"series"
 const _streamCache    = {}; // linkId → items[]
+
+let _pickerCat = null; // current cat for the service picker
+
+const _KNOWN_STREAM_SERVICES = [
+    { name: "Netflix",        url: "https://www.netflix.com" },
+    { name: "Disney+",        url: "https://www.disneyplus.com" },
+    { name: "Max",            url: "https://www.max.com" },
+    { name: "Hulu",           url: "https://www.hulu.com" },
+    { name: "Prime Video",    url: "https://www.primevideo.com" },
+    { name: "Apple TV+",      url: "https://tv.apple.com" },
+    { name: "Peacock",        url: "https://www.peacocktv.com" },
+    { name: "Paramount+",     url: "https://www.paramountplus.com" },
+    { name: "Crunchyroll",    url: "https://www.crunchyroll.com" },
+    { name: "Funimation",     url: "https://www.funimation.com" },
+    { name: "MUBI",           url: "https://mubi.com" },
+    { name: "Tubi",           url: "https://tubitv.com" },
+    { name: "Pluto TV",       url: "https://pluto.tv" },
+    { name: "Plex",           url: "https://www.plex.tv" },
+    { name: "DAZN",           url: "https://www.dazn.com" },
+    { name: "BritBox",        url: "https://www.britbox.com" },
+    { name: "Acorn TV",       url: "https://acorn.tv" },
+    { name: "Viaplay",        url: "https://viaplay.com" },
+    { name: "SVT Play",       url: "https://www.svtplay.se" },
+    { name: "NRK TV",          url: "https://www.nrk.no" },
+    { name: "TV 2",           url: "https://tv2.no" },
+    { name: "Yle Areena",     url: "https://areena.yle.fi" },
+    { name: "PStream",        url: "https://pstream.net" },
+];
 const _sdExpandedIds  = new Set(); // series item IDs with expand open
 let   _sdDragSrc      = null;      // { kind:'item'|'coll', id?, name? }
 const _collapsedColls   = new Set(); // collection names collapsed (drawer)
@@ -3242,7 +3279,8 @@ function _openHubItemForm(services) {
             <img id="sh-iaf-poster" class="sd-add-poster-preview" src="" alt="" style="display:none">
             <div class="sd-add-form-fields">
                 <select id="sh-iaf-service" class="sd-add-input"></select>
-                <input id="sh-iaf-title" class="sd-add-input" placeholder="Search title\u2026">
+                <input id="sh-iaf-title" class="sd-add-input" placeholder="Search title\u2026" autocomplete="off">
+                <div id="sh-iaf-search-results" class="sd-search-results sd-hidden"></div>
                 <input id="sh-iaf-url" class="sd-add-input" placeholder="Link (optional)\u2026">
                 <input id="sh-iaf-coll" class="sd-add-input" list="sh-iaf-coll-dl" autocomplete="off" placeholder="Collection (optional)\u2026" maxlength="80">
                 <datalist id="sh-iaf-coll-dl"></datalist>
@@ -3262,15 +3300,33 @@ function _openHubItemForm(services) {
             if (!title && rawUrl) title = _extractTitleFromUrl(rawUrl) || "";
             if (!title || !linkId) { toast("Enter a title and select a service", "error"); return; }
             const itemUrl = rawUrl && _isSafeUrl(rawUrl) ? rawUrl : null;
-            const rawPoster = document.getElementById("sh-iaf-poster-val").value || "";
-            let   posterUrl = rawPoster && _isSafeUrl(rawPoster) ? rawPoster : null;
+            let   posterUrl = null;
             let   seasons   = [];
             const collectionName = document.getElementById("sh-iaf-coll")?.value.trim() || null;
-            if (type === "series") {
-                const meta = await _fetchTmdbMeta(rawUrl || null, title, "series");
-                if (meta) {
-                    if (!posterUrl && meta.posterUrl) posterUrl = meta.posterUrl;
-                    if (meta.seasons?.length) seasons = meta.seasons;
+            if (_iafSelectedResult) {
+                posterUrl = _iafSelectedResult.posterUrl || null;
+                title     = _iafSelectedResult.title || title;
+                if (type === "series" && _iafSelectedResult.tmdbId) {
+                    const meta = await _fetchTmdbMeta(
+                        `https://www.themoviedb.org/tv/${_iafSelectedResult.tmdbId}`, title, "series"
+                    );
+                    if (meta) {
+                        if (meta.posterUrl) posterUrl = meta.posterUrl;
+                        if (meta.seasons?.length) seasons = meta.seasons;
+                    }
+                }
+            } else {
+                const rawPoster = document.getElementById("sh-iaf-poster-val").value || "";
+                posterUrl = rawPoster && _isSafeUrl(rawPoster) ? rawPoster : null;
+                if (type === "series") {
+                    const meta = await _fetchTmdbMeta(rawUrl || null, title, "series");
+                    if (meta) {
+                        if (!posterUrl && meta.posterUrl) posterUrl = meta.posterUrl;
+                        if (meta.seasons?.length) seasons = meta.seasons;
+                    }
+                } else {
+                    const meta = await _fetchTmdbMeta(rawUrl || null, title, "movie");
+                    if (meta && !posterUrl && meta.posterUrl) posterUrl = meta.posterUrl;
                 }
             }
             try {
@@ -3283,12 +3339,69 @@ function _openHubItemForm(services) {
         }
 
         let _iafTimer = null;
+        let _iafSelectedResult = null;
+
+        function _iafHideResults() {
+            const el = document.getElementById("sh-iaf-search-results");
+            if (el) { el.innerHTML = ""; el.classList.add("sd-hidden"); }
+        }
+
+        function _iafPickResult(result) {
+            _iafSelectedResult = result;
+            const titleInp = document.getElementById("sh-iaf-title");
+            const prevImg  = document.getElementById("sh-iaf-poster");
+            titleInp.value = result.title;
+            document.getElementById("sh-iaf-poster-val").value = result.posterUrl || "";
+            if (prevImg) {
+                if (result.posterUrl) { prevImg.src = result.posterUrl; prevImg.style.display = ""; }
+                else { prevImg.src = ""; prevImg.style.display = "none"; }
+            }
+            _iafHideResults();
+        }
+
         document.getElementById("sh-iaf-title").addEventListener("input", () => {
             clearTimeout(_iafTimer);
+            const q = document.getElementById("sh-iaf-title").value.trim();
+            if (!q) { _iafHideResults(); return; }
+            if (_iafSelectedResult && _iafSelectedResult.title === q) return;
+            _iafSelectedResult = null;
             _iafTimer = setTimeout(async () => {
-                const title = document.getElementById("sh-iaf-title").value.trim();
+                const results = await _searchTmdbMulti(q);
+                const el = document.getElementById("sh-iaf-search-results");
+                if (!el) return;
+                if (!results.length) { _iafHideResults(); return; }
+                el.innerHTML = results.map((r, i) => `
+                    <button class="sd-sr-item" data-iaf-sr-idx="${i}" type="button">
+                        ${r.posterUrl
+                            ? `<img class="sd-sr-poster" src="${escHtml(r.posterUrl)}" alt="" loading="lazy">`
+                            : `<div class="sd-sr-poster sd-sr-poster--empty"><span class="material-symbols-outlined">${r.kind === "series" ? "tv" : "movie"}</span></div>`}
+                        <div class="sd-sr-info">
+                            <span class="sd-sr-title">${escHtml(r.title)}</span>
+                            <span class="sd-sr-meta">${r.year ? escHtml(r.year) + " \u00b7 " : ""}${r.kind === "series" ? "Series" : "Movie"}</span>
+                        </div>
+                    </button>`).join("");
+                el.classList.remove("sd-hidden");
+                el._results = results;
+            }, 450);
+        });
+        document.getElementById("sh-iaf-search-results").addEventListener("click", e => {
+            const btn = e.target.closest("[data-iaf-sr-idx]");
+            if (!btn) return;
+            const idx = parseInt(btn.dataset.iafSrIdx, 10);
+            const results = document.getElementById("sh-iaf-search-results")._results;
+            if (!results?.[idx]) return;
+            _iafPickResult(results[idx]);
+        });
+        document.getElementById("sh-iaf-url").addEventListener("input", () => {
+            clearTimeout(_iafTimer);
+            _iafTimer = setTimeout(async () => {
                 const url   = document.getElementById("sh-iaf-url").value.trim();
-                if (!title && !url) return;
+                const title = document.getElementById("sh-iaf-title").value.trim();
+                if (!url) return;
+                if (!title) {
+                    const ex = _extractTitleFromUrl(url);
+                    if (ex) { document.getElementById("sh-iaf-title").value = ex; }
+                }
                 const meta = await _fetchTmdbMeta(url, title, "movie");
                 if (meta?.posterUrl) {
                     document.getElementById("sh-iaf-poster-val").value = meta.posterUrl;
@@ -3298,26 +3411,15 @@ function _openHubItemForm(services) {
                 if (meta?.title && !document.getElementById("sh-iaf-title").value.trim()) {
                     document.getElementById("sh-iaf-title").value = meta.title;
                 }
-            }, 600);
-        });
-        document.getElementById("sh-iaf-url").addEventListener("input", () => {
-            clearTimeout(_iafTimer);
-            _iafTimer = setTimeout(async () => {
-                const url   = document.getElementById("sh-iaf-url").value.trim();
-                const title = document.getElementById("sh-iaf-title").value.trim();
-                if (!url) return;
-                const meta = await _fetchTmdbMeta(url, title, "movie");
-                if (meta?.posterUrl) {
-                    document.getElementById("sh-iaf-poster-val").value = meta.posterUrl;
-                    const p = document.getElementById("sh-iaf-poster");
-                    p.src = meta.posterUrl; p.style.display = "";
-                }
-                if (meta?.title) document.getElementById("sh-iaf-title").value = meta.title;
             }, 500);
         });
         document.getElementById("sh-iaf-movie").addEventListener("click",  () => shSaveItem("movie"));
         document.getElementById("sh-iaf-series").addEventListener("click", () => shSaveItem("series"));
-        document.getElementById("sh-iaf-cancel").addEventListener("click", () => form.classList.add("sd-hidden"));
+        document.getElementById("sh-iaf-cancel").addEventListener("click", () => {
+            form.classList.add("sd-hidden");
+            _iafSelectedResult = null;
+            _iafHideResults();
+        });
     }
 
     const sel = document.getElementById("sh-iaf-service");
@@ -3337,6 +3439,120 @@ function _openHubItemForm(services) {
         _allHubColls.map(c => `<option value="${escHtml(c)}">`).join("");
     form.classList.remove("sd-hidden");
     setTimeout(() => document.getElementById("sh-iaf-title").focus(), 40);
+}
+
+/* ══════════ SERVICE PICKER ══════════ */
+
+function _renderPickerList(query) {
+    const list = document.getElementById("sh-svc-picker-list");
+    if (!list || !_pickerCat) return;
+    const addedDomains = new Set(
+        _links.filter(l => l.category === _pickerCat.name).map(l => _domain(l.url))
+    );
+    const q = query.toLowerCase();
+    const filtered = _KNOWN_STREAM_SERVICES
+        .map((s, i) => ({ ...s, idx: i }))
+        .filter(s => !q || s.name.toLowerCase().includes(q));
+    if (!filtered.length) {
+        list.innerHTML = `<div class="sh-svc-picker-empty">No match — use "Add custom" below.</div>`;
+        return;
+    }
+    list.innerHTML = filtered.map(s => {
+        const alreadyAdded = addedDomains.has(_domain(s.url));
+        let hostname = "";
+        try { hostname = new URL(s.url).hostname; } catch { /* noop */ }
+        const fav = hostname
+            ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=32`
+            : "";
+        return `<button class="sh-svc-picker-item${alreadyAdded ? " sh-svc-picker-item--added" : ""}" data-svc-idx="${s.idx}" ${alreadyAdded ? "disabled" : ""} type="button">
+            ${fav ? `<img class="sh-svc-picker-fav" src="${escHtml(fav)}" alt="" onerror="this.style.display='none'">` : ""}
+            <span class="sh-svc-picker-name">${escHtml(s.name)}</span>
+            ${alreadyAdded ? `<span class="sh-svc-picker-badge">Added</span>` : ""}
+        </button>`;
+    }).join("");
+}
+
+function _openServicePicker(cat) {
+    _pickerCat = cat;
+    let overlay = document.getElementById("sh-svc-picker-overlay");
+    if (!overlay) {
+        overlay = document.createElement("div");
+        overlay.id = "sh-svc-picker-overlay";
+        overlay.className = "sh-svc-picker-overlay";
+        overlay.innerHTML = `
+            <div class="sh-svc-picker" role="dialog" aria-modal="true" aria-label="Add streaming service">
+                <div class="sh-svc-picker-hdr">
+                    <span class="material-symbols-outlined" style="font-size:1.1rem;opacity:.7">smart_display</span>
+                    Add Streaming Service
+                    <button id="sh-svc-picker-close" class="sh-svc-picker-close" title="Close" type="button">&times;</button>
+                </div>
+                <div class="sh-svc-picker-search-wrap">
+                    <span class="material-symbols-outlined sh-svc-picker-search-icon">search</span>
+                    <input id="sh-svc-picker-input" class="sh-svc-picker-input" placeholder="Search (e.g. Netflix, Disney+)…" autocomplete="off" type="search">
+                </div>
+                <div id="sh-svc-picker-list" class="sh-svc-picker-list"></div>
+                <div class="sh-svc-picker-footer">
+                    <button id="sh-svc-picker-custom" class="sh-svc-picker-custom-btn" type="button">
+                        <span class="material-symbols-outlined">add_link</span>
+                        Add custom service…
+                    </button>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+
+        const _hidePicker = () => overlay.classList.remove("sh-svc-picker-open");
+
+        overlay.addEventListener("click", e => { if (e.target === overlay) _hidePicker(); });
+        overlay.addEventListener("keydown", e => { if (e.key === "Escape") _hidePicker(); });
+
+        document.getElementById("sh-svc-picker-close").addEventListener("click", _hidePicker);
+
+        document.getElementById("sh-svc-picker-input").addEventListener("input", e => {
+            _renderPickerList(e.target.value.trim());
+        });
+
+        document.getElementById("sh-svc-picker-custom").addEventListener("click", () => {
+            _hidePicker();
+            _openForm(null);
+            setTimeout(() => {
+                const cf = document.getElementById("link-cat-field");
+                const tf = document.getElementById("link-type-field");
+                if (cf && _pickerCat) cf.value = _pickerCat.name;
+                if (tf) { tf.value = "streaming-service"; _updateTypeHint("streaming-service"); }
+            }, 80);
+        });
+
+        document.getElementById("sh-svc-picker-list").addEventListener("click", async e => {
+            const item = e.target.closest("[data-svc-idx]");
+            if (!item || item.disabled) return;
+            const idx = parseInt(item.dataset.svcIdx, 10);
+            const svc = _KNOWN_STREAM_SERVICES[idx];
+            if (!svc || !_pickerCat) return;
+            _hidePicker();
+            // Prevent duplicates
+            const alreadyAdded = _links.some(
+                l => l.category === _pickerCat.name && _domain(l.url) === _domain(svc.url)
+            );
+            if (alreadyAdded) { toast(`${svc.name} is already added`, "info"); return; }
+            try {
+                await addDoc(refs.galleryLinks(_db, _user.uid), {
+                    title:     svc.name,
+                    url:       svc.url,
+                    type:      "streaming-service",
+                    category:  _pickerCat.name,
+                    createdAt: serverTimestamp(),
+                    sortOrder: Date.now(),
+                });
+                toast(`${svc.name} added`, "success");
+            } catch (err) { console.error(err); toast("Error adding service", "error"); }
+        });
+    }
+
+    // Reset and open
+    document.getElementById("sh-svc-picker-input").value = "";
+    _renderPickerList("");
+    overlay.classList.add("sh-svc-picker-open");
+    setTimeout(() => document.getElementById("sh-svc-picker-input").focus(), 60);
 }
 
 function _ensureStreamingDrawer() {

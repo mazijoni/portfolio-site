@@ -547,6 +547,9 @@
     <div id="links-cat-bar" class="links-cats">
         <!-- category buttons rendered by JS -->
     </div>
+    <select id="links-cat-select" class="links-cat-select">
+        <!-- populated by JS -->
+    </select>
     <div id="links-body" class="links-body">
         <div class="ws-placeholder">Loading&#8230;</div>
     </div>
@@ -647,6 +650,10 @@
             <button class="tut-nav-item" data-page="media">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 19 16 19 16 8"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="1 17 5 12 9 14.5 12 11 16 15"/></svg>
                 <span>Media &amp; Links</span>
+            </button>
+            <button class="tut-nav-item" data-page="streaming">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <span>Streaming Hub</span>
             </button>
             <button class="tut-nav-item" data-page="shortcuts">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
@@ -926,6 +933,72 @@
 
                 <h2 class="tut-h2">Using media on the board</h2>
                 <p>When adding an Image card on the Visual Board, click <span class="tut-ui">From Media</span> to pick an existing image from this project instead of entering a URL manually.</p>
+            </div>
+
+            <!-- ── Streaming Hub ── -->
+            <div class="tut-page" id="tut-streaming">
+                <h1 class="tut-h1">Streaming Hub</h1>
+                <p class="tut-lead">Track what you watch — across all your streaming services — in one place. Add services like Netflix or Disney+, then track movies and series with per-episode progress.</p>
+
+                <h2 class="tut-h2">Step 1 — Create a Streaming category</h2>
+                <ol class="tut-list">
+                    <li>Open the <strong>Link Gallery</strong> app (the bookmark icon in the left sidebar).</li>
+                    <li>Click <span class="tut-ui">+ Category</span> in the category bar.</li>
+                    <li>Give it a name (e.g. <em>Streaming</em>) and set the <strong>Prefab</strong> to <span class="tut-ui">Streaming Hub</span>.</li>
+                    <li>Click <span class="tut-ui">Save</span>. The category will now appear as a special Streaming card.</li>
+                </ol>
+
+                <h2 class="tut-h2">Step 2 — Add streaming services</h2>
+                <ol class="tut-list">
+                    <li>Click your Streaming category card to open the hub.</li>
+                    <li>Click <span class="tut-ui">+ Add Service</span> in the service bar at the top.</li>
+                    <li>A search picker appears — type the name of a service (e.g. <em>Netflix</em>) and click it to add instantly.</li>
+                    <li>For a service not in the list, click <span class="tut-ui">Add custom service…</span> and fill in the name and URL manually.</li>
+                </ol>
+
+                <div class="tut-callout tut-callout--info">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    Known services (Netflix, Disney+, Max, etc.) are added with a single click — no URL needed.
+                </div>
+
+                <h2 class="tut-h2">Step 3 — Add movies and series</h2>
+                <ol class="tut-list">
+                    <li>Click a service pill (e.g. Netflix) to open its library drawer.</li>
+                    <li>Click the <span class="tut-ui">+</span> button in the toolbar to open the add form.</li>
+                    <li>Type a title in the search box — results from TMDB appear automatically with poster art.</li>
+                    <li>Click a result to select it, then click <span class="tut-ui">Movie</span> or <span class="tut-ui">Series</span> to save.</li>
+                    <li>Optionally paste a direct link (e.g. a Netflix episode URL) in the <strong>Link</strong> field.</li>
+                </ol>
+                <p>You can also click the <span class="tut-ui">+</span> icon button in the hub tab bar to add a movie/show and choose which service it belongs to — useful when you have multiple services.</p>
+
+                <h2 class="tut-h2">Tracking watched status</h2>
+                <div class="tut-table-wrap">
+                    <table class="tut-table">
+                        <thead><tr><th>Content type</th><th>How to mark watched</th></tr></thead>
+                        <tbody>
+                            <tr><td>Movie</td><td>Click the circle icon on the card — it toggles between unwatched and watched (shown with a coloured overlay).</td></tr>
+                            <tr><td>Series</td><td>Click a card to expand it, then tick individual episodes or click the season header to toggle an entire season at once.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p>A progress bar in the drawer header shows how much of the service's library you have watched.</p>
+
+                <h2 class="tut-h2">Filtering and tabs</h2>
+                <p>Use the <span class="tut-ui">All</span>, <span class="tut-ui">Movies</span>, and <span class="tut-ui">Series</span> tabs — both in each service drawer and in the main hub — to filter what is shown. The hub tab filters across all services at once.</p>
+
+                <h2 class="tut-h2">I'm Feeling Lucky</h2>
+                <p>Click <span class="tut-ui">🎲 I'm Feeling Lucky</span> in the hub tab bar. The system picks a random unwatched movie or the next unwatched episode of a series, shows details fetched from TMDB, and lets you jump straight to watching it.</p>
+
+                <h2 class="tut-h2">Collections</h2>
+                <p>When adding or editing a title, you can assign a <strong>Collection</strong> name (e.g. <em>Marvel</em> or <em>Star Wars</em>). Titles in the same collection are grouped together with a stacked-card visual on the hub grid.</p>
+
+                <h2 class="tut-h2">Removing a service</h2>
+                <p>Hover over a service pill in the hub bar and click the small <span class="tut-ui">✕</span> that appears. You will be asked to confirm — removing a service also deletes all movies and series tracked under it.</p>
+
+                <div class="tut-callout tut-callout--warn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    Removing a service cannot be undone. All movies and series data for that service is permanently deleted.
+                </div>
             </div>
 
             <!-- ── Shortcuts ── -->
