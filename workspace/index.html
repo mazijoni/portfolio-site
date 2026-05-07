@@ -335,6 +335,13 @@
                     </div>
                     <div class="btb-divider"></div>
                     <div class="btb-group">
+                        <button class="btb-btn" id="btn-board-milanote-import" title="Import from Milanote (paste clipboard)">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            <span>Import</span>
+                        </button>
+                    </div>
+                    <div class="btb-divider"></div>
+                    <div class="btb-group">
                         <button class="btb-btn" data-type="tag" title="Tag label">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
                             <span>Tag</span>
@@ -1086,6 +1093,36 @@
                 <button type="submit" class="ws-btn ws-btn-accent" id="btn-project-submit">Create Project</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Board: Milanote import modal -->
+<div id="modal-board-import" class="ws-modal-overlay hidden">
+    <div class="ws-modal ws-modal--wide">
+        <div class="ws-modal-header">
+            <h2>Import from Milanote</h2>
+            <button class="ws-modal-close" data-modal="modal-board-import">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="ws-modal-form">
+            <p style="margin:0 0 10px;opacity:.65;font-size:.85rem;">
+                In Milanote, select the cards you want, press <kbd>Ctrl+C</kbd>,
+                then click inside the box below and press <kbd>Ctrl+V</kbd>.
+            </p>
+            <div class="form-group">
+                <textarea id="board-import-capture"
+                    placeholder="Click here, then paste (Ctrl+V) your copied Milanote cards…"
+                    rows="6"
+                    style="resize:vertical;font-size:.82rem;font-family:monospace;opacity:.8;"
+                    spellcheck="false"></textarea>
+            </div>
+            <div id="board-import-preview" style="display:none;margin-top:10px;font-size:.83rem;opacity:.7;"></div>
+            <div class="ws-modal-footer">
+                <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-board-import">Cancel</button>
+                <button type="button" class="ws-btn ws-btn-accent" id="btn-board-import-confirm" disabled>Import</button>
+            </div>
+        </div>
     </div>
 </div>
 

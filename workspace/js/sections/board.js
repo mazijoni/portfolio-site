@@ -88,7 +88,7 @@ export function init() {
     });
 
     // Toolbar buttons — click to add at center
-    document.querySelectorAll("#board-toolbar .btb-btn").forEach(btn => {
+    document.querySelectorAll("#board-toolbar .btb-btn[data-type]").forEach(btn => {
         btn.addEventListener("click", () => {
             if (!_canEdit) { toast("View-only access", "info"); return; }
             const type = btn.dataset.type;
@@ -142,7 +142,7 @@ export function init() {
 
     // Link form
     document.getElementById("form-board-link")
-        .addEventListener("submit", _onLinkSubmit);
+        ?.addEventListener("submit", _onLinkSubmit);
 
     // Image form (legacy URL form - keep listener safe)
     document.getElementById("form-board-image")
@@ -192,9 +192,19 @@ export function init() {
         ));
     });
 
+    // Paste from Milanote (or plain text / URL / image)
+    document.addEventListener("paste", _onBoardPaste);
+
+    // Dedicated Milanote import modal
+    document.getElementById("btn-board-milanote-import")?.addEventListener("click", () => {
+        if (!_canEdit) { toast("View-only access", "info"); return; }
+        _openImportModal();
+    });
+    document.getElementById("board-import-capture")?.addEventListener("paste", _onImportCapturePaste);
+
     // Media picker form
     document.getElementById("board-media-search")
-        .addEventListener("input", _filterMediaPicker);
+        ?.addEventListener("input", _filterMediaPicker);
 
     // Context menu: right-click on canvas or card
     document.getElementById("board-canvas")?.addEventListener("contextmenu", (e) => {
@@ -1748,4 +1758,411 @@ function _closestAnchor(cardId, clientX, clientY, canvasRect) {
     const dy = clientY - cy;
     if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? "right" : "left";
     return dy > 0 ? "bottom" : "top";
+}
+
+/* ────────────────────────────────────── paste from Milanote ── */
+
+/* Dedicated import modal — intercepts clipboard before browser interprets it */
+function _openImportModal() {
+    const ta      = document.getElementById("board-import-capture");
+    const preview = document.getElementById("board-import-preview");
+    const btn     = document.getElementById("btn-board-import-confirm");
+    ta.value      = "";
+    preview.style.display = "none";
+    btn.disabled  = true;
+    btn.onclick   = null;
+    openModal("modal-board-import");
+    setTimeout(() => ta.focus(), 80);
+}
+
+async function _onImportCapturePaste(e) {
+    e.preventDefault(); // stop text landing in textarea
+
+    const cd    = e.clipboardData;
+    const ta      = document.getElementById("board-import-capture");
+    const preview = document.getElementById("board-import-preview");
+    const btn     = document.getElementById("btn-board-import-confirm");
+
+    // Log all available MIME types to console for debugging
+    const types = Array.from(cd.types);
+    console.group("Milanote clipboard MIME types");
+    types.forEach(t => {
+        try { console.log(t + ":\n", cd.getData(t)); } catch { console.log(t, "(binary)"); }
+    });
+    console.groupEnd();
+
+    let cards = [];
+
+    // 1. Milanote JSON
+    const milanoteRaw = cd.getData("application/x-milanote-clipboard");
+    if (milanoteRaw) {
+        try {
+            const parsed = JSON.parse(milanoteRaw);
+            const items  = Array.isArray(parsed) ? parsed : (parsed.items || parsed.elements || parsed.nodes || []);
+            cards = items.map(it => _milanoteItemToCard(it, 0, 0)).filter(Boolean);
+            ta.value = "Milanote JSON detected ✓\n\n" + JSON.stringify(JSON.parse(milanoteRaw), null, 2);
+        } catch (err) {
+            ta.value = "JSON parse error: " + err.message;
+        }
+    }
+
+    // 2. HTML clipboard
+    if (!cards.length) {
+        const html = cd.getData("text/html");
+        if (html) {
+            cards = _parseHtmlPaste(html);
+            ta.value = "HTML clipboard detected ✓\n\n" + html;
+        }
+    }
+
+    // 3. Plain text fallback
+    if (!cards.length) {
+        const text = cd.getData("text/plain").trim();
+        if (text) {
+            cards = _inferCardsFromText(text);
+            ta.value = "Plain text detected:\n\n" + text;
+        }
+    }
+
+    if (!cards.length) {
+        preview.style.display = "block";
+        preview.textContent   = "Nothing recognised in clipboard.";
+        btn.disabled = true;
+        return;
+    }
+
+    const summary = _summariseCards(cards);
+    preview.style.display = "block";
+    preview.innerHTML = `<strong>${cards.length} item${cards.length !== 1 ? "s" : ""} ready to import:</strong> ${escHtml(summary)}`;
+    btn.disabled = false;
+    btn.onclick  = async () => {
+        closeModal("modal-board-import");
+        const canvas = document.getElementById("board-canvas");
+        const rect   = canvas.getBoundingClientRect();
+        const cx     = rect.width  / 2 - _panX;
+        const cy     = rect.height / 3 - _panY;
+        const n = await _placeCards(cards, cx, cy);
+        toast(n > 1 ? `${n} items imported from Milanote` : "Imported from Milanote", "info");
+    };
+}
+
+function _summariseCards(cards) {
+    const counts = {};
+    cards.forEach(c => { counts[c.type] = (counts[c.type] || 0) + 1; });
+    return Object.entries(counts).map(([t, n]) => `${n} ${t}`).join(", ");
+}
+
+async function _onBoardPaste(e) {
+    if (!document.getElementById("section-board")?.classList.contains("active")) return;
+    if (e.target.matches("input, textarea, [contenteditable]")) return;
+    if (!_canEdit) { toast("View-only access", "info"); return; }
+
+    const cd = e.clipboardData;
+    if (!cd) return;
+
+    // 1. Milanote proprietary JSON format
+    const milanoteRaw = cd.getData("application/x-milanote-clipboard");
+    if (milanoteRaw) {
+        e.preventDefault();
+        try {
+            const parsed = JSON.parse(milanoteRaw);
+            const items  = Array.isArray(parsed)
+                ? parsed
+                : (parsed.items || parsed.elements || parsed.nodes || []);
+            if (items.length) { await _pasteMilanoteItems(items); return; }
+        } catch { /* fall through */ }
+    }
+
+    // 2. Image blob (screenshot pasted directly)
+    for (const item of Array.from(cd.items)) {
+        if (item.type.startsWith("image/")) {
+            e.preventDefault();
+            const file = item.getAsFile();
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async () => {
+                const canvas = document.getElementById("board-canvas");
+                const rect   = canvas.getBoundingClientRect();
+                const cx     = rect.width  / 2 - _panX;
+                const cy     = rect.height / 3 - _panY;
+                await addDoc(refs.boardItems(db, _uid, _pid), {
+                    type: "image", url: reader.result, label: file.name || "",
+                    x: Math.round(cx - 120), y: Math.round(cy - 90),
+                    w: 240, h: 180, createdAt: serverTimestamp()
+                }).catch(console.error);
+                toast("Image pasted", "info");
+            };
+            reader.readAsDataURL(file);
+            return;
+        }
+    }
+
+    const canvas = document.getElementById("board-canvas");
+    const rect   = canvas.getBoundingClientRect();
+    const cx     = rect.width  / 2 - _panX;
+    const cy     = rect.height / 3 - _panY;
+
+    // 3. HTML clipboard — preserves lists, links, headings from rich sources
+    const html = cd.getData("text/html");
+    if (html) {
+        const htmlCards = _parseHtmlPaste(html);
+        if (htmlCards.length) {
+            e.preventDefault();
+            const n = await _placeCards(htmlCards, cx, cy);
+            toast(n > 1 ? `${n} items pasted` : "Pasted", "info");
+            return;
+        }
+    }
+
+    // 4. Plain text — infer card types from content patterns
+    const text = cd.getData("text/plain").trim();
+    if (!text) return;
+    e.preventDefault();
+
+    const cards = _inferCardsFromText(text);
+    if (!cards.length) return;
+    const n = await _placeCards(cards, cx, cy);
+    toast(n > 1 ? `${n} items pasted` : "Pasted", "info");
+}
+
+async function _pasteMilanoteItems(items) {
+    if (!items.length || !_pid || !_uid) return;
+    const canvas = document.getElementById("board-canvas");
+    const rect   = canvas.getBoundingClientRect();
+    const cx     = rect.width  / 2;
+    const cy     = rect.height / 3;
+
+    // Centre the pasted group on the visible canvas area
+    const xs = items.map(it => it.x ?? it.position?.x ?? 0).filter(n => Number.isFinite(n));
+    const ys = items.map(it => it.y ?? it.position?.y ?? 0).filter(n => Number.isFinite(n));
+    const minX    = xs.length ? Math.min(...xs) : 0;
+    const minY    = ys.length ? Math.min(...ys) : 0;
+    const offsetX = cx - _panX - minX;
+    const offsetY = cy - _panY - minY;
+
+    let count = 0;
+    await Promise.all(items.map(item => {
+        const mapped = _milanoteItemToCard(item, offsetX, offsetY);
+        if (!mapped) return null;
+        count++;
+        return addDoc(refs.boardItems(db, _uid, _pid), {
+            ...mapped, createdAt: serverTimestamp()
+        }).catch(console.error);
+    }));
+
+    toast(count > 1 ? `${count} items pasted from Milanote` : "Pasted from Milanote", "info");
+}
+
+function _milanoteItemToCard(item, offsetX, offsetY) {
+    const rawType = (item._type || item.type || item.kind || "note").toString().toLowerCase();
+    const x       = Math.round((item.x ?? item.position?.x ?? 0) + offsetX);
+    const y       = Math.round((item.y ?? item.position?.y ?? 0) + offsetY);
+    const w       = item.width  || item.w || undefined;
+    const h       = item.height || item.h || undefined;
+    const content = item.content || item.text || item.title || item.body || "";
+    const url     = item.url || item.link || item.src || item.href || "";
+    const color   = item.backgroundColor || item.noteColor || item.color || undefined;
+
+    const base = { x, y };
+    if (w) base.w = w;
+    if (h) base.h = h;
+    if (color && /^#[0-9A-Fa-f]{3,8}$/.test(color)) base.color = color;
+
+    if (rawType === "note" || rawType === "card" || rawType === "text" || rawType === "sticky") {
+        return { ...base, type: "note", content };
+    }
+    if (rawType === "image" || rawType === "photo") {
+        return { ...base, type: "image", url, label: content };
+    }
+    if (rawType === "link" || rawType === "bookmark" || rawType === "url" || rawType === "weblink") {
+        return { ...base, type: "link", url, label: content };
+    }
+    if (rawType === "label" || rawType === "heading" || rawType === "title") {
+        return { ...base, type: "heading", content };
+    }
+    if (rawType === "checklist" || rawType === "todo" || rawType === "task" || rawType === "list") {
+        const rawItems = item.items || item.todos || item.tasks || [];
+        const todos = Array.isArray(rawItems)
+            ? rawItems.map(t => typeof t === "string"
+                ? { text: t, done: false }
+                : { text: t.text || t.content || t.label || "", done: !!(t.checked || t.done) })
+            : [];
+        return { ...base, type: "todo", content: content || "Checklist", todos };
+    }
+    if (rawType === "file" || rawType === "attachment") {
+        return { ...base, type: "file", url, label: content };
+    }
+    if (rawType === "embed" || rawType === "video" || rawType === "youtube" || rawType === "iframe") {
+        return { ...base, type: "embed", url, label: content, w: w || 320, h: h || 200 };
+    }
+    if (rawType === "column" || rawType === "group" || rawType === "container") {
+        return { ...base, type: "column", content: content || "Group", w: w || 240, h: h || 240 };
+    }
+    // Unknown type — fall back to note if there's any text/url
+    if (content || url) {
+        return { ...base, type: "note", content: content || url };
+    }
+    return null;
+}
+
+/* ── Infer card types from plain text ── */
+
+function _inferCardsFromText(text) {
+    const URL_RE      = /^https?:\/\/\S+$/i;
+    // Common checkbox / bullet prefixes used by many tools
+    const CHECKBOX_RE = /^(?:\[[ xX✓✗]\]|☐|☑|☒|[-*•→▸]\s)\s*/;
+
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return [];
+
+    const cards = [];
+    let i = 0;
+
+    while (i < lines.length) {
+        const line = lines[i];
+
+        // URL line → link card
+        if (URL_RE.test(line)) {
+            cards.push({ type: "link", url: line, label: "" });
+            i++;
+            continue;
+        }
+
+        // Checkbox / bullet item → collect consecutive run into one todo card
+        if (CHECKBOX_RE.test(line)) {
+            // If the card just before this was a short plain note, use it as the checklist title
+            let title = "Checklist";
+            if (cards.length) {
+                const last = cards[cards.length - 1];
+                if (last.type === "note" && last.content.length <= 60) {
+                    title = cards.pop().content;
+                }
+            }
+            const todos = [];
+            while (i < lines.length && CHECKBOX_RE.test(lines[i])) {
+                const m    = lines[i].match(CHECKBOX_RE);
+                const raw  = lines[i].slice(m[0].length).trim();
+                const done = /\[[xX✓]\]|☑|☒/.test(m[0]);
+                if (raw) todos.push({ text: raw, done });
+                i++;
+            }
+            if (todos.length) cards.push({ type: "todo", content: title, todos });
+            continue;
+        }
+
+        // Everything else → note
+        cards.push({ type: "note", content: line });
+        i++;
+    }
+
+    return cards;
+}
+
+/* ── Parse HTML clipboard into card objects ── */
+
+function _parseHtmlPaste(html) {
+    let doc;
+    try { doc = new DOMParser().parseFromString(html, "text/html"); }
+    catch { return []; }
+
+    const URL_RE = /^https?:\/\/\S+$/i;
+    const cards  = [];
+    const textOf = el => el.textContent?.trim() || "";
+
+    const walk = (root) => {
+        for (const el of Array.from(root.children)) {
+            const tag = el.tagName.toUpperCase();
+
+            // Lists → todo card (with checkboxes) or individual notes
+            if (tag === "UL" || tag === "OL") {
+                const items = [...el.querySelectorAll(":scope > li")];
+                if (!items.length) { walk(el); continue; }
+                const hasCb = items.some(li => li.querySelector("input[type=checkbox]"));
+                // Preceding heading sibling becomes the todo title
+                let title = "Checklist";
+                const prev = el.previousElementSibling;
+                if (prev && /^H[1-6]$/.test(prev.tagName)) title = textOf(prev) || "Checklist";
+                if (hasCb) {
+                    const todos = items.map(li => {
+                        const cb   = li.querySelector("input[type=checkbox]");
+                        const text = textOf(li).replace(/^\s*/, "").trim();
+                        return { text, done: cb?.checked || false };
+                    }).filter(t => t.text);
+                    if (todos.length) cards.push({ type: "todo", content: title, todos });
+                } else {
+                    items.forEach(li => {
+                        const t = textOf(li);
+                        if (!t) return;
+                        if (URL_RE.test(t)) cards.push({ type: "link", url: t, label: "" });
+                        else cards.push({ type: "note", content: t });
+                    });
+                }
+                continue;
+            }
+
+            // Headings → heading card
+            if (/^H[1-6]$/.test(tag)) {
+                const t = textOf(el);
+                if (t) cards.push({ type: "heading", content: t });
+                continue;
+            }
+
+            // Anchor → link card
+            if (tag === "A") {
+                const href  = el.getAttribute("href") || "";
+                const label = textOf(el);
+                if (href && /^https?:\/\//i.test(href)) cards.push({ type: "link", url: href, label });
+                continue;
+            }
+
+            // Image → image card
+            if (tag === "IMG") {
+                const src = el.getAttribute("src") || "";
+                if (/^https?:\/\//i.test(src))
+                    cards.push({ type: "image", url: src, label: el.getAttribute("alt") || "" });
+                continue;
+            }
+
+            // Block elements — recurse if they have rich children, else extract text
+            if (tag === "P" || tag === "DIV" || tag === "SECTION" || tag === "ARTICLE") {
+                const richChildren = el.querySelectorAll("a[href], img, ul, ol, h1, h2, h3, h4, h5, h6");
+                if (richChildren.length) { walk(el); continue; }
+                const t = textOf(el);
+                if (!t) continue;
+                if (URL_RE.test(t)) cards.push({ type: "link", url: t, label: "" });
+                else cards.push({ type: "note", content: t });
+                continue;
+            }
+
+            // Recurse into any other container
+            if (el.children.length) walk(el);
+        }
+    };
+
+    walk(doc.body);
+    return cards;
+}
+
+/* ── Layout card objects on the canvas in a grid ── */
+
+async function _placeCards(cards, cx, cy) {
+    if (!cards.length || !_pid || !_uid) return 0;
+    const CARD_W = 220;
+    const CARD_H = 90;
+    const GAP    = 16;
+    const COLS   = Math.min(cards.length, Math.max(1, Math.ceil(Math.sqrt(cards.length * 1.5))));
+    const totalW = COLS * (CARD_W + GAP) - GAP;
+    const startX = cx - totalW / 2;
+    const startY = cy - 60;
+
+    await Promise.all(cards.map((card, i) => {
+        const col = i % COLS;
+        const row = Math.floor(i / COLS);
+        const x   = Math.round(startX + col * (CARD_W + GAP));
+        const y   = Math.round(startY + row * (CARD_H + GAP));
+        return addDoc(refs.boardItems(db, _uid, _pid), {
+            ...card, x, y, createdAt: serverTimestamp()
+        }).catch(console.error);
+    }));
+    return cards.length;
 }
