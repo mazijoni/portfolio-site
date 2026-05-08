@@ -28,7 +28,7 @@ import { runMigrations }   from "./migrate.js";
 import { initHub }         from "./hub.js";
 import { initLinks }       from "./apps/links.js";
 import { initGmail }       from "./apps/gmail.js";
-import { initSheet, initSheetUser } from "./apps/sheet.js";
+import { initEurovision, initEurovisionUser } from "./apps/eurovision.js";
 import { initSharing }     from "./sharing.js";
 
 /* ── Firebase bootstrap ── */
@@ -48,7 +48,7 @@ export { auth, db, tmdbKey };
 /* ── Boot sequence ── */
 initHub();
 initUI();
-initSheet();
+initEurovision();
 initAuth(auth, db, onUserReady);
 _initBlueMap();
 
@@ -107,5 +107,5 @@ function onUserReady(user) {
     initSharing(db, user);
     initLinks(db, user);
     initGmail(db, user, googleClientId ?? "");
-    initSheetUser(db, user.uid);
+    initEurovisionUser(db, user.uid, user.displayName || user.email?.split("@")[0] || "Me");
 }
