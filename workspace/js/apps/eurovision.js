@@ -291,7 +291,7 @@ function _renderShell() {
                 ${ESC_SVG}
                 <div>
                     <div class="esc-logo-title">Eurovision 2026</div>
-                    <div class="esc-logo-sub">Point Tracker · Basel, Austria</div>
+                    <div class="esc-logo-sub">Point Tracker · Vienna, Austria</div>
                 </div>
             </div>
         </div>
