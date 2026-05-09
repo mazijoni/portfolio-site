@@ -82,6 +82,8 @@ export async function initEurovisionUser(db, uid, displayName, photoURL) {
     _uid         = uid;
     _myPhotoURL  = photoURL || "";
     const firstName = (displayName || '').split(' ')[0] || displayName || 'Guest';
+    // Always load personal ballot first — room join will push it, not overwrite it
+    _loadLocal();
     const saved = localStorage.getItem("esc_room");
     if (saved) {
         await _joinRoom(saved, firstName);
@@ -104,7 +106,29 @@ function _checkUrlRoom() {
     history.replaceState({}, "", u.toString());
 }
 
-/* ══════ Room code generator ══════ */
+/* ══════ Local persistence ══════ */
+const LOCAL_KEY = "esc_ballot_v1";
+
+function _saveLocal() {
+    try {
+        localStorage.setItem(LOCAL_KEY, JSON.stringify({
+            scores:    _scores,
+            finalists: Array.from(_finalists)
+        }));
+    } catch {}
+}
+
+function _loadLocal() {
+    try {
+        const raw = localStorage.getItem(LOCAL_KEY);
+        if (!raw) return;
+        const d = JSON.parse(raw);
+        if (d.scores)    _scores    = { all: d.scores.all || {}, finals: d.scores.finals || {} };
+        if (d.finalists) _finalists = new Set(d.finalists);
+    } catch {}
+}
+
+
 function _genCode() {
     // 6-char code, no ambiguous chars (0/O, 1/I)
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -144,10 +168,14 @@ async function _joinRoom(roomId, name) {
         return;
     }
     const data = snap.data();
-    if (data.finalists) _finalists = new Set(data.finalists);
-    const existing = data.members?.[_uid]?.scores;
-    if (existing) _scores = { all: existing.all || {}, finals: existing.finals || {} };
-    await setDoc(ref, { members: { [_uid]: { name, scores: _scores, joinedAt: Date.now() } } }, { merge: true });
+    if (data.finalists) {
+        _finalists = new Set(data.finalists);
+        _saveLocal(); // keep finalists in sync locally
+    }
+    // Push OUR local scores into the room — never pull room scores over ours
+    await setDoc(ref, {
+        members: { [_uid]: { name, photoURL: _myPhotoURL, scores: _scores, joinedAt: Date.now() } }
+    }, { merge: true });
     _subscribeRoom();
     _updateRoomUI();
     _renderGrid();
@@ -174,10 +202,10 @@ function _subscribeRoom() {
 
 async function _leaveRoom() {
     if (_unsub) { _unsub(); _unsub = null; }
-    _roomId = null; _members = {};
+    _roomId  = null;
+    _members = {};
     localStorage.removeItem("esc_room");
-    _scores = { all: {}, finals: {} };
-    _finalists = new Set(AUTO_IDS);
+    // Scores and finalists are KEPT — user's ballot is personal
     _renderTabBar(); _renderGrid(); _updateRoomUI(); _renderLeaderboard(); _renderMembersBar();
 }
 
@@ -208,28 +236,27 @@ function _getName() {
 
 /* ══════ Score logic ══════ */
 function _assign(countryId, pts) {
-    // Toggle off if same, otherwise just set — same value allowed on multiple countries
     if (_s()[countryId] === pts) {
         _ds(countryId);
     } else {
         _cs(countryId, pts);
     }
+    _saveLocal();       // persist ballot personally, regardless of room state
     _renderGrid();
     _renderLeaderboard();
-    _scheduleSave();
+    _scheduleSave();    // also sync to room if in one
 }
 
 function _toggleFinalist(id) {
     if (_finalists.has(id)) {
-        // Don't remove auto-qualifiers
         const c = COUNTRIES.find(x => x.id === id);
         if (c?.auto) { _showToast("Auto-qualifiers can't be removed.", "warn"); return; }
         _finalists.delete(id);
-        // Clear any finals scores for removed country
         delete _scores.finals[id];
     } else {
         _finalists.add(id);
     }
+    _saveLocal();   // persist finalist list personally
     _renderTabBar();
     _renderGrid();
     _renderLeaderboard();
