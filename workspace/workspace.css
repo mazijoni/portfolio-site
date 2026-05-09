@@ -10272,6 +10272,7 @@ body.adm-page {
     padding: 1.25rem 1.5rem;
     overflow-y: auto;
     border-right: 1px solid var(--border);
+    min-height: 0;
 }
 
 .esc-leaderboard-wrap {
@@ -10280,6 +10281,7 @@ body.adm-page {
     background: var(--bg-secondary);
     display: flex;
     flex-direction: column;
+    min-height: 0;
 }
 
 /* -- SCORE GRID -- */
