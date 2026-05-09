@@ -10881,3 +10881,19 @@ body[data-hub-app="sheet"] .ws-fab { display: none !important; }
     .esc-header-right { gap: 0.35rem; }
     .esc-btn { padding: 0.3rem 0.6rem; font-size: 0.72rem; }
 }
+
+/* -- Mobile scroll fix: full-column scroll instead of clipped panels -- */
+@media (max-width: 768px) {
+    .esc-layout {
+        overflow-y: auto;
+        overflow-x: hidden;
+        height: auto;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+    /* Let grid and leaderboard flow to natural height, no clipping */
+    .esc-grid-wrap       { overflow-y: visible; flex-shrink: 0; }
+    .esc-leaderboard-wrap { overflow-y: visible; flex-shrink: 0; max-height: none; }
+}
