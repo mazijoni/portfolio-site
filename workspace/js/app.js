@@ -107,5 +107,5 @@ function onUserReady(user) {
     initSharing(db, user);
     initLinks(db, user);
     initGmail(db, user, googleClientId ?? "");
-    initEurovisionUser(db, user.uid, user.displayName || user.email?.split("@")[0] || "Me");
+    initEurovisionUser(db, user.uid, user.displayName || user.email?.split("@")[0] || "", user.photoURL || "");
 }

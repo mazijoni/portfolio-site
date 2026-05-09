@@ -3,13 +3,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Admin — full read/write access to everything (must be first)
+    // Admin — full read/write access to everything
     match /{document=**} {
       allow read, write: if request.auth != null
                          && request.auth.token.email == "maze.development.admin@gmail.com";
     }
 
-    // Own data — full access (projects, links, gallery-links, settings, etc.)
+    // Own data — full access
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
@@ -23,6 +23,9 @@ service cloud.firestore {
       allow read, write: if request.auth != null &&
         get(/databases/$(database)/documents/users/$(ownerUid)/projects/$(pid))
           .data.members[request.auth.uid] != null;
+      allow write: if request.auth != null &&
+      	get(/databases/$(database)/documents/users/$(ownerUid)/projects/$(pid))
+        	.data.members[request.auth.uid].rule == "contributor"
     }
 
     // Memberships — written by owner when sharing, read by the member
@@ -30,7 +33,6 @@ service cloud.firestore {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow write: if request.auth != null;
     }
-
 
     // Public profiles — any signed-in user can read (needed for the share picker)
     match /user_profiles/{uid} {
