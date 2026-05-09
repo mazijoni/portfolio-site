@@ -1,28 +1,18 @@
 /**
  * eurovision.js — Eurovision 2026 Point Tracker
- *
- * Features:
- *  - 35 competing countries (2026 Austria lineup)
- *  - Classic Eurovision scoring: 1,2,3,4,5,6,7,8,10,12 points
- *  - Firestore persistence per user
- *  - Share via room code — multiple users' scores averaged in real time
- *  - Leaderboard sorted by score
- *  - Copy-to-clipboard share link
+ * Two tabs: All Countries (35) + Grand Final (qualified finalists, synced via room)
+ * Separate ballots per tab. Finalist list managed per-room in Firestore.
  */
 
 import {
-    doc, setDoc, getDoc, onSnapshot,
-    collection, serverTimestamp
+    doc, setDoc, getDoc, onSnapshot, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
-/* ══════════════════════════════════════
-   Eurovision 2026 Countries (35 total)
-   ══════════════════════════════════════ */
 export const COUNTRIES = [
     { id: "al", name: "Albania",        flag: "🇦🇱" },
     { id: "am", name: "Armenia",        flag: "🇦🇲" },
     { id: "au", name: "Australia",      flag: "🇦🇺" },
-    { id: "at", name: "Austria",        flag: "🇦🇹", host: true },
+    { id: "at", name: "Austria",        flag: "🇦🇹", auto: true },
     { id: "az", name: "Azerbaijan",     flag: "🇦🇿" },
     { id: "be", name: "Belgium",        flag: "🇧🇪" },
     { id: "bg", name: "Bulgaria",       flag: "🇧🇬" },
@@ -32,12 +22,12 @@ export const COUNTRIES = [
     { id: "dk", name: "Denmark",        flag: "🇩🇰" },
     { id: "ee", name: "Estonia",        flag: "🇪🇪" },
     { id: "fi", name: "Finland",        flag: "🇫🇮" },
-    { id: "fr", name: "France",         flag: "🇫🇷" },
+    { id: "fr", name: "France",         flag: "🇫🇷", auto: true },
     { id: "ge", name: "Georgia",        flag: "🇬🇪" },
-    { id: "de", name: "Germany",        flag: "🇩🇪" },
+    { id: "de", name: "Germany",        flag: "🇩🇪", auto: true },
     { id: "gr", name: "Greece",         flag: "🇬🇷" },
     { id: "il", name: "Israel",         flag: "🇮🇱" },
-    { id: "it", name: "Italy",          flag: "🇮🇹" },
+    { id: "it", name: "Italy",          flag: "🇮🇹", auto: true },
     { id: "lv", name: "Latvia",         flag: "🇱🇻" },
     { id: "lt", name: "Lithuania",      flag: "🇱🇹" },
     { id: "lu", name: "Luxembourg",     flag: "🇱🇺" },
@@ -53,100 +43,115 @@ export const COUNTRIES = [
     { id: "se", name: "Sweden",         flag: "🇸🇪" },
     { id: "ch", name: "Switzerland",    flag: "🇨🇭" },
     { id: "ua", name: "Ukraine",        flag: "🇺🇦" },
-    { id: "gb", name: "United Kingdom", flag: "🇬🇧" },
+    { id: "gb", name: "United Kingdom", flag: "🇬🇧", auto: true },
 ];
 
 const POINT_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12];
+const AUTO_IDS     = COUNTRIES.filter(c => c.auto).map(c => c.id);
 
 /* ══════ State ══════ */
-let _db       = null;
-let _uid      = null;
-let _roomId   = null;           // Firestore room doc ID
-let _myScores = {};             // { countryId: pointValue|null }
-let _members  = {};             // { uid: { name, scores } } — live from Firestore
-let _unsub    = null;           // Firestore onSnapshot unsubscriber
-let _savTimer = null;
+let _db        = null;
+let _uid       = null;
+let _roomId    = null;
+let _scores    = { all: {}, finals: {} };
+let _finalists = new Set(AUTO_IDS);
+let _activeTab = "all";
+let _members   = {};
+let _myPhotoURL = "";
+let _unsub     = null;
+let _savTimer  = null;
+
+/* ══════ SVG constants ══════ */
+const ESC_SVG = `<svg class="esc-logo-svg" viewBox="0 0 226.683 233.658" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="escGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#009FE3"/><stop offset="100%" stop-color="#E4007C"/></linearGradient></defs><path fill="url(#escGrad)" d="M 99.722 231.541 C 101.585 233.574 104.305 233.076 105.56 230.435 C 135.35 167.569 225.843 139.135 225.843 59.033 C 225.843 29.922 206.246 0.69 168.566 0.013 C 132.699 -0.635 100.509 22.469 97.152 59.87 C 96.145 36.188 80.613 25.269 62.7 25.269 C 27.461 25.269 -1.402 57.081 0.053 104.952 C 2.474 180.242 74.855 203.964 99.722 231.541 Z M 93.326 77.913 C 94.282 81.669 98.865 81.54 99.901 77.823 C 115.414 21.593 186.748 15.446 186.748 72.384 C 186.748 117.336 107.075 165.298 101.007 207.969 C 86.591 179.973 33.638 164.6 33.638 103.747 C 33.638 51.96 83.991 41.08 93.326 77.913 Z"/></svg>`;
+const FIN_SVG = `<svg viewBox="0 0 226.683 233.658" xmlns="http://www.w3.org/2000/svg"><path d="M 99.722 231.541 C 101.585 233.574 104.305 233.076 105.56 230.435 C 135.35 167.569 225.843 139.135 225.843 59.033 C 225.843 29.922 206.246 0.69 168.566 0.013 C 132.699 -0.635 100.509 22.469 97.152 59.87 C 96.145 36.188 80.613 25.269 62.7 25.269 C 27.461 25.269 -1.402 57.081 0.053 104.952 C 2.474 180.242 74.855 203.964 99.722 231.541 Z M 93.326 77.913 C 94.282 81.669 98.865 81.54 99.901 77.823 C 115.414 21.593 186.748 15.446 186.748 72.384 C 186.748 117.336 107.075 165.298 101.007 207.969 C 86.591 179.973 33.638 164.6 33.638 103.747 C 33.638 51.96 83.991 41.08 93.326 77.913 Z"/></svg>`;
+
+/* ══════ Helpers ══════ */
+const _s  = ()  => _scores[_activeTab];
+const _cs = (id, v) => { _scores[_activeTab][id] = v; };
+const _ds = id  => { delete _scores[_activeTab][id]; };
 
 /* ══════ Init ══════ */
-
 export function initEurovision() {
-    _renderUI();
-    _bindUIEvents();
+    _renderShell();
+    _bindEvents();
     _checkUrlRoom();
 }
 
-export async function initEurovisionUser(db, uid, displayName) {
-    _db  = db;
-    _uid = uid;
-
-    // Restore room from localStorage
+export async function initEurovisionUser(db, uid, displayName, photoURL) {
+    _db          = db;
+    _uid         = uid;
+    _myPhotoURL  = photoURL || "";
+    const firstName = (displayName || '').split(' ')[0] || displayName || 'Guest';
     const saved = localStorage.getItem("esc_room");
     if (saved) {
-        await _joinRoom(saved, displayName);
+        await _joinRoom(saved, firstName);
     } else {
-        _renderScoreGrid();
+        _renderGrid();
+        _renderLeaderboard();
     }
+    const ni = document.getElementById("esc-display-name");
+    if (ni) ni.value = firstName;
 }
 
-/* ══════ URL room join ══════ */
-
+/* ══════ URL ══════ */
 function _checkUrlRoom() {
-    const params = new URLSearchParams(window.location.search);
-    const room   = params.get("esc_room");
-    if (!room) return;
-    // Will be handled once user is ready via initEurovisionUser
-    localStorage.setItem("esc_room", room);
-    // Clean URL
-    const url = new URL(window.location.href);
-    url.searchParams.delete("esc_room");
-    history.replaceState({}, "", url.toString());
+    const p = new URLSearchParams(window.location.search);
+    const r = p.get("esc_room");
+    if (!r) return;
+    localStorage.setItem("esc_room", r);
+    const u = new URL(window.location.href);
+    u.searchParams.delete("esc_room");
+    history.replaceState({}, "", u.toString());
 }
 
-/* ══════ Room management ══════ */
+/* ══════ Room code generator ══════ */
+function _genCode() {
+    // 6-char code, no ambiguous chars (0/O, 1/I)
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    return Array.from({length: 6}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
 
-async function _createRoom(displayName) {
+/* Flag image helper — uses flagcdn.com with emoji fallback */
+const _flagImg = (id, name, size = '20x15') =>
+    `<img class="esc-flag-img" src="https://flagcdn.com/${size}/${id}.png" alt="${name}" loading="lazy">`;
+
+/* ══════ Room ══════ */
+async function _createRoom(name) {
     if (!_db || !_uid) return;
-    const roomRef = doc(collection(_db, "esc_rooms"));
-    _roomId = roomRef.id;
+    const code = _genCode();
+    const ref  = doc(_db, "esc_rooms", code);
+    _roomId = code;
     localStorage.setItem("esc_room", _roomId);
-
-    await setDoc(roomRef, {
+    await setDoc(ref, {
         created: serverTimestamp(),
-        members: {
-            [_uid]: { name: displayName || "You", scores: _myScores, joinedAt: Date.now() }
-        }
+        finalists: Array.from(_finalists),
+        members: { [_uid]: { name, photoURL: _myPhotoURL, scores: _scores, joinedAt: Date.now() } }
     });
-
     _subscribeRoom();
     _updateRoomUI();
 }
 
-async function _joinRoom(roomId, displayName) {
+async function _joinRoom(roomId, name) {
     if (!_db || !_uid) return;
     _roomId = roomId;
-
-    const ref     = doc(_db, "esc_rooms", roomId);
-    const snap    = await getDoc(ref).catch(() => null);
-    if (!snap || !snap.exists()) {
-        // Room gone — create new
+    const ref  = doc(_db, "esc_rooms", roomId);
+    const snap = await getDoc(ref).catch(() => null);
+    if (!snap?.exists()) {
         localStorage.removeItem("esc_room");
         _roomId = null;
-        _renderScoreGrid();
         _showToast("Room not found — starting fresh.", "warn");
+        _renderGrid(); _renderLeaderboard();
         return;
     }
-
-    // Push our scores into the room
-    const existing = snap.data().members?.[_uid]?.scores || {};
-    _myScores = existing;
-
-    await setDoc(ref, {
-        members: { [_uid]: { name: displayName || "You", scores: _myScores, joinedAt: Date.now() } }
-    }, { merge: true });
-
+    const data = snap.data();
+    if (data.finalists) _finalists = new Set(data.finalists);
+    const existing = data.members?.[_uid]?.scores;
+    if (existing) _scores = { all: existing.all || {}, finals: existing.finals || {} };
+    await setDoc(ref, { members: { [_uid]: { name, scores: _scores, joinedAt: Date.now() } } }, { merge: true });
     _subscribeRoom();
     _updateRoomUI();
-    _renderScoreGrid();
+    _renderGrid();
+    _renderLeaderboard();
 }
 
 function _subscribeRoom() {
@@ -155,7 +160,13 @@ function _subscribeRoom() {
     const ref = doc(_db, "esc_rooms", _roomId);
     _unsub = onSnapshot(ref, snap => {
         if (!snap.exists()) return;
-        _members = snap.data().members || {};
+        const data = snap.data();
+        if (data.finalists) {
+            _finalists = new Set(data.finalists);
+            _renderTabBar();
+            _renderGrid();
+        }
+        _members = data.members || {};
         _renderLeaderboard();
         _renderMembersBar();
     });
@@ -163,91 +174,94 @@ function _subscribeRoom() {
 
 async function _leaveRoom() {
     if (_unsub) { _unsub(); _unsub = null; }
-    _roomId  = null;
-    _members = {};
+    _roomId = null; _members = {};
     localStorage.removeItem("esc_room");
-    _myScores = {};
-    _renderScoreGrid();
-    _updateRoomUI();
-    _renderLeaderboard();
-    _renderMembersBar();
+    _scores = { all: {}, finals: {} };
+    _finalists = new Set(AUTO_IDS);
+    _renderTabBar(); _renderGrid(); _updateRoomUI(); _renderLeaderboard(); _renderMembersBar();
 }
 
-async function _pushScores(displayName) {
+async function _pushScores(name) {
     if (!_db || !_uid || !_roomId) return;
-    const ref = doc(_db, "esc_rooms", _roomId);
-    await setDoc(ref, {
-        members: { [_uid]: { name: displayName || "Me", scores: _myScores, updatedAt: Date.now() } }
+    await setDoc(doc(_db, "esc_rooms", _roomId), {
+        members: { [_uid]: { name, scores: _scores, photoURL: _myPhotoURL, updatedAt: Date.now() } }
     }, { merge: true });
 }
 
-/* ══════ Score logic ══════ */
-
-function _assignPoint(countryId, points) {
-    // Toggle off if same value clicked
-    if (_myScores[countryId] === points) {
-        delete _myScores[countryId];
-    } else {
-        // Remove from country that previously had these points
-        for (const [cid, pts] of Object.entries(_myScores)) {
-            if (pts === points && cid !== countryId) delete _myScores[cid];
-        }
-        _myScores[countryId] = points;
-    }
-    _renderScoreGrid();
-    _renderLeaderboard();
-    _scheduleSave();
-}
-
-function _usedPoints() {
-    return new Set(Object.values(_myScores));
-}
-
-
-function _computeAverages() {
-    const allUids = Object.keys(_members);
-    if (!allUids.length) return {};
-
-    const sums   = {};
-    const counts = {};
-    for (const uid of allUids) {
-        const scores = _members[uid]?.scores || {};
-        for (const [cid, pts] of Object.entries(scores)) {
-            sums[cid]   = (sums[cid]   || 0) + pts;
-            counts[cid] = (counts[cid] || 0) + 1;
-        }
-    }
-
-    const avgs = {};
-    for (const cid of Object.keys(sums)) {
-        avgs[cid] = sums[cid] / allUids.length;
-    }
-    return avgs;
+async function _pushFinalists() {
+    if (!_db || !_uid || !_roomId) return;
+    await setDoc(doc(_db, "esc_rooms", _roomId), {
+        finalists: Array.from(_finalists)
+    }, { merge: true });
 }
 
 function _scheduleSave() {
     clearTimeout(_savTimer);
     _savTimer = setTimeout(() => {
-        _pushScores(_getDisplayName()).catch(() => {});
-        _renderLeaderboard();
+        _pushScores(_getName()).catch(() => {});
     }, 600);
 }
 
-function _getDisplayName() {
+function _getName() {
     return document.getElementById("esc-display-name")?.value?.trim() || "Me";
 }
 
-/* ══════ Render ══════ */
+/* ══════ Score logic ══════ */
+function _assign(countryId, pts) {
+    // Toggle off if same, otherwise just set — same value allowed on multiple countries
+    if (_s()[countryId] === pts) {
+        _ds(countryId);
+    } else {
+        _cs(countryId, pts);
+    }
+    _renderGrid();
+    _renderLeaderboard();
+    _scheduleSave();
+}
 
-function _renderUI() {
-    const container = document.getElementById("esc-app");
-    if (!container) return;
-    container.innerHTML = `
-    <!-- HEADER -->
+function _toggleFinalist(id) {
+    if (_finalists.has(id)) {
+        // Don't remove auto-qualifiers
+        const c = COUNTRIES.find(x => x.id === id);
+        if (c?.auto) { _showToast("Auto-qualifiers can't be removed.", "warn"); return; }
+        _finalists.delete(id);
+        // Clear any finals scores for removed country
+        delete _scores.finals[id];
+    } else {
+        _finalists.add(id);
+    }
+    _renderTabBar();
+    _renderGrid();
+    _renderLeaderboard();
+    if (_roomId) _pushFinalists().catch(() => {});
+}
+
+/* ══════ Average ══════ */
+function _averages() {
+    const uids = Object.keys(_members);
+    if (!uids.length) return {};
+    const sums = {}, cnt = {};
+    for (const uid of uids) {
+        const sc = _members[uid]?.scores?.[_activeTab] || {};
+        for (const [cid, pts] of Object.entries(sc)) {
+            sums[cid] = (sums[cid] || 0) + pts;
+            cnt[cid]  = (cnt[cid]  || 0) + 1;
+        }
+    }
+    const out = {};
+    for (const cid of Object.keys(sums)) out[cid] = sums[cid] / uids.length;
+    return out;
+}
+
+/* ══════ Render Shell ══════ */
+function _renderShell() {
+    const el = document.getElementById("esc-app");
+    if (!el) return;
+    el.innerHTML = `
     <div class="esc-header">
         <div class="esc-header-left">
             <div class="esc-logo">
-                <span class="esc-logo-star">★</span>
+                ${ESC_SVG}
                 <div>
                     <div class="esc-logo-title">Eurovision 2026</div>
                     <div class="esc-logo-sub">Point Tracker · Basel, Austria</div>
@@ -255,44 +269,35 @@ function _renderUI() {
             </div>
         </div>
         <div class="esc-header-right">
-            <div class="esc-name-wrap">
-                <input type="text" id="esc-display-name" class="esc-input esc-name-input" placeholder="Your name" maxlength="30" value="Me">
-            </div>
-            <div class="esc-room-info" id="esc-room-info">
-                <span class="esc-room-badge" id="esc-room-badge" style="display:none"></span>
-                <button class="esc-btn esc-btn-share" id="esc-btn-share">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-                    Share Room
-                </button>
-                <button class="esc-btn esc-btn-leave" id="esc-btn-leave" style="display:none">Leave Room</button>
-            </div>
+            <input type="text" id="esc-display-name" class="esc-input esc-name-input" placeholder="Your name" maxlength="30" value="Me">
+            <span class="esc-room-badge" id="esc-room-badge" style="display:none"></span>
+            <button class="esc-btn esc-btn-share" id="esc-btn-share">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                Share Room
+            </button>
+            <button class="esc-btn esc-btn-leave" id="esc-btn-leave" style="display:none">Leave Room</button>
         </div>
     </div>
 
-    <!-- MEMBERS BAR -->
     <div class="esc-members-bar" id="esc-members-bar" style="display:none"></div>
 
-    <!-- PROGRESS -->
-    <div class="esc-progress-wrap" id="esc-progress-wrap">
+    <div class="esc-tab-bar" id="esc-tab-bar"></div>
+
+    <div class="esc-progress-wrap">
         <div class="esc-progress-label">
-            <span id="esc-progress-count">0 / 10 points assigned</span>
-            <span class="esc-progress-hint">Assign all 10 ranks to complete your ballot</span>
+            <span id="esc-progress-count">0 countries scored</span>
         </div>
         <div class="esc-progress-bar"><div class="esc-progress-fill" id="esc-progress-fill"></div></div>
     </div>
 
-    <!-- MAIN LAYOUT -->
     <div class="esc-layout">
-        <!-- SCORE GRID -->
         <div class="esc-grid-wrap">
             <div class="esc-section-label">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-                Your Ballot
+                <span id="esc-grid-label">Your Ballot</span>
             </div>
             <div class="esc-grid" id="esc-score-grid"></div>
         </div>
-
-        <!-- LEADERBOARD -->
         <div class="esc-leaderboard-wrap">
             <div class="esc-section-label">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
@@ -303,14 +308,13 @@ function _renderUI() {
         </div>
     </div>
 
-    <!-- SHARE MODAL -->
     <div class="esc-modal-backdrop" id="esc-modal-backdrop">
         <div class="esc-modal">
             <div class="esc-modal-header">
                 <span>Share Your Room</span>
                 <button class="esc-modal-close" id="esc-modal-close">✕</button>
             </div>
-            <p class="esc-modal-desc">Invite friends to join your scoring session. Their votes will be averaged with yours in real time.</p>
+            <p class="esc-modal-desc">Invite friends to join. Their votes will be averaged with yours in real time.</p>
             <div class="esc-modal-row">
                 <div class="esc-modal-label">Room Code</div>
                 <div class="esc-copy-row">
@@ -327,37 +331,70 @@ function _renderUI() {
             </div>
             <div class="esc-modal-divider">— or join an existing room —</div>
             <div class="esc-copy-row">
-                <input type="text" class="esc-input esc-copy-input" id="esc-join-code-input" placeholder="Paste room code here…">
+                <input type="text" class="esc-input esc-copy-input" id="esc-join-code-input" placeholder="Paste room code…">
                 <button class="esc-btn esc-btn-share" id="esc-btn-join-room">Join</button>
             </div>
         </div>
-    </div>
-    `;
+    </div>`;
+
+    _renderTabBar();
+    _renderGrid();
+    _renderLeaderboard();
 }
 
-function _renderScoreGrid() {
-    const grid = document.getElementById("esc-score-grid");
+function _renderTabBar() {
+    const bar = document.getElementById("esc-tab-bar");
+    if (!bar) return;
+    const fc = _finalists.size;
+    bar.innerHTML = `
+        <button class="esc-tab${_activeTab === "all" ? " esc-tab--active" : ""}" data-tab="all">
+            All Countries <span class="esc-tab-count">35</span>
+        </button>
+        <button class="esc-tab${_activeTab === "finals" ? " esc-tab--active" : ""}" data-tab="finals">
+            Grand Final <span class="esc-tab-count">${fc}</span>
+        </button>`;
+}
+
+function _renderGrid() {
+    const grid  = document.getElementById("esc-score-grid");
+    const label = document.getElementById("esc-grid-label");
     if (!grid) return;
 
-    const used = _usedPoints();
+    const list = _activeTab === "finals"
+        ? COUNTRIES.filter(c => _finalists.has(c.id))
+        : COUNTRIES;
 
-    grid.innerHTML = COUNTRIES.map(c => {
-        const myPts = _myScores[c.id] ?? null;
+    if (label) label.textContent = _activeTab === "finals" ? "Grand Final Ballot" : "Your Ballot — All Countries";
+
+    if (_activeTab === "finals" && list.length === 0) {
+        grid.innerHTML = `<div class="esc-lb-empty">No finalists yet<br><span>Switch to All Countries and click ★ to add</span></div>`;
+        _updateProgress();
+        return;
+    }
+
+    const sc = _s();
+    grid.innerHTML = list.map(c => {
+        const myPts    = sc[c.id] ?? null;
         const hasScore = myPts !== null;
+        const inFinals = _finalists.has(c.id);
 
         const ptBtns = POINT_VALUES.map(pv => {
             const isAssigned = myPts === pv;
-            const isUsed     = used.has(pv) && !isAssigned;
-            return `<button class="esc-pt-btn${isAssigned ? " esc-pt-btn--active" : ""}${isUsed ? " esc-pt-btn--used" : ""}"
-                            data-country="${c.id}" data-pts="${pv}">${pv}</button>`;
+            return `<button class="esc-pt-btn${isAssigned ? " esc-pt-btn--active" : ""}"
+                data-country="${c.id}" data-pts="${pv}">${pv}</button>`;
         }).join("");
 
+        const starCls = inFinals ? "esc-finalist-btn esc-finalist-btn--on" : "esc-finalist-btn";
+        const starTip = inFinals ? "In Grand Final — click to remove" : "Add to Grand Final";
+        const autoTag = c.auto ? ` <span class="esc-host-badge">AUTO</span>` : "";
+
         return `
-        <div class="esc-country-card${hasScore ? " esc-country-card--scored" : ""}${c.host ? " esc-country-card--host" : ""}" data-id="${c.id}">
+        <div class="esc-country-card${hasScore ? " esc-country-card--scored" : ""}${inFinals && _activeTab === "all" ? " esc-country-card--finalist" : ""}">
             <div class="esc-country-info">
-                <span class="esc-flag">${c.flag}</span>
-                <span class="esc-country-name">${c.name}${c.host ? ' <span class="esc-host-badge">HOST</span>' : ""}</span>
+                ${_flagImg(c.id, c.name)}
+                <span class="esc-country-name">${c.name}${autoTag}</span>
                 ${hasScore ? `<span class="esc-country-pts-badge">${myPts} pts</span>` : ""}
+                <button class="${starCls}" data-finalist="${c.id}" title="${starTip}">${FIN_SVG}</button>
             </div>
             <div class="esc-pt-row">${ptBtns}</div>
         </div>`;
@@ -367,33 +404,32 @@ function _renderScoreGrid() {
 }
 
 function _updateProgress() {
-    const count = Object.keys(_myScores).length;
-    const pct   = (count / 10) * 100;
+    const count  = Object.keys(_s()).length;
+    const total  = (_activeTab === 'finals' ? _finalists.size : 35);
+    const pct    = total > 0 ? Math.min((count / total) * 100, 100) : 0;
     const fillEl = document.getElementById("esc-progress-fill");
     const lblEl  = document.getElementById("esc-progress-count");
     if (fillEl) fillEl.style.width = pct + "%";
-    if (lblEl)  lblEl.textContent = `${count} / 10 points assigned`;
+    if (lblEl)  lblEl.textContent  = `${count} ${count === 1 ? 'country' : 'countries'} scored`;
 }
 
 function _renderLeaderboard() {
-    const lb   = document.getElementById("esc-leaderboard");
+    const lb = document.getElementById("esc-leaderboard");
     if (!lb) return;
 
-    const isGroupMode = Object.keys(_members).length > 1;
-    const modeBtn     = document.getElementById("esc-lb-mode");
+    const isGroup = Object.keys(_members).length > 1;
+    const modeBtn = document.getElementById("esc-lb-mode");
     if (modeBtn) {
-        modeBtn.textContent = isGroupMode ? "Group Avg" : "My Votes";
-        modeBtn.classList.toggle("esc-lb-mode--group", isGroupMode);
+        modeBtn.textContent = isGroup ? "Group Avg" : "My Votes";
+        modeBtn.classList.toggle("esc-lb-mode--group", isGroup);
     }
 
-    let scores;
-    if (isGroupMode) {
-        scores = _computeAverages();
-    } else {
-        scores = { ..._myScores };
-    }
+    const scores = isGroup ? _averages() : { ..._s() };
+    const list   = _activeTab === "finals"
+        ? COUNTRIES.filter(c => _finalists.has(c.id))
+        : COUNTRIES;
 
-    const sorted = COUNTRIES
+    const sorted = list
         .map(c => ({ ...c, pts: scores[c.id] ?? 0 }))
         .sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name));
 
@@ -405,93 +441,105 @@ function _renderLeaderboard() {
     let rank = 0, lastPts = -1;
     lb.innerHTML = sorted.filter(c => c.pts > 0).map((c, i) => {
         if (c.pts !== lastPts) { rank = i + 1; lastPts = c.pts; }
-        const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `${rank}.`;
+        const rankCls = rank === 1 ? 'esc-rank-gold' : rank === 2 ? 'esc-rank-silver' : rank === 3 ? 'esc-rank-bronze' : '';
+        const rankHtml = rank <= 3
+            ? `<span class="material-symbols-outlined esc-lb-rank ${rankCls}">workspace_premium</span>`
+            : `<span class="esc-lb-rank esc-rank-num">${rank}</span>`;
         const barPct = (c.pts / 12) * 100;
-        const myPts  = _myScores[c.id] ?? 0;
+        const myPts  = _s()[c.id] ?? 0;
         return `
         <div class="esc-lb-row${rank <= 3 ? " esc-lb-row--top" : ""}">
-            <span class="esc-lb-rank">${medal}</span>
-            <span class="esc-lb-flag">${c.flag}</span>
+            ${rankHtml}
+            <span class="esc-lb-flag">${_flagImg(c.id, c.name)}</span>
             <span class="esc-lb-name">${c.name}</span>
-            ${isGroupMode && myPts ? `<span class="esc-lb-my-pts">You: ${myPts}</span>` : ""}
-            <div class="esc-lb-bar-wrap">
-                <div class="esc-lb-bar" style="width:${barPct}%"></div>
-            </div>
+            ${isGroup && myPts ? `<span class="esc-lb-my-pts">You: ${myPts}</span>` : ""}
+            <div class="esc-lb-bar-wrap"><div class="esc-lb-bar" style="width:${barPct}%"></div></div>
             <span class="esc-lb-pts">${Number.isInteger(c.pts) ? c.pts : c.pts.toFixed(1)}</span>
         </div>`;
     }).join("");
 }
 
 function _renderMembersBar() {
-    const bar = document.getElementById("esc-members-bar");
+    const bar  = document.getElementById("esc-members-bar");
     if (!bar) return;
-
     const uids = Object.keys(_members);
     if (uids.length <= 1) { bar.style.display = "none"; return; }
-
     bar.style.display = "flex";
     bar.innerHTML = uids.map(uid => {
-        const m       = _members[uid];
-        const done    = Object.keys(m.scores || {}).length;
-        const isMe    = uid === _uid;
+        const m    = _members[uid];
+        const done = Object.keys(m.scores?.[_activeTab] || {}).length;
+        const isMe = uid === _uid;
+        const photo = m.photoURL || (isMe ? _myPhotoURL : "");
+        const avatarHtml = photo
+            ? `<img class="esc-member-avatar esc-member-avatar-img" src="${photo}" alt="${m.name}">`
+            : `<div class="esc-member-avatar">${(m.name || "?")[0].toUpperCase()}</div>`;
         return `<div class="esc-member${isMe ? " esc-member--me" : ""}">
-            <div class="esc-member-avatar">${(m.name || "?")[0].toUpperCase()}</div>
+            ${avatarHtml}
             <div class="esc-member-info">
                 <div class="esc-member-name">${m.name || "Anonymous"}${isMe ? " (you)" : ""}</div>
-                <div class="esc-member-done">${done}/10 votes</div>
+                <div class="esc-member-done">${done} voted</div>
             </div>
         </div>`;
     }).join("");
 }
 
 function _updateRoomUI() {
-    const badge   = document.getElementById("esc-room-badge");
+    const badge    = document.getElementById("esc-room-badge");
     const shareBtn = document.getElementById("esc-btn-share");
     const leaveBtn = document.getElementById("esc-btn-leave");
-
     if (_roomId) {
-        if (badge) {
-            badge.style.display = "";
-            badge.textContent = `Room: ${_roomId.slice(0, 6).toUpperCase()}`;
-        }
+        if (badge)    { badge.style.display = ""; badge.textContent = `Room: ${_roomId}`; }
         if (shareBtn) shareBtn.textContent = "Invite";
         if (leaveBtn) leaveBtn.style.display = "";
     } else {
-        if (badge) badge.style.display = "none";
-        if (shareBtn) shareBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> Share Room`;
+        if (badge)    badge.style.display = "none";
+        if (shareBtn) shareBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> Share Room`;
         if (leaveBtn) leaveBtn.style.display = "none";
     }
 }
 
 /* ══════ Events ══════ */
-
-function _bindUIEvents() {
-    // Point button clicks (delegated)
+function _bindEvents() {
     document.addEventListener("click", e => {
+        // Tab switch
+        const tab = e.target.closest(".esc-tab");
+        if (tab?.dataset.tab) {
+            _activeTab = tab.dataset.tab;
+            _renderTabBar();
+            _renderGrid();
+            _renderLeaderboard();
+            _renderMembersBar();
+            return;
+        }
+
+        // Point button
         const ptBtn = e.target.closest(".esc-pt-btn");
-        if (ptBtn && ptBtn.closest("#app-sheet")) {
-            _assignPoint(ptBtn.dataset.country, parseInt(ptBtn.dataset.pts, 10));
+        if (ptBtn) {
+            _assign(ptBtn.dataset.country, parseInt(ptBtn.dataset.pts, 10));
+            return;
         }
 
-        // Share / modal
-        if (e.target.closest("#esc-btn-share")) _openShareModal();
-        if (e.target.closest("#esc-modal-close") || e.target.matches("#esc-modal-backdrop")) {
-            if (!e.target.closest(".esc-modal") || e.target.matches("#esc-modal-backdrop")) _closeShareModal();
-        }
-        if (e.target.closest("#esc-btn-copy-code")) _copyText(document.getElementById("esc-room-code-input")?.value);
-        if (e.target.closest("#esc-btn-copy-link")) _copyText(document.getElementById("esc-share-link-input")?.value);
+        // Finalist toggle
+        const fBtn = e.target.closest(".esc-finalist-btn");
+        if (fBtn) { _toggleFinalist(fBtn.dataset.finalist); return; }
 
+        // Share modal
+        if (e.target.closest("#esc-btn-share")) { _openShareModal(); return; }
+        if (e.target.closest("#esc-modal-close") || e.target.id === "esc-modal-backdrop") {
+            _closeShareModal(); return;
+        }
+        if (e.target.closest("#esc-btn-copy-code")) { _copyText(document.getElementById("esc-room-code-input")?.value); return; }
+        if (e.target.closest("#esc-btn-copy-link")) { _copyText(document.getElementById("esc-share-link-input")?.value); return; }
         if (e.target.closest("#esc-btn-join-room")) {
             const code = document.getElementById("esc-join-code-input")?.value?.trim();
-            if (code) { _closeShareModal(); _joinRoom(code, _getDisplayName()); }
+            if (code) { _closeShareModal(); _joinRoom(code, _getName()); }
+            return;
         }
-
         if (e.target.closest("#esc-btn-leave")) {
-            if (confirm("Leave this room? Your local votes will be cleared.")) _leaveRoom();
+            if (confirm("Leave room? Your local votes will be cleared.")) _leaveRoom();
         }
     });
 
-    // Name change
     document.addEventListener("change", e => {
         if (e.target.id === "esc-display-name" && _roomId) {
             _pushScores(e.target.value.trim()).catch(() => {});
@@ -502,10 +550,8 @@ function _bindUIEvents() {
 function _openShareModal() {
     const backdrop = document.getElementById("esc-modal-backdrop");
     if (!backdrop) return;
-
-    // Ensure room exists
     if (!_roomId) {
-        _createRoom(_getDisplayName()).then(() => _populateModal());
+        _createRoom(_getName()).then(() => _populateModal());
     } else {
         _populateModal();
     }
@@ -513,13 +559,13 @@ function _openShareModal() {
 }
 
 function _populateModal() {
-    const codeIn  = document.getElementById("esc-room-code-input");
-    const linkIn  = document.getElementById("esc-share-link-input");
-    if (codeIn) codeIn.value = _roomId || "";
-    if (linkIn) {
-        const url = new URL(window.location.href);
-        url.searchParams.set("esc_room", _roomId || "");
-        linkIn.value = url.toString();
+    const ci = document.getElementById("esc-room-code-input");
+    const li = document.getElementById("esc-share-link-input");
+    if (ci) ci.value = _roomId || "";
+    if (li) {
+        const u = new URL(window.location.href);
+        u.searchParams.set("esc_room", _roomId || "");
+        li.value = u.toString();
     }
     _updateRoomUI();
 }
@@ -534,8 +580,8 @@ function _copyText(text) {
 }
 
 function _showToast(msg, type = "ok") {
-    const existing = document.getElementById("esc-toast");
-    if (existing) existing.remove();
+    const ex = document.getElementById("esc-toast");
+    if (ex) ex.remove();
     const t = document.createElement("div");
     t.id = "esc-toast";
     t.className = `esc-toast esc-toast--${type}`;
