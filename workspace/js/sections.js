@@ -21,7 +21,16 @@ export function initSections() {
     // When a project is selected → restore saved section or default to overview
     window.addEventListener("projectSelected", () => {
         const saved = sessionStorage.getItem("ws_section");
-        activateSection(saved && SECTIONS.includes(saved) && saved !== "empty" ? saved : "overview");
+        // If saved section is now hidden, fall back to overview
+        const candidate = saved && SECTIONS.includes(saved) && saved !== "empty" ? saved : "overview";
+        const tabEl = document.querySelector(`.ws-tab[data-section="${candidate}"]`);
+        const isHidden = tabEl && tabEl.style.display === 'none';
+        activateSection(isHidden ? "overview" : candidate);
+    });
+
+    // Section activation from hub.js (e.g. when a tab is hidden while active)
+    window.addEventListener("activateSection", e => {
+        activateSection(e.detail.section);
     });
 
     // When project is deselected → show empty state

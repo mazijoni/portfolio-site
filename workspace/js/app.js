@@ -95,8 +95,6 @@ function _initBlueMap() {
     goBtn.addEventListener("click", _apply);
     urlEl.addEventListener("keydown", e => { if (e.key === "Enter") _apply(); });
 
-    // Always show BlueMap tab
-    if (navBtn) navBtn.style.display = "";
     _apply();
 }
 
