@@ -63,6 +63,11 @@ export function initAuth(auth, db, onReady) {
             window.location.href = "../login.html";
         });
 
+        document.getElementById("avatar-popup-settings")?.addEventListener("click", () => {
+            popupEl.classList.remove("open");
+            document.getElementById("hub-btn-settings")?.click();
+        });
+
         document.addEventListener("click", () => {
             popupEl.classList.remove("open");
         });
