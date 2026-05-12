@@ -1,0 +1,67 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Admin — full access
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null
+                         && request.auth.token.email == "maze.development.admin@gmail.com";
+    }
+
+    // Each user can read/write only their own files
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Admin — full read/write access to everything
+    match /{document=**} {
+      allow read, write: if request.auth != null
+                         && request.auth.token.email == "maze.development.admin@gmail.com";
+    }
+
+    // Own data — full access
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Shared project read access for members
+    match /users/{ownerUid}/projects/{pid} {
+      allow read: if request.auth != null &&
+                     resource.data.members[request.auth.uid] != null;
+    }
+    match /users/{ownerUid}/projects/{pid}/{sub}/{docId} {
+      allow read, write: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(ownerUid)/projects/$(pid))
+          .data.members[request.auth.uid] != null;
+      allow write: if request.auth != null &&
+      	get(/databases/$(database)/documents/users/$(ownerUid)/projects/$(pid))
+        	.data.members[request.auth.uid].rule == "contributor"
+    }
+
+    // Memberships — written by owner when sharing, read by the member
+    match /users/{userId}/memberships/{mid} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null;
+    }
+
+    // Public profiles — any signed-in user can read (needed for the share picker)
+    match /user_profiles/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Eurovision shared scoring rooms — any signed-in user can read/write
+    match /esc_rooms/{roomId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+    }
+  }
+}
+
