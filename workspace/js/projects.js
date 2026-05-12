@@ -400,6 +400,24 @@ function _setTopBar(p) {
     document.getElementById("btn-delete-project")?.style && (
         document.getElementById("btn-delete-project").style.display = isOwner ? "" : "none"
     );
+
+    /* Apply per-project tab visibility */
+    _applyProjectTabPrefs(p);
+}
+
+function _applyProjectTabPrefs(p) {
+    const prefs = p.tabPrefs || _defaultTabPrefs(p.type);
+    const sections = ["board", "media", "kanban", "files", "animation", "concept"];
+    sections.forEach(s => {
+        const tab = document.querySelector(`.ws-tab[data-section="${s}"]`);
+        if (!tab) return;
+        const show = prefs[s] !== false;
+        tab.style.display = show ? "" : "none";
+        /* If the currently active section gets hidden, fall back to overview */
+        if (!show && tab.classList.contains("active")) {
+            window.dispatchEvent(new CustomEvent("activateSection", { detail: { section: "overview" } }));
+        }
+    });
 }
 
 /* ── Project form (create / edit) ── */
@@ -407,6 +425,9 @@ function openProjectForm(editId) {
     const form = document.getElementById("form-project");
     form.reset();
     document.getElementById("project-id-field").value = "";
+
+    /* Default tab prefs (all on, animation + concept off) */
+    _setTabCheckboxes({ board: true, media: true, kanban: true, files: true, animation: false, concept: false });
 
     if (editId) {
         const p = _projects.find(x => x.id === editId);
@@ -420,14 +441,56 @@ function openProjectForm(editId) {
         document.getElementById("field-github").value      = p.githubRepo  || "";
         document.getElementById("field-type").value        = p.type        || "general";
         document.getElementById("field-status").value      = p.status      || "active";
+        /* Restore tab prefs — fall back to type-based defaults */
+        if (p.tabPrefs) {
+            _setTabCheckboxes(p.tabPrefs);
+        } else {
+            _setTabCheckboxes(_defaultTabPrefs(p.type));
+        }
     } else {
         setModalTitle("modal-project", "New Project");
         document.getElementById("btn-project-submit").textContent = "Create Project";
         _setProjectIcon("");
     }
 
+    /* Auto-toggle animation checkbox when type changes in form */
+    const typeEl = document.getElementById("field-type");
+    typeEl.onchange = () => {
+        const animCheck = document.getElementById("ptab-animation");
+        if (animCheck && !animCheck.dataset.userSet) {
+            animCheck.checked = ["animation", "media"].includes(typeEl.value);
+        }
+    };
+    const animCheck = document.getElementById("ptab-animation");
+    if (animCheck) animCheck.addEventListener("change", () => { animCheck.dataset.userSet = "1"; }, { once: true });
+
     openModal("modal-project");
     setTimeout(() => document.getElementById("field-title").focus(), 60);
+}
+
+function _defaultTabPrefs(type) {
+    return { board: true, media: true, kanban: true, files: true, animation: ["animation", "media"].includes(type), concept: false };
+}
+
+function _setTabCheckboxes(prefs) {
+    const keys = ["board", "media", "kanban", "files", "animation", "concept"];
+    keys.forEach(k => {
+        const el = document.getElementById(`ptab-${k}`);
+        if (el) {
+            el.checked = prefs[k] !== false;
+            delete el.dataset.userSet;
+        }
+    });
+}
+
+function _readTabCheckboxes() {
+    const keys = ["board", "media", "kanban", "files", "animation", "concept"];
+    const prefs = {};
+    keys.forEach(k => {
+        const el = document.getElementById(`ptab-${k}`);
+        prefs[k] = el ? el.checked : true;
+    });
+    return prefs;
 }
 
 async function onProjectFormSubmit(e) {
@@ -441,6 +504,7 @@ async function onProjectFormSubmit(e) {
         githubRepo:  document.getElementById("field-github").value.trim(),
         type:        document.getElementById("field-type").value,
         status:      document.getElementById("field-status").value,
+        tabPrefs:    _readTabCheckboxes(),
         updatedAt:   serverTimestamp(),
     };
 

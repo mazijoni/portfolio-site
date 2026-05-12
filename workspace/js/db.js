@@ -81,4 +81,8 @@ export const refs = {
     /** users/{uid}/memberships/{membershipId} — single membership doc */
     membershipDoc: (db, uid, membershipId) =>
         doc(db, "users", uid, "memberships", membershipId),
+
+    /** users/{uid}/projects/{pid}/anim_scenes */
+    animScenes: (db, uid, pid) =>
+        collection(db, "users", uid, "projects", pid, "anim_scenes"),
 };

@@ -171,6 +171,14 @@
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h6l2 3h10a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/></svg>
                 <span class="tab-label">Files</span>
             </button>
+            <button class="ws-tab" data-section="animation" style="display:none">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+                <span class="tab-label">Animation</span>
+            </button>
+            <button class="ws-tab" data-section="concept" style="display:none">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+                <span class="tab-label">Concept Art</span>
+            </button>
         </nav>
 
         <!-- EMPTY STATE -->
@@ -513,6 +521,201 @@
             </div>
         </section>
 
+        <!-- CONCEPT ART -->
+        <section id="section-concept" class="ws-section">
+            <div class="concept-shell">
+
+                <!-- ══ GALLERY ══ -->
+                <div id="concept-gallery" class="concept-gallery">
+                    <div class="concept-gallery-bar">
+                        <button class="ws-btn ws-btn-accent ws-btn-sm" id="btn-concept-new">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            New Concept
+                        </button>
+                        <span class="concept-gallery-hint">Click a card to open · Double-click to rename · Export to PNG anytime</span>
+                    </div>
+                    <div id="concept-cards" class="concept-cards"></div>
+                    <div id="concept-empty" class="concept-empty" style="display:none">
+                        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.75" opacity=".2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                        <p>Click <strong>New Concept</strong> to draw over a reference image</p>
+                    </div>
+                </div>
+
+                <!-- ══ EDITOR ══ -->
+                <div id="concept-editor" class="concept-editor" style="display:none">
+
+                    <div class="concept-editor-bar">
+                        <button class="ws-btn ws-btn-ghost ws-btn-sm" id="btn-concept-back">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                            Gallery
+                        </button>
+                        <span class="concept-name-display" id="concept-name-display"></span>
+
+                        <div class="concept-editor-sep"></div>
+
+                        <!-- Draw tools -->
+                        <button class="concept-tool-btn active" data-tool="draw" id="btn-concept-draw" title="Draw (D)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                        </button>
+                        <button class="concept-tool-btn" data-tool="erase" id="btn-concept-erase" title="Eraser (E)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16l13.5-13.5a2 2 0 0 1 2.83 0l2.17 2.17a2 2 0 0 1 0 2.83L9 20"/><path d="M6.5 17.5l4-4"/></svg>
+                        </button>
+                        <input type="color" id="concept-color" class="anim-color-input" value="#ff0000" title="Stroke color">
+                        <div class="anim-size-wrap" title="Brush size">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" opacity=".5"><circle cx="12" cy="12" r="4"/></svg>
+                            <input type="range" id="concept-brush" min="1" max="40" value="4" class="anim-size-slider">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" opacity=".5"><circle cx="12" cy="12" r="8"/></svg>
+                        </div>
+
+                        <div class="concept-editor-sep"></div>
+
+                        <!-- Reference opacity -->
+                        <label class="concept-opacity-label" title="Reference image opacity">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                            Ref
+                        </label>
+                        <input type="range" id="concept-ref-opacity" min="10" max="100" value="100" class="anim-size-slider" title="Reference image opacity" style="width:70px">
+
+                        <div class="concept-editor-sep"></div>
+
+                        <button class="ws-btn ws-btn-ghost ws-btn-sm" id="btn-concept-clear">Clear</button>
+                        <button class="ws-btn ws-btn-ghost ws-btn-sm" id="btn-concept-export">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            Export
+                        </button>
+                    </div>
+
+                    <!-- Drawing stage -->
+                    <div class="concept-stage-wrap">
+                        <div class="concept-stage" id="concept-stage">
+                            <img id="concept-ref-img" class="concept-ref-img" alt="" style="display:none">
+                            <canvas id="concept-canvas" class="concept-canvas"></canvas>
+                        </div>
+                    </div>
+
+                </div><!-- /concept-editor -->
+
+            </div>
+        </section>
+
+        <!-- ANIMATION STUDIO -->
+        <section id="section-animation" class="ws-section">
+            <div class="anim-shell">
+
+                <!-- ══ SCENE LIBRARY ══ -->
+                <div id="anim-library" class="anim-library">
+                    <div class="anim-lib-bar">
+                        <button class="ws-btn ws-btn-accent ws-btn-sm" id="btn-anim-new-scene">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            New Scene
+                        </button>
+                        <button class="ws-btn ws-btn-sm" id="btn-anim-play-seq">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            Play All
+                        </button>
+                        <span class="anim-lib-hint">Click a scene to edit · Double-click name to rename · Connect scenes to define playback order</span>
+                    </div>
+                    <!-- Scrollable graph canvas -->
+                    <div class="anim-lib-canvas">
+                        <svg id="anim-connections" class="anim-connections-svg"></svg>
+                        <div id="anim-conn-dels" class="anim-conn-dels"></div>
+                        <div id="anim-scene-cards" class="anim-scene-cards"></div>
+                    </div>
+                    <div id="anim-lib-empty" class="anim-lib-empty" style="display:none">
+                        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.75" opacity=".25"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                        <p>Click <strong>New Scene</strong> to start your animation library</p>
+                    </div>
+                </div>
+
+                <!-- ══ FRAME EDITOR ══ -->
+                <div id="anim-editor" class="anim-editor" style="display:none">
+
+                    <!-- Editor toolbar -->
+                    <div class="anim-editor-bar">
+                        <button class="ws-btn ws-btn-ghost ws-btn-sm" id="btn-anim-back" title="Back to scene library">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                            Scenes
+                        </button>
+                        <span class="anim-clip-name-display" id="anim-clip-name"></span>
+
+                        <div class="anim-editor-sep"></div>
+
+                        <!-- Frame controls -->
+                        <span class="anim-frame-counter">Frame <span id="anim-frame-num">0</span> / <span id="anim-frame-total">0</span></span>
+                        <button class="ws-btn ws-btn-ghost ws-btn-sm" id="btn-anim-add-frame">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Frame
+                        </button>
+                        <button class="ws-icon-btn" id="btn-anim-del-frame" title="Delete frame">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                        </button>
+
+                        <div class="anim-editor-sep"></div>
+
+                        <!-- Playback -->
+                        <button class="ws-icon-btn" id="btn-anim-prev" title="Previous frame (←)">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2"/></svg>
+                        </button>
+                        <button class="ws-icon-btn anim-play-btn" id="btn-anim-play" title="Play">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        </button>
+                        <button class="ws-icon-btn" id="btn-anim-next" title="Next frame (→)">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"/></svg>
+                        </button>
+                        <div class="anim-fps-wrap">
+                            <label class="anim-fps-label" for="anim-fps">FPS</label>
+                            <input type="number" id="anim-fps" class="anim-fps-input" value="12" min="1" max="60" step="1">
+                        </div>
+
+                        <div class="anim-editor-sep"></div>
+
+                        <!-- Draw tools -->
+                        <button class="anim-tool-btn active" data-tool="draw" id="btn-anim-tool-draw" title="Draw (pencil)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                        </button>
+                        <button class="anim-tool-btn" data-tool="erase" id="btn-anim-tool-erase" title="Eraser">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16l13.5-13.5a2 2 0 0 1 2.83 0l2.17 2.17a2 2 0 0 1 0 2.83L9 20"/><path d="M6.5 17.5l4-4"/></svg>
+                        </button>
+                        <input type="color" id="anim-color-picker" class="anim-color-input" value="#ffffff" title="Stroke color">
+                        <div class="anim-size-wrap" title="Brush size (pressure sensitive)">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" opacity=".5"><circle cx="12" cy="12" r="4"/></svg>
+                            <input type="range" id="anim-brush-size" min="1" max="40" value="4" class="anim-size-slider">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" opacity=".5"><circle cx="12" cy="12" r="8"/></svg>
+                        </div>
+                        <button class="ws-icon-btn anim-tool-btn active" id="btn-anim-onion" title="Toggle onion skin">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" opacity=".7"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/></svg>
+                        </button>
+                        <div class="anim-editor-sep"></div>
+                        <button class="ws-btn ws-btn-ghost ws-btn-sm" id="btn-anim-clear">Clear</button>
+                        <button class="ws-btn ws-btn-ghost ws-btn-sm" id="btn-anim-add-cutout">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                            Cutout
+                        </button>
+                    </div>
+
+                    <!-- Drawing stage -->
+                    <div class="anim-stage-wrap">
+                        <div class="anim-stage" id="anim-stage">
+                            <canvas id="anim-onion-canvas" class="anim-canvas anim-canvas--onion"></canvas>
+                            <canvas id="anim-draw-canvas" class="anim-canvas"></canvas>
+                            <div id="anim-cutout-layer" class="anim-cutout-layer"></div>
+                        </div>
+                    </div>
+
+                    <!-- Frame timeline strip -->
+                    <div class="anim-timeline">
+                        <div class="anim-timeline-label">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="16 2 12 7 8 2"/></svg>
+                            Frames
+                        </div>
+                        <div class="anim-frames" id="anim-frames"></div>
+                    </div>
+
+                </div><!-- /anim-editor -->
+
+            </div>
+        </section>
+
     </div>
         <!-- Sidebar overlay (scoped to workspace app) -->
         <div id="ws-sidebar-overlay"></div>
@@ -691,48 +894,10 @@
             <!-- ── Project Tabs ── -->
             <div class="tut-page" id="tut-project-tabs">
                 <h1 class="tut-h1">Project Tabs</h1>
-                <p class="tut-lead">Choose which tabs are shown when a project is open. Overview is always visible.</p>
-                <div class="hub-tabs-settings">
-                    <div class="hub-tab-row">
-                        <div class="hub-tab-row-info">
-                            <div class="hub-tab-row-label">Board</div>
-                            <div class="hub-tab-row-sub">Freeform visual canvas</div>
-                        </div>
-                        <label class="hub-toggle-switch">
-                            <input type="checkbox" class="section-tab-toggle" data-section="board" checked>
-                            <span class="hub-toggle-track"></span>
-                        </label>
-                    </div>
-                    <div class="hub-tab-row">
-                        <div class="hub-tab-row-info">
-                            <div class="hub-tab-row-label">Media</div>
-                            <div class="hub-tab-row-sub">Images, videos, and links</div>
-                        </div>
-                        <label class="hub-toggle-switch">
-                            <input type="checkbox" class="section-tab-toggle" data-section="media" checked>
-                            <span class="hub-toggle-track"></span>
-                        </label>
-                    </div>
-                    <div class="hub-tab-row">
-                        <div class="hub-tab-row-info">
-                            <div class="hub-tab-row-label">Kanban</div>
-                            <div class="hub-tab-row-sub">Task board with drag &amp; drop</div>
-                        </div>
-                        <label class="hub-toggle-switch">
-                            <input type="checkbox" class="section-tab-toggle" data-section="kanban" checked>
-                            <span class="hub-toggle-track"></span>
-                        </label>
-                    </div>
-                    <div class="hub-tab-row">
-                        <div class="hub-tab-row-info">
-                            <div class="hub-tab-row-label">Files</div>
-                            <div class="hub-tab-row-sub">GitHub repo file browser</div>
-                        </div>
-                        <label class="hub-toggle-switch">
-                            <input type="checkbox" class="section-tab-toggle" data-section="files" checked>
-                            <span class="hub-toggle-track"></span>
-                        </label>
-                    </div>
+                <p class="tut-lead">Tab visibility is now configured <strong>per project</strong>. Open a project and click <span class="tut-ui">Edit</span> to choose which tabs are visible for that project.</p>
+                <div class="tut-callout tut-callout--info">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    Board, Media, Kanban, Files, and Animation can each be toggled on or off in the project's Edit form. The Animation tab is enabled by default for projects of type <strong>Animation</strong> or <strong>Media</strong>.
                 </div>
             </div>
 
@@ -1170,7 +1335,50 @@
     </div>
 </div>
 
-<!-- ==================== MODALS ==================== -->
+<!-- ==================== MODALS ====================  -->
+
+<!-- Concept Art: New concept modal -->
+<div id="modal-concept-new" class="ws-modal-overlay hidden">
+    <div class="ws-modal ws-modal--wide">
+        <div class="ws-modal-header">
+            <h2>New Concept Art</h2>
+            <button class="ws-modal-close" data-modal="modal-concept-new">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form id="form-concept-new" class="ws-modal-form">
+            <div class="form-group" style="margin-bottom:.75rem">
+                <label for="concept-new-name">Name</label>
+                <input type="text" id="concept-new-name" class="form-input" placeholder="e.g. Character sketch" maxlength="80">
+            </div>
+            <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:.5rem">Reference image (optional) — pick an image from your Media to draw over:</p>
+            <div id="concept-img-picker" class="concept-img-picker"></div>
+            <div class="ws-modal-footer">
+                <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-concept-new">Cancel</button>
+                <button type="submit" class="ws-btn ws-btn-accent">Create</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Animation: Cutout picker modal -->
+<div id="modal-anim-cutout" class="ws-modal-overlay hidden">
+    <div class="ws-modal ws-modal--wide">
+        <div class="ws-modal-header">
+            <h2>Add Image Cutout</h2>
+            <button class="ws-modal-close" data-modal="modal-anim-cutout">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="ws-modal-form">
+            <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:.75rem">Pick an image from this project's Media to place as a movable cutout on the scene.</p>
+            <div id="anim-cutout-picker" class="anim-cutout-picker"></div>
+            <div class="ws-modal-footer">
+                <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-anim-cutout">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Project form modal -->
 <div id="modal-project" class="ws-modal-overlay hidden">
@@ -1231,6 +1439,35 @@
                         <option value="archived">Archived</option>
                         <option value="done">Done</option>
                     </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Visible Tabs</label>
+                <div class="proj-tabs-grid">
+                    <label class="proj-tab-check">
+                        <input type="checkbox" id="ptab-board" checked>
+                        <span>Board</span>
+                    </label>
+                    <label class="proj-tab-check">
+                        <input type="checkbox" id="ptab-media" checked>
+                        <span>Media</span>
+                    </label>
+                    <label class="proj-tab-check">
+                        <input type="checkbox" id="ptab-kanban" checked>
+                        <span>Kanban</span>
+                    </label>
+                    <label class="proj-tab-check">
+                        <input type="checkbox" id="ptab-files" checked>
+                        <span>Files</span>
+                    </label>
+                    <label class="proj-tab-check">
+                        <input type="checkbox" id="ptab-animation">
+                        <span>Animation</span>
+                    </label>
+                    <label class="proj-tab-check">
+                        <input type="checkbox" id="ptab-concept">
+                        <span>Concept Art</span>
+                    </label>
                 </div>
             </div>
             <div class="ws-modal-footer">
