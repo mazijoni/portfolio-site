@@ -19,7 +19,6 @@
 import { initializeApp }   from "https://www.gstatic.com/firebasejs/11.5.0/firebase-app.js";
 import { getAuth }         from "https://www.gstatic.com/firebasejs/11.5.0/firebase-auth.js";
 import { getFirestore }    from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
-import { getStorage }      from "https://www.gstatic.com/firebasejs/11.5.0/firebase-storage.js";
 
 import { initAuth }        from "./auth.js";
 import { initProjects }    from "./projects.js";
@@ -39,13 +38,12 @@ let tmdbKey = "";
 try { ({ firebaseConfig, googleClientId, tmdbKey } = await import("../../firebase.local.js")); }
 catch { ({ firebaseConfig, googleClientId, tmdbKey } = await import("../../firebase.js")); }
 
-const app     = initializeApp(firebaseConfig);
-const auth    = getAuth(app);
-const db      = getFirestore(app);
-const storage = getStorage(app);
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
 
 /* ── Export Firebase handles for all modules ── */
-export { auth, db, storage, tmdbKey };
+export { auth, db, tmdbKey };
 
 /* ── Boot sequence ── */
 initHub();
