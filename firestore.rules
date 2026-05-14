@@ -46,5 +46,10 @@ service cloud.firestore {
       allow create: if request.auth != null;
       allow update: if request.auth != null;
     }
+
+    // Eurovision personal ballots — only the owner can read/write
+    match /esc_users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }
