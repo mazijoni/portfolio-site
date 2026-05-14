@@ -61,6 +61,7 @@ let _members   = {};
 let _myPhotoURL = "";
 let _unsub     = null;
 let _savTimer  = null;
+let _userSavTimer = null;
 
 /* ══════ SVG constants ══════ */
 const ESC_SVG = `<svg class="esc-logo-svg" viewBox="0 0 226.683 233.658" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="escGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#009FE3"/><stop offset="100%" stop-color="#E4007C"/></linearGradient></defs><path fill="url(#escGrad)" d="M 99.722 231.541 C 101.585 233.574 104.305 233.076 105.56 230.435 C 135.35 167.569 225.843 139.135 225.843 59.033 C 225.843 29.922 206.246 0.69 168.566 0.013 C 132.699 -0.635 100.509 22.469 97.152 59.87 C 96.145 36.188 80.613 25.269 62.7 25.269 C 27.461 25.269 -1.402 57.081 0.053 104.952 C 2.474 180.242 74.855 203.964 99.722 231.541 Z M 93.326 77.913 C 94.282 81.669 98.865 81.54 99.901 77.823 C 115.414 21.593 186.748 15.446 186.748 72.384 C 186.748 117.336 107.075 165.298 101.007 207.969 C 86.591 179.973 33.638 164.6 33.638 103.747 C 33.638 51.96 83.991 41.08 93.326 77.913 Z"/></svg>`;
@@ -83,8 +84,9 @@ export async function initEurovisionUser(db, uid, displayName, photoURL) {
     _uid         = uid;
     _myPhotoURL  = photoURL || "";
     const firstName = (displayName || '').split(' ')[0] || displayName || 'Guest';
-    // Always load personal ballot first — room join will push it, not overwrite it
+    // Load local first as fast fallback, then overwrite with Firestore personal ballot
     _loadLocal();
+    await _loadUserBallot();
     const saved = localStorage.getItem("esc_room");
     if (saved) {
         await _joinRoom(saved, firstName);
@@ -105,6 +107,60 @@ function _checkUrlRoom() {
     const u = new URL(window.location.href);
     u.searchParams.delete("esc_room");
     history.replaceState({}, "", u.toString());
+}
+
+/* ══════ User ballot (Firestore) ══════ */
+async function _loadUserBallot() {
+    if (!_db || !_uid) return;
+    try {
+        const snap = await getDoc(doc(_db, "esc_users", _uid));
+        if (!snap.exists()) return;
+        const d = snap.data();
+        if (d.scores)    _scores    = { all: d.scores.all || {}, finals: d.scores.finals || {} };
+        if (d.finalists) _finalists = new Set(d.finalists);
+        _saveLocal(); // keep localStorage in sync
+    } catch {}
+}
+
+function _scheduleUserSave() {
+    if (!_db || !_uid) return;
+    clearTimeout(_userSavTimer);
+    _userSavTimer = setTimeout(async () => {
+        try {
+            await setDoc(doc(_db, "esc_users", _uid), {
+                scores:    _scores,
+                finalists: Array.from(_finalists),
+                updatedAt: serverTimestamp()
+            }, { merge: true });
+        } catch {}
+    }, 800);
+}
+
+/* ══════ Room history ══════ */
+const HISTORY_KEY = "esc_room_history";
+const HISTORY_MAX = 8;
+
+function _saveRoomHistory(code, memberNames) {
+    try {
+        let hist = _loadRoomHistory();
+        hist = hist.filter(r => r.code !== code);
+        hist.unshift({ code, names: memberNames || [], ts: Date.now() });
+        if (hist.length > HISTORY_MAX) hist = hist.slice(0, HISTORY_MAX);
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
+    } catch {}
+}
+
+function _loadRoomHistory() {
+    try {
+        return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+    } catch { return []; }
+}
+
+function _removeFromHistory(code) {
+    try {
+        const hist = _loadRoomHistory().filter(r => r.code !== code);
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
+    } catch {}
 }
 
 /* ══════ Local persistence ══════ */
@@ -154,6 +210,7 @@ async function _createRoom(name) {
     });
     _subscribeRoom();
     _updateRoomUI();
+    _saveRoomHistory(code, [_getName()]);
 }
 
 async function _joinRoom(roomId, name) {
@@ -181,6 +238,8 @@ async function _joinRoom(roomId, name) {
     _updateRoomUI();
     _renderGrid();
     _renderLeaderboard();
+    const names = Object.values(data.members || {}).map(m => m.name).filter(Boolean);
+    _saveRoomHistory(roomId, names);
 }
 
 function _subscribeRoom() {
@@ -211,7 +270,11 @@ async function _leaveRoom() {
 }
 
 async function _pushScores(name) {
-    if (!_db || !_uid || !_roomId) return;
+    if (!_db || !_uid) return;
+    // Always keep the personal user doc up to date
+    _scheduleUserSave();
+    // Also sync into the room if in one
+    if (!_roomId) return;
     await setDoc(doc(_db, "esc_rooms", _roomId), {
         members: { [_uid]: { name, scores: _scores, photoURL: _myPhotoURL, updatedAt: Date.now() } }
     }, { merge: true });
@@ -242,7 +305,8 @@ function _assign(countryId, pts) {
     } else {
         _cs(countryId, pts);
     }
-    _saveLocal();       // persist ballot personally, regardless of room state
+    _saveLocal();
+    _scheduleUserSave(); // persist to account across rooms/devices
     _renderGrid();
     _renderLeaderboard();
     _scheduleSave();    // also sync to room if in one
@@ -257,7 +321,8 @@ function _toggleFinalist(id) {
     } else {
         _finalists.add(id);
     }
-    _saveLocal();   // persist finalist list personally
+    _saveLocal();
+    _scheduleUserSave(); // persist to account
     _renderTabBar();
     _renderGrid();
     _renderLeaderboard();
@@ -376,6 +441,7 @@ function _renderShell() {
                 <input type="text" class="esc-input esc-copy-input" id="esc-join-code-input" placeholder="Paste room code…">
                 <button class="esc-btn esc-btn-share" id="esc-btn-join-room">Join</button>
             </div>
+            <div id="esc-room-history-wrap"></div>
         </div>
     </div>`;
 
@@ -588,8 +654,23 @@ function _bindEvents() {
         if (e.target.closest("#esc-btn-copy-code")) { _copyText(document.getElementById("esc-room-code-input")?.value); return; }
         if (e.target.closest("#esc-btn-copy-link")) { _copyText(document.getElementById("esc-share-link-input")?.value); return; }
         if (e.target.closest("#esc-btn-join-room")) {
-            const code = document.getElementById("esc-join-code-input")?.value?.trim();
+            const code = document.getElementById("esc-join-code-input")?.value?.trim().toUpperCase();
             if (code) { _closeShareModal(); _joinRoom(code, _getName()); }
+            return;
+        }
+        // Room history rejoin
+        const rejoinBtn = e.target.closest(".esc-room-history-join");
+        if (rejoinBtn) {
+            const code = rejoinBtn.dataset.code;
+            _closeShareModal();
+            _joinRoom(code, _getName());
+            return;
+        }
+        // Room history remove
+        const removeBtn = e.target.closest(".esc-room-history-remove");
+        if (removeBtn) {
+            _removeFromHistory(removeBtn.dataset.remove);
+            _renderRoomHistory();
             return;
         }
         if (e.target.closest("#esc-btn-leave")) {
@@ -625,6 +706,34 @@ function _populateModal() {
         li.value = u.toString();
     }
     _updateRoomUI();
+    _renderRoomHistory();
+}
+
+function _renderRoomHistory() {
+    const wrap = document.getElementById("esc-room-history-wrap");
+    if (!wrap) return;
+    const hist = _loadRoomHistory();
+    if (!hist.length) { wrap.innerHTML = ""; return; }
+    const fmt = ts => {
+        const d = new Date(ts);
+        return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    };
+    wrap.innerHTML = `
+        <div class="esc-modal-label" style="margin-top:1rem">Recent Rooms</div>
+        <ul class="esc-room-history-list">
+            ${hist.map(r => {
+                const active = r.code === _roomId;
+                const names  = r.names.length ? r.names.slice(0, 3).join(", ") + (r.names.length > 3 ? " +" + (r.names.length - 3) : "") : "";
+                return `<li class="esc-room-history-item${active ? " esc-room-history-item--active" : ""}">
+                    <button class="esc-room-history-join" data-code="${r.code}" title="Rejoin ${r.code}">
+                        <span class="esc-room-history-code">${r.code}</span>
+                        ${names ? `<span class="esc-room-history-names">${names}</span>` : ""}
+                        <span class="esc-room-history-date">${fmt(r.ts)}</span>
+                    </button>
+                    <button class="esc-room-history-remove" data-remove="${r.code}" title="Remove">✕</button>
+                </li>`;
+            }).join("")}
+        </ul>`;
 }
 
 function _closeShareModal() {

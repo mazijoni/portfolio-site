@@ -10650,6 +10650,74 @@ body.adm-page {
     margin: 1rem 0;
 }
 
+/* Room history list */
+.esc-room-history-list {
+    list-style: none;
+    margin: 0.35rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+.esc-room-history-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+.esc-room-history-join {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.4rem 0.65rem;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color var(--transition), background var(--transition);
+    min-width: 0;
+}
+.esc-room-history-join:hover { border-color: var(--border-hover); background: var(--bg-card-hover); }
+.esc-room-history-item--active .esc-room-history-join {
+    border-color: rgba(199,114,254,0.4);
+    background: var(--accent-dim);
+}
+.esc-room-history-code {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: monospace;
+    letter-spacing: 0.05em;
+}
+.esc-room-history-names {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+.esc-room-history-date {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    margin-left: auto;
+}
+.esc-room-history-remove {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 0.3rem 0.4rem;
+    border-radius: var(--radius);
+    flex-shrink: 0;
+    transition: color var(--transition), background var(--transition);
+}
+.esc-room-history-remove:hover { color: var(--text-primary); background: var(--bg-card); }
+
 /* -- TOAST -- */
 .esc-toast {
     position: fixed;
