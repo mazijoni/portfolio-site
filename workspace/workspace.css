@@ -10379,6 +10379,11 @@ body.adm-page {
     min-height: 0;
 }
 
+/* Leaderboard tab: desktop hides the tab, sidebar always visible */
+@media (min-width: 769px) {
+    .esc-tab[data-tab="leaderboard"] { display: none; }
+}
+
 /* -- SCORE GRID -- */
 .esc-grid {
     display: flex;
@@ -10671,8 +10676,7 @@ body.adm-page {
 
 /* -- RESPONSIVE -- */
 @media (max-width: 900px) {
-    .esc-layout { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
-    .esc-leaderboard-wrap { border-right: none; border-top: 1px solid var(--border); max-height: 260px; }
+    .esc-layout { grid-template-columns: 1fr; }
     .esc-grid-wrap { border-right: none; }
 }
 @media (max-width: 600px) {
@@ -10950,12 +10954,16 @@ body[data-hub-app="sheet"] .ws-fab { display: none !important; }
     .esc-pt-row { gap: 3px; flex-wrap: nowrap; }
     .esc-pt-btn { width: calc((100% - 27px) / 10); min-width: 22px; height: 28px; font-size: 0.65rem; border-radius: 3px; }
 
-    /* Leaderboard collapse to bottom strip */
-    .esc-leaderboard-wrap {
-        max-height: 220px;
-        padding: 0.6rem 0.75rem;
-        border-top: 1px solid var(--border);
-        background: var(--bg-secondary);
+    /* Leaderboard: hidden by default on mobile, shown as a full tab */
+    .esc-leaderboard-wrap { display: none; }
+    .esc-layout--lb-tab .esc-grid-wrap { display: none; }
+    .esc-layout--lb-tab .esc-leaderboard-wrap {
+        display: flex;
+        flex: 1;
+        max-height: none;
+        padding: 0.75rem;
+        background: var(--bg-primary);
+        border-top: none;
     }
     .esc-lb-row { padding: 0.3rem 0.4rem; gap: 0.35rem; }
     .esc-lb-name { font-size: 0.7rem; }
@@ -10990,9 +10998,10 @@ body[data-hub-app="sheet"] .ws-fab { display: none !important; }
         display: flex;
         flex-direction: column;
     }
-    /* Let grid and leaderboard flow to natural height, no clipping */
-    .esc-grid-wrap       { overflow-y: visible; flex-shrink: 0; }
-    .esc-leaderboard-wrap { overflow-y: visible; flex-shrink: 0; max-height: none; }
+    /* Let grid flow to natural height, no clipping */
+    .esc-grid-wrap { overflow-y: visible; flex-shrink: 0; }
+    /* Leaderboard tab: scrollable within the flex container */
+    .esc-layout--lb-tab .esc-leaderboard-wrap { overflow-y: auto; flex-shrink: 1; }
 }
 
 /* ==================== ANIMATION STUDIO ==================== */

@@ -56,6 +56,7 @@ let _roomId    = null;
 let _scores    = { all: {}, finals: {} };
 let _finalists = new Set(AUTO_IDS);
 let _activeTab = "all";
+let _lbSource  = "all"; // which scoring tab the leaderboard mirrors
 let _members   = {};
 let _myPhotoURL = "";
 let _unsub     = null;
@@ -268,19 +269,33 @@ function _averages() {
     const uids = Object.keys(_members);
     if (!uids.length) return {};
     const sums = {}, cnt = {};
+    const lbTab = _resolveLbTab();
     for (const uid of uids) {
-        const sc = _members[uid]?.scores?.[_activeTab] || {};
+        const sc = _members[uid]?.scores?.[lbTab] || {};
         for (const [cid, pts] of Object.entries(sc)) {
             sums[cid] = (sums[cid] || 0) + pts;
             cnt[cid]  = (cnt[cid]  || 0) + 1;
         }
     }
     const out = {};
-    for (const cid of Object.keys(sums)) out[cid] = sums[cid] / uids.length;
+    for (const cid of Object.keys(sums)) out[cid] = sums[cid] / cnt[cid];
     return out;
 }
 
-/* ══════ Render Shell ══════ */
+/* Resolve which scoring tab to use for the leaderboard.
+   Prefers _lbSource but falls back to whichever ballot has votes. */
+function _resolveLbTab() {
+    const preferred = _activeTab === "leaderboard" ? _lbSource : _activeTab;
+    if (preferred === "leaderboard") return "all";
+    const hasVotes = (tab) => {
+        if (Object.keys(_scores[tab] || {}).length > 0) return true;
+        return Object.values(_members).some(m => Object.keys(m.scores?.[tab] || {}).length > 0);
+    };
+    if (hasVotes(preferred)) return preferred;
+    const other = preferred === "all" ? "finals" : "all";
+    return hasVotes(other) ? other : preferred;
+}
+
 function _renderShell() {
     const el = document.getElementById("esc-app");
     if (!el) return;
@@ -317,7 +332,7 @@ function _renderShell() {
         <div class="esc-progress-bar"><div class="esc-progress-fill" id="esc-progress-fill"></div></div>
     </div>
 
-    <div class="esc-layout">
+    <div class="esc-layout" id="esc-layout">
         <div class="esc-grid-wrap">
             <div class="esc-section-label">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
@@ -379,13 +394,24 @@ function _renderTabBar() {
         </button>
         <button class="esc-tab${_activeTab === "finals" ? " esc-tab--active" : ""}" data-tab="finals">
             Grand Final <span class="esc-tab-count">${fc}</span>
+        </button>
+        <button class="esc-tab${_activeTab === "leaderboard" ? " esc-tab--active" : ""}" data-tab="leaderboard">
+            Leaderboard
         </button>`;
+    document.getElementById("esc-layout")?.classList.toggle("esc-layout--lb-tab", _activeTab === "leaderboard");
+    const progressWrap = document.querySelector(".esc-progress-wrap");
+    if (progressWrap) progressWrap.style.display = _activeTab === "leaderboard" ? "none" : "";
 }
 
 function _renderGrid() {
     const grid  = document.getElementById("esc-score-grid");
     const label = document.getElementById("esc-grid-label");
     if (!grid) return;
+
+    if (_activeTab === "leaderboard") {
+        grid.innerHTML = "";
+        return;
+    }
 
     const list = _activeTab === "finals"
         ? COUNTRIES.filter(c => _finalists.has(c.id))
@@ -444,6 +470,7 @@ function _renderLeaderboard() {
     const lb = document.getElementById("esc-leaderboard");
     if (!lb) return;
 
+    const lbTab  = _resolveLbTab();
     const isGroup = Object.keys(_members).length > 1;
     const modeBtn = document.getElementById("esc-lb-mode");
     if (modeBtn) {
@@ -451,8 +478,8 @@ function _renderLeaderboard() {
         modeBtn.classList.toggle("esc-lb-mode--group", isGroup);
     }
 
-    const scores = isGroup ? _averages() : { ..._s() };
-    const list   = _activeTab === "finals"
+    const scores = isGroup ? _averages() : { ...(_scores[lbTab] || {}) };
+    const list   = lbTab === "finals"
         ? COUNTRIES.filter(c => _finalists.has(c.id))
         : COUNTRIES;
 
@@ -461,7 +488,8 @@ function _renderLeaderboard() {
         .sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name));
 
     if (!sorted.some(c => c.pts > 0)) {
-        lb.innerHTML = `<div class="esc-lb-empty">No points assigned yet<br><span>Start voting on the left</span></div>`;
+        const hint = _activeTab === "leaderboard" ? "Switch to Grand Final to start voting" : "Start voting on the left";
+        lb.innerHTML = `<div class="esc-lb-empty">No points assigned yet<br><span>${hint}</span></div>`;
         return;
     }
 
@@ -473,7 +501,7 @@ function _renderLeaderboard() {
             ? `<span class="material-symbols-outlined esc-lb-rank ${rankCls}">workspace_premium</span>`
             : `<span class="esc-lb-rank esc-rank-num">${rank}</span>`;
         const barPct = (c.pts / 12) * 100;
-        const myPts  = _s()[c.id] ?? 0;
+        const myPts  = (_scores[lbTab] ?? {})[c.id] ?? 0;
         return `
         <div class="esc-lb-row${rank <= 3 ? " esc-lb-row--top" : ""}">
             ${rankHtml}
@@ -494,7 +522,8 @@ function _renderMembersBar() {
     bar.style.display = "flex";
     bar.innerHTML = uids.map(uid => {
         const m    = _members[uid];
-        const done = Object.keys(m.scores?.[_activeTab] || {}).length;
+        const mbTab = _resolveLbTab();
+        const done = Object.keys(m.scores?.[mbTab] || {}).length;
         const isMe = uid === _uid;
         const photo = m.photoURL || (isMe ? _myPhotoURL : "");
         const avatarHtml = photo
@@ -531,6 +560,7 @@ function _bindEvents() {
         // Tab switch
         const tab = e.target.closest(".esc-tab");
         if (tab?.dataset.tab) {
+            if (tab.dataset.tab !== "leaderboard") _lbSource = tab.dataset.tab;
             _activeTab = tab.dataset.tab;
             _renderTabBar();
             _renderGrid();
