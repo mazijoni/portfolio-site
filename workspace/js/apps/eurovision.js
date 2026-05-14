@@ -54,6 +54,7 @@ let _db        = null;
 let _uid       = null;
 let _roomId    = null;
 let _scores    = { all: {}, finals: {} };
+let _everScored = { all: new Set(), finals: new Set() };
 let _finalists = new Set(AUTO_IDS);
 let _activeTab = "all";
 let _lbSource  = "all"; // which scoring tab the leaderboard mirrors
@@ -114,10 +115,32 @@ async function _loadUserBallot() {
     if (!_db || !_uid) return;
     try {
         const snap = await getDoc(doc(_db, "esc_users", _uid));
-        if (!snap.exists()) return;
+        if (!snap.exists()) {
+            // No Firestore doc yet — migrate any existing localStorage votes up immediately
+            const hasVotes = Object.keys(_scores.all || {}).length > 0 ||
+                             Object.keys(_scores.finals || {}).length > 0 ||
+                             _everScored.all.size > 0 || _everScored.finals.size > 0;
+            if (hasVotes) {
+                await setDoc(doc(_db, "esc_users", _uid), {
+                    scores:     _scores,
+                    finalists:  Array.from(_finalists),
+                    everScored: { all: Array.from(_everScored.all), finals: Array.from(_everScored.finals) },
+                    updatedAt:  serverTimestamp()
+                }, { merge: true });
+            }
+            return;
+        }
         const d = snap.data();
-        if (d.scores)    _scores    = { all: d.scores.all || {}, finals: d.scores.finals || {} };
-        if (d.finalists) _finalists = new Set(d.finalists);
+        if (d.scores)     _scores    = { all: d.scores.all || {}, finals: d.scores.finals || {} };
+        if (d.finalists)  _finalists = new Set(d.finalists);
+        if (d.everScored) _everScored = {
+            all:    new Set(d.everScored.all    || []),
+            finals: new Set(d.everScored.finals || [])
+        };
+        // Restore room across devices if not already in localStorage
+        if (d.roomId && !localStorage.getItem("esc_room")) {
+            localStorage.setItem("esc_room", d.roomId);
+        }
         _saveLocal(); // keep localStorage in sync
     } catch {}
 }
@@ -128,9 +151,11 @@ function _scheduleUserSave() {
     _userSavTimer = setTimeout(async () => {
         try {
             await setDoc(doc(_db, "esc_users", _uid), {
-                scores:    _scores,
-                finalists: Array.from(_finalists),
-                updatedAt: serverTimestamp()
+                scores:     _scores,
+                finalists:  Array.from(_finalists),
+                everScored: { all: Array.from(_everScored.all), finals: Array.from(_everScored.finals) },
+                roomId:     _roomId || null,
+                updatedAt:  serverTimestamp()
             }, { merge: true });
         } catch {}
     }, 800);
@@ -169,8 +194,9 @@ const LOCAL_KEY = "esc_ballot_v1";
 function _saveLocal() {
     try {
         localStorage.setItem(LOCAL_KEY, JSON.stringify({
-            scores:    _scores,
-            finalists: Array.from(_finalists)
+            scores:     _scores,
+            finalists:  Array.from(_finalists),
+            everScored: { all: Array.from(_everScored.all), finals: Array.from(_everScored.finals) }
         }));
     } catch {}
 }
@@ -180,8 +206,12 @@ function _loadLocal() {
         const raw = localStorage.getItem(LOCAL_KEY);
         if (!raw) return;
         const d = JSON.parse(raw);
-        if (d.scores)    _scores    = { all: d.scores.all || {}, finals: d.scores.finals || {} };
-        if (d.finalists) _finalists = new Set(d.finalists);
+        if (d.scores)     _scores    = { all: d.scores.all || {}, finals: d.scores.finals || {} };
+        if (d.finalists)  _finalists = new Set(d.finalists);
+        if (d.everScored) _everScored = {
+            all:    new Set(d.everScored.all    || []),
+            finals: new Set(d.everScored.finals || [])
+        };
     } catch {}
 }
 
@@ -208,6 +238,7 @@ async function _createRoom(name) {
         finalists: Array.from(_finalists),
         members: { [_uid]: { name, photoURL: _myPhotoURL, scores: _scores, joinedAt: Date.now() } }
     });
+    _scheduleUserSave(); // persist roomId to account
     _subscribeRoom();
     _updateRoomUI();
     _saveRoomHistory(code, [_getName()]);
@@ -234,6 +265,7 @@ async function _joinRoom(roomId, name) {
     await setDoc(ref, {
         members: { [_uid]: { name, photoURL: _myPhotoURL, scores: _scores, joinedAt: Date.now() } }
     }, { merge: true });
+    _scheduleUserSave(); // persist roomId to account
     _subscribeRoom();
     _updateRoomUI();
     _renderGrid();
@@ -265,7 +297,10 @@ async function _leaveRoom() {
     _roomId  = null;
     _members = {};
     localStorage.removeItem("esc_room");
-    // Scores and finalists are KEPT — user's ballot is personal
+    // Clear roomId from Firestore user doc
+    if (_db && _uid) {
+        setDoc(doc(_db, "esc_users", _uid), { roomId: null }, { merge: true }).catch(() => {});
+    }
     _renderTabBar(); _renderGrid(); _updateRoomUI(); _renderLeaderboard(); _renderMembersBar();
 }
 
@@ -304,6 +339,7 @@ function _assign(countryId, pts) {
         _ds(countryId);
     } else {
         _cs(countryId, pts);
+        _everScored[_activeTab].add(countryId); // keep in leaderboard even if later removed
     }
     _saveLocal();
     _scheduleUserSave(); // persist to account across rooms/devices
@@ -549,18 +585,22 @@ function _renderLeaderboard() {
         ? COUNTRIES.filter(c => _finalists.has(c.id))
         : COUNTRIES;
 
+    const lbEver = _everScored[lbTab] || new Set();
     const sorted = list
         .map(c => ({ ...c, pts: scores[c.id] ?? 0 }))
         .sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name));
 
-    if (!sorted.some(c => c.pts > 0)) {
+    if (!sorted.some(c => c.pts > 0) && lbEver.size === 0) {
         const hint = _activeTab === "leaderboard" ? "Switch to Grand Final to start voting" : "Start voting on the left";
         lb.innerHTML = `<div class="esc-lb-empty">No points assigned yet<br><span>${hint}</span></div>`;
         return;
     }
 
+    const withPts = sorted.filter(c => c.pts > 0);
+    const zeroed  = sorted.filter(c => c.pts === 0 && lbEver.has(c.id));
+
     let rank = 0, lastPts = -1;
-    lb.innerHTML = sorted.filter(c => c.pts > 0).map((c, i) => {
+    const rowsWithPts = withPts.map((c, i) => {
         if (c.pts !== lastPts) { rank = i + 1; lastPts = c.pts; }
         const rankCls = rank === 1 ? 'esc-rank-gold' : rank === 2 ? 'esc-rank-silver' : rank === 3 ? 'esc-rank-bronze' : '';
         const rankHtml = rank <= 3
@@ -577,7 +617,18 @@ function _renderLeaderboard() {
             <div class="esc-lb-bar-wrap"><div class="esc-lb-bar" style="width:${barPct}%"></div></div>
             <span class="esc-lb-pts">${Number.isInteger(c.pts) ? c.pts : c.pts.toFixed(1)}</span>
         </div>`;
-    }).join("");
+    });
+
+    const rowsZeroed = zeroed.map(c => `
+        <div class="esc-lb-row esc-lb-row--zeroed">
+            <span class="esc-lb-rank esc-rank-num">—</span>
+            <span class="esc-lb-flag">${_flagImg(c.id, c.name)}</span>
+            <span class="esc-lb-name">${c.name}</span>
+            <div class="esc-lb-bar-wrap"><div class="esc-lb-bar" style="width:0%"></div></div>
+            <span class="esc-lb-pts">—</span>
+        </div>`);
+
+    lb.innerHTML = [...rowsWithPts, ...rowsZeroed].join("");
 }
 
 function _renderMembersBar() {
@@ -674,7 +725,7 @@ function _bindEvents() {
             return;
         }
         if (e.target.closest("#esc-btn-leave")) {
-            if (confirm("Leave room? Your local votes will be cleared.")) _leaveRoom();
+            if (confirm("Leave room? Your scores will stay saved to your account.")) _leaveRoom();
         }
     });
 
