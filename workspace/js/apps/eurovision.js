@@ -60,9 +60,11 @@ let _activeTab = "all";
 let _lbSource  = "all"; // which scoring tab the leaderboard mirrors
 let _members   = {};
 let _myPhotoURL = "";
-let _unsub     = null;
-let _savTimer  = null;
-let _userSavTimer = null;
+let _unsub            = null;
+let _userDocUnsub     = null;
+let _savTimer         = null;
+let _userSavTimer     = null;
+let _localWriteInFlight = false;
 
 /* ══════ SVG constants ══════ */
 const ESC_SVG = `<svg class="esc-logo-svg" viewBox="0 0 226.683 233.658" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="escGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#009FE3"/><stop offset="100%" stop-color="#E4007C"/></linearGradient></defs><path fill="url(#escGrad)" d="M 99.722 231.541 C 101.585 233.574 104.305 233.076 105.56 230.435 C 135.35 167.569 225.843 139.135 225.843 59.033 C 225.843 29.922 206.246 0.69 168.566 0.013 C 132.699 -0.635 100.509 22.469 97.152 59.87 C 96.145 36.188 80.613 25.269 62.7 25.269 C 27.461 25.269 -1.402 57.081 0.053 104.952 C 2.474 180.242 74.855 203.964 99.722 231.541 Z M 93.326 77.913 C 94.282 81.669 98.865 81.54 99.901 77.823 C 115.414 21.593 186.748 15.446 186.748 72.384 C 186.748 117.336 107.075 165.298 101.007 207.969 C 86.591 179.973 33.638 164.6 33.638 103.747 C 33.638 51.96 83.991 41.08 93.326 77.913 Z"/></svg>`;
@@ -88,6 +90,7 @@ export async function initEurovisionUser(db, uid, displayName, photoURL) {
     // Load local first as fast fallback, then overwrite with Firestore personal ballot
     _loadLocal();
     await _loadUserBallot();
+    _startUserBallotSync(); // real-time cross-device ballot sync
     const saved = localStorage.getItem("esc_room");
     if (saved) {
         await _joinRoom(saved, firstName);
@@ -97,6 +100,11 @@ export async function initEurovisionUser(db, uid, displayName, photoURL) {
     }
     const ni = document.getElementById("esc-display-name");
     if (ni) ni.value = firstName;
+
+    // Flush any pending save when the tab is hidden / navigated away
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden) _flushUserSave();
+    });
 }
 
 /* ══════ URL ══════ */
@@ -148,17 +156,49 @@ async function _loadUserBallot() {
 function _scheduleUserSave() {
     if (!_db || !_uid) return;
     clearTimeout(_userSavTimer);
-    _userSavTimer = setTimeout(async () => {
-        try {
-            await setDoc(doc(_db, "esc_users", _uid), {
-                scores:     _scores,
-                finalists:  Array.from(_finalists),
-                everScored: { all: Array.from(_everScored.all), finals: Array.from(_everScored.finals) },
-                roomId:     _roomId || null,
-                updatedAt:  serverTimestamp()
-            }, { merge: true });
-        } catch {}
-    }, 800);
+    _userSavTimer = setTimeout(() => _flushUserSave(), 800);
+}
+
+async function _flushUserSave() {
+    if (!_db || !_uid) return;
+    clearTimeout(_userSavTimer);
+    _userSavTimer = null;
+    _localWriteInFlight = true;
+    try {
+        await setDoc(doc(_db, "esc_users", _uid), {
+            scores:     _scores,
+            finalists:  Array.from(_finalists),
+            everScored: { all: Array.from(_everScored.all), finals: Array.from(_everScored.finals) },
+            roomId:     _roomId || null,
+            updatedAt:  serverTimestamp()
+        }, { merge: true });
+    } catch {}
+    _localWriteInFlight = false;
+}
+
+/* ══════ Real-time cross-device ballot sync ══════ */
+function _startUserBallotSync() {
+    if (_userDocUnsub) { _userDocUnsub(); _userDocUnsub = null; }
+    if (!_db || !_uid) return;
+    _userDocUnsub = onSnapshot(doc(_db, "esc_users", _uid), snap => {
+        // Skip our own pending local writes — local state is already up to date
+        if (!snap.exists() || snap.metadata.hasPendingWrites) return;
+        // Skip if a local write is in flight or debounce is pending — don't overwrite local votes
+        if (_localWriteInFlight || _userSavTimer !== null) return;
+        const d = snap.data();
+        if (d.scores)     _scores    = { all: d.scores.all || {}, finals: d.scores.finals || {} };
+        if (d.finalists)  _finalists = new Set(d.finalists);
+        if (d.everScored) _everScored = {
+            all:    new Set(d.everScored.all    || []),
+            finals: new Set(d.everScored.finals || [])
+        };
+        _saveLocal();
+        _renderTabBar();
+        _renderGrid();
+        _renderLeaderboard();
+        // Push freshly synced scores into room if in one
+        if (_roomId) _pushScores(_getName()).catch(() => {});
+    });
 }
 
 /* ══════ Room history ══════ */
@@ -238,7 +278,7 @@ async function _createRoom(name) {
         finalists: Array.from(_finalists),
         members: { [_uid]: { name, photoURL: _myPhotoURL, scores: _scores, joinedAt: Date.now() } }
     });
-    _scheduleUserSave(); // persist roomId to account
+    await _flushUserSave(); // persist roomId to account immediately
     _subscribeRoom();
     _updateRoomUI();
     _saveRoomHistory(code, [_getName()]);
@@ -252,6 +292,9 @@ async function _joinRoom(roomId, name) {
     if (!snap?.exists()) {
         localStorage.removeItem("esc_room");
         _roomId = null;
+        if (_db && _uid) {
+            setDoc(doc(_db, "esc_users", _uid), { roomId: null }, { merge: true }).catch(() => {});
+        }
         _showToast("Room not found — starting fresh.", "warn");
         _renderGrid(); _renderLeaderboard();
         return;
@@ -265,7 +308,7 @@ async function _joinRoom(roomId, name) {
     await setDoc(ref, {
         members: { [_uid]: { name, photoURL: _myPhotoURL, scores: _scores, joinedAt: Date.now() } }
     }, { merge: true });
-    _scheduleUserSave(); // persist roomId to account
+    await _flushUserSave(); // persist roomId to account immediately
     _subscribeRoom();
     _updateRoomUI();
     _renderGrid();
