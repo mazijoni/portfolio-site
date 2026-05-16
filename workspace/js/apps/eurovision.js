@@ -5,7 +5,7 @@
  */
 
 import {
-    doc, setDoc, getDoc, onSnapshot, serverTimestamp
+    doc, setDoc, getDoc, onSnapshot, serverTimestamp, updateDoc
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
 import { refs } from "../db.js";
@@ -117,6 +117,29 @@ function _settingsRef() {
     return refs.eurovisionSettings(_db, _uid);
 }
 
+function _serializeSettings() {
+    return {
+        scores: _cloneScores(_scores),
+        finalists: Array.from(_finalists),
+        everScored: { all: Array.from(_everScored.all), finals: Array.from(_everScored.finals) },
+        roomId: _roomId || null,
+        ballotUpdatedAt: _scoresUpdatedAt,
+        roomHistory: _roomHistory,
+        updatedAt: serverTimestamp()
+    };
+}
+
+function _serializeRoomMember(current = {}) {
+    return {
+        ...current,
+        name: _getName(),
+        photoURL: _myPhotoURL,
+        scores: _cloneScores(_scores),
+        ballotUpdatedAt: _scoresUpdatedAt,
+        updatedAt: Date.now()
+    };
+}
+
 /* ══════ Init ══════ */
 export function initEurovision() {
     _renderShell();
@@ -200,14 +223,7 @@ async function _loadUserBallot() {
                              Object.keys(_scores.finals || {}).length > 0 ||
                              _everScored.all.size > 0 || _everScored.finals.size > 0;
             if (hasVotes) {
-                await setDoc(_settingsRef(), {
-                    scores:     _scores,
-                    finalists:  Array.from(_finalists),
-                    everScored: { all: Array.from(_everScored.all), finals: Array.from(_everScored.finals) },
-                    ballotUpdatedAt: _scoresUpdatedAt,
-                    roomHistory: _roomHistory,
-                    updatedAt:  serverTimestamp()
-                }, { merge: true });
+                await setDoc(_settingsRef(), _serializeSettings());
             }
             _userBallotLoaded = true;
             return;
@@ -216,11 +232,11 @@ async function _loadUserBallot() {
         const remoteStamp = _getBallotStamp(d);
         const fsVotes    = Object.keys(d.scores?.all || {}).length + Object.keys(d.scores?.finals || {}).length;
         const localVotes = Object.keys(_scores.all || {}).length  + Object.keys(_scores.finals || {}).length;
-        if (localVotes > 0 && fsVotes === 0) {
+        if (localVotes > 0 && fsVotes === 0 && remoteStamp === 0) {
             // Firestore ballot is empty but we have local votes — push them back up (recovery)
             _scheduleUserSave();
         } else {
-            if (d.scores)     _applyRemoteScores(d.scores, remoteStamp);
+            _applyRemoteScores(d.scores || { all: {}, finals: {} }, remoteStamp);
             if (d.finalists)  _finalists = new Set(d.finalists);
             if (d.everScored) _everScored = {
                 all:    new Set(d.everScored.all    || []),
@@ -249,15 +265,7 @@ async function _flushUserSave() {
     _userSavTimer = null;
     _localWriteInFlight = true;
     try {
-        await setDoc(_settingsRef(), {
-            scores:     _scores,
-            finalists:  Array.from(_finalists),
-            everScored: { all: Array.from(_everScored.all), finals: Array.from(_everScored.finals) },
-            roomId:     _roomId || null,
-            ballotUpdatedAt: _scoresUpdatedAt,
-            roomHistory: _roomHistory,
-            updatedAt:  serverTimestamp()
-        }, { merge: true });
+        await setDoc(_settingsRef(), _serializeSettings());
     } catch {}
     _localWriteInFlight = false;
 }
@@ -273,14 +281,8 @@ function _startUserBallotSync() {
         if (_localWriteInFlight || _userSavTimer !== null) return;
         const d = snap.data();
         const remoteStamp = _getBallotStamp(d);
-        // Safety: never overwrite existing local votes with an empty incoming ballot
-        const incomingHasVotes = Object.keys(d.scores?.all || {}).length > 0 ||
-                                 Object.keys(d.scores?.finals || {}).length > 0;
-        const localHasVotes   = Object.keys(_scores.all || {}).length > 0 ||
-                                 Object.keys(_scores.finals || {}).length > 0;
-        if (localHasVotes && !incomingHasVotes) return;
         if (remoteStamp < _scoresUpdatedAt) return;
-        if (d.scores)     _applyRemoteScores(d.scores, remoteStamp);
+        _applyRemoteScores(d.scores || { all: {}, finals: {} }, remoteStamp);
         if (d.finalists)  _finalists = new Set(d.finalists);
         if (d.everScored) _everScored = {
             all:    new Set(d.everScored.all    || []),
@@ -423,9 +425,31 @@ async function _joinRoom(roomId, name) {
     }
     // Never overwrite an existing room entry with an empty ballot during refresh.
     if (_hasVotes(_scores) || !myMember) {
-        await setDoc(ref, {
-            members: { [_uid]: { name, photoURL: _myPhotoURL, scores: _scores, ballotUpdatedAt: _scoresUpdatedAt, joinedAt: myMember?.joinedAt || Date.now() } }
-        }, { merge: true });
+        await updateDoc(ref, {
+            [`members.${_uid}`]: {
+                ...(myMember || {}),
+                name,
+                photoURL: _myPhotoURL,
+                scores: _cloneScores(_scores),
+                ballotUpdatedAt: _scoresUpdatedAt,
+                joinedAt: myMember?.joinedAt || Date.now(),
+                updatedAt: Date.now()
+            }
+        }).catch(async () => {
+            await setDoc(ref, {
+                members: {
+                    [_uid]: {
+                        ...(myMember || {}),
+                        name,
+                        photoURL: _myPhotoURL,
+                        scores: _cloneScores(_scores),
+                        ballotUpdatedAt: _scoresUpdatedAt,
+                        joinedAt: myMember?.joinedAt || Date.now(),
+                        updatedAt: Date.now()
+                    }
+                }
+            }, { merge: true });
+        });
     }
     _scheduleUserSave();
     _subscribeRoom();
@@ -488,18 +512,15 @@ async function _syncRoomMemberScores() {
         (current.photoURL || "") === _myPhotoURL) {
         return;
     }
-    await setDoc(doc(_db, "esc_rooms", _roomId), {
-        members: {
-            [_uid]: {
-                ...current,
-                name: _getName(),
-                photoURL: _myPhotoURL,
-                scores: _cloneScores(_scores),
-                ballotUpdatedAt: _scoresUpdatedAt,
-                updatedAt: Date.now()
+    await updateDoc(doc(_db, "esc_rooms", _roomId), {
+        [`members.${_uid}`]: _serializeRoomMember(current)
+    }).catch(async () => {
+        await setDoc(doc(_db, "esc_rooms", _roomId), {
+            members: {
+                [_uid]: _serializeRoomMember(current)
             }
-        }
-    }, { merge: true });
+        }, { merge: true });
+    });
 }
 
 async function _pushScores(name) {
@@ -508,9 +529,29 @@ async function _pushScores(name) {
     _scheduleUserSave();
     // Also sync into the room if in one
     if (!_roomId) return;
-    await setDoc(doc(_db, "esc_rooms", _roomId), {
-        members: { [_uid]: { name, scores: _cloneScores(_scores), photoURL: _myPhotoURL, ballotUpdatedAt: _scoresUpdatedAt, updatedAt: Date.now() } }
-    }, { merge: true });
+    await updateDoc(doc(_db, "esc_rooms", _roomId), {
+        [`members.${_uid}`]: {
+            ...(_members[_uid] || {}),
+            name,
+            scores: _cloneScores(_scores),
+            photoURL: _myPhotoURL,
+            ballotUpdatedAt: _scoresUpdatedAt,
+            updatedAt: Date.now()
+        }
+    }).catch(async () => {
+        await setDoc(doc(_db, "esc_rooms", _roomId), {
+            members: {
+                [_uid]: {
+                    ...(_members[_uid] || {}),
+                    name,
+                    scores: _cloneScores(_scores),
+                    photoURL: _myPhotoURL,
+                    ballotUpdatedAt: _scoresUpdatedAt,
+                    updatedAt: Date.now()
+                }
+            }
+        }, { merge: true });
+    });
 }
 
 async function _pushFinalists() {
