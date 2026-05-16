@@ -2190,7 +2190,12 @@
             <input type="hidden" id="link-id-field">
             <div class="form-group">
                 <label for="link-url-field" id="link-url-label">URL *</label>
-                <input type="url" id="link-url-field" placeholder="https://&#8230;" required>
+                <input type="url" id="link-url-field" placeholder="https://&#8230;">
+            </div>
+            <div class="form-group" id="link-batch-group">
+                <label for="link-batch-field">Batch URLs</label>
+                <textarea id="link-batch-field" class="link-batch-field" rows="5" placeholder="Drop or paste multiple URLs here, one per line"></textarea>
+                <div id="link-batch-hint" class="form-hint">Drop text, link selections, or paste many URLs at once.</div>
             </div>
             <div class="form-group" id="link-thumb-group" style="display:none">
                 <label for="link-thumb-field" id="link-thumb-label">Thumbnail URL</label>

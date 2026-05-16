@@ -20,9 +20,19 @@ import { db } from "./app.js";
  * Silent: logs to console, never throws to the caller.
  */
 export async function runMigrations(uid) {
+    const safeUid = typeof uid === "string" ? uid.trim() : "";
+    if (!safeUid || safeUid === "undefined" || safeUid === "null") {
+        console.warn("[migrate] Skipping migrations because uid is missing.");
+        return;
+    }
+
     try {
-        await _migrateCategoriesToProjects(uid);
+        await _migrateCategoriesToProjects(safeUid);
     } catch (err) {
+        if (err?.code === "permission-denied") {
+            console.warn("[migrate] Skipping category migration due to Firestore permissions.");
+            return;
+        }
         console.error("[migrate] Unexpected error:", err);
     }
 }

@@ -1129,21 +1129,6 @@
             height: auto;
             display: block;
         }
-        .video-iframe-wrap--tweet {
-            padding-top: 0;
-            height: auto;
-            min-height: 80px;
-            background: #0a0a0a;
-        }
-        .tweet-embed-wrap {
-            width: 100%;
-            padding: 0.5rem;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .tweet-embed-wrap > iframe { max-width: 100% !important; }
         .video-iframe-wrap iframe {
             position: absolute;
             inset: 0;
@@ -3092,6 +3077,10 @@
 
         /* ── Sign out ── */
         window.doSignOut = async () => {
+            if (unsubscribeData) {
+                unsubscribeData();
+                unsubscribeData = null;
+            }
             await signOut(auth);
             window.location.href = 'login.html';
         };
@@ -3110,12 +3099,27 @@
         let collectionsCache = [];
 
         function loadData() {
+            if (!currentUser?.uid) return;
+            if (unsubscribeData) {
+                unsubscribeData();
+                unsubscribeData = null;
+            }
+
             const catsQ  = query(catsRef(),  orderBy('createdAt'));
             const linksQ = query(linksRef(), orderBy('createdAt'));
             const colsQ  = query(collectionsRef(), orderBy('createdAt'));
+            const unsubs = [];
 
             let catsReady  = false;
             let linksReady = false;
+
+            function handleSnapshotError(err) {
+                console.error('[private] data snapshot error:', err);
+                if (err?.code === 'permission-denied') {
+                    document.getElementById('loading-state').style.display = 'none';
+                    showToast('Missing permission for this dashboard. Sign in again or check Firestore rules.', 'error');
+                }
+            }
 
             function tryRender() {
                 if (catsReady && linksReady) {
@@ -3124,7 +3128,7 @@
                 }
             }
 
-            onSnapshot(catsQ, (snap) => {
+            unsubs.push(onSnapshot(catsQ, (snap) => {
                 categoriesCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 // Apply saved order from localStorage
                 const CAT_ORDER_KEY = 'dashboard_cat_order';
@@ -3141,22 +3145,28 @@
                 }
                 catsReady = true;
                 tryRender();
-            });
+            }, handleSnapshotError));
 
-            onSnapshot(linksQ, (snap) => {
+            unsubs.push(onSnapshot(linksQ, (snap) => {
                 linksCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 linksReady = true;
                 tryRender();
                 autoFetchPersonAvatars();
-            });
+            }, handleSnapshotError));
 
-            onSnapshot(colsQ, (snap) => {
+            unsubs.push(onSnapshot(colsQ, (snap) => {
                 collectionsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 // Refresh collections panel if open
                 if (document.getElementById('collections-panel').classList.contains('active')) {
                     renderCollectionList();
                 }
-            });
+            }, handleSnapshotError));
+
+            unsubscribeData = () => {
+                for (const unsub of unsubs) {
+                    try { unsub?.(); } catch {}
+                }
+            };
         }
 
         /* ── Search ── */
@@ -3297,125 +3307,6 @@
             const totalLabel = links.filter(l => l.type !== 'creator' && l.type !== 'person').length;
 
             // Sort key from localStorage
-            const SORT_KEY = 'cat_sort_' + cat.id;
-            const currentSort = localStorage.getItem(SORT_KEY) || 'newest';
-
-            header.innerHTML = `
-                <div class="drag-handle" title="Drag to reorder">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                        <circle cx="4" cy="3" r="1" fill="currentColor"/><circle cx="8" cy="3" r="1" fill="currentColor"/>
-                        <circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="8" cy="6" r="1" fill="currentColor"/>
-                        <circle cx="4" cy="9" r="1" fill="currentColor"/><circle cx="8" cy="9" r="1" fill="currentColor"/>
-                    </svg>
-                </div>
-                <span class="category-name">${escHtml(cat.name)}<span class="cat-count-badge" title="${totalLabel} items">${totalLabel}</span></span>
-                <div class="category-actions">
-                    <select class="cat-sort-select" title="Sort order" data-cat-id="${escAttr(cat.id)}">
-                        <option value="newest"${currentSort === 'newest' ? ' selected' : ''}>Newest</option>
-                        <option value="oldest"${currentSort === 'oldest' ? ' selected' : ''}>Oldest</option>
-                        <option value="az"${currentSort === 'az' ? ' selected' : ''}>A–Z</option>
-                    </select>
-                    <button class="icon-btn" title="Rename">
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                            <path d="M2 9.5L8 3.5l1 1-6 6H2v-1z" stroke="currentColor" stroke-width="1.2"/>
-                            <path d="M8.5 2l1 1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-                        </svg>
-                    </button>
-                    <button class="icon-btn danger" title="Delete category">
-                        <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-                            <path d="M1 1l9 9M10 1L1 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                        </svg>
-                    </button>
-                </div>`;
-
-            const sortSelect = header.querySelector('.cat-sort-select');
-            sortSelect.addEventListener('change', () => {
-                localStorage.setItem('cat_sort_' + cat.id, sortSelect.value);
-                render();
-            });
-            // Stop drag from triggering when interacting with header controls
-            sortSelect.addEventListener('mousedown', e => e.stopPropagation());
-
-            const [renameBtn, deleteCatBtn] = header.querySelectorAll('button.icon-btn');
-            renameBtn.addEventListener('click', () => openCategoryModal(cat.id, cat.name));
-            deleteCatBtn.addEventListener('click', () => confirmDeleteCategory(cat.id, cat.name));
-
-            // Drag events
-            block.addEventListener('dragstart', (e) => {
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', cat.id);
-                setTimeout(() => block.classList.add('is-dragging'), 0);
-            });
-            block.addEventListener('dragend', () => block.classList.remove('is-dragging'));
-            block.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-                document.querySelectorAll('.category-block.drag-over').forEach(b => b.classList.remove('drag-over'));
-                block.classList.add('drag-over');
-            });
-            block.addEventListener('dragleave', (e) => {
-                if (!block.contains(e.relatedTarget)) block.classList.remove('drag-over');
-            });
-            block.addEventListener('drop', (e) => {
-                e.preventDefault();
-                block.classList.remove('drag-over');
-                const srcId = e.dataTransfer.getData('text/plain');
-                if (srcId === cat.id) return;
-                reorderCategories(srcId, cat.id);
-            });
-
-            // Sort links for this category
-            let sortedLinks = [...links];
-            if (currentSort === 'newest') {
-                sortedLinks.sort((a, b) => {
-                    const at = a.createdAt?.seconds || 0;
-                    const bt = b.createdAt?.seconds || 0;
-                    return bt - at;
-                });
-            } else if (currentSort === 'oldest') {
-                sortedLinks.sort((a, b) => {
-                    const at = a.createdAt?.seconds || 0;
-                    const bt = b.createdAt?.seconds || 0;
-                    return at - bt;
-                });
-            } else if (currentSort === 'az') {
-                sortedLinks.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-            }
-            // Use sortedLinks below instead of links
-
-            // ── Sites sub-group ──
-            const sitesGroup = document.createElement('div');
-            sitesGroup.className = 'sub-group';
-            sitesGroup.appendChild(makeSubGroupHeader('Sites'));
-            const sitesGrid = document.createElement('div');
-            sitesGrid.className = 'sites-grid';
-            sortedLinks.filter(l => l.type !== 'video' && l.type !== 'image' && l.type !== 'creator' && l.type !== 'person' && l.type !== 'comic')
-                 .forEach(link => sitesGrid.appendChild(buildSiteCard(link)));
-            const addSiteCard = document.createElement('button');
-            addSiteCard.className = 'add-type-card';
-            addSiteCard.onclick = () => openSiteModal(cat.id);
-            addSiteCard.innerHTML = `
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                    <rect x="1" y="3" width="16" height="12" rx="1" stroke="currentColor" stroke-width="1.5"/>
-                    <path d="M5 9h8M9 5v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                </svg>
-                <span class="add-type-label">Add Site</span>`;
-            sitesGrid.appendChild(addSiteCard);
-            sitesGroup.appendChild(sitesGrid);
-
-            // ── Media sub-group ──
-            const mediaGroup = document.createElement('div');
-            mediaGroup.className = 'sub-group';
-            mediaGroup.appendChild(makeSubGroupHeader('Media'));
-            const mediaGrid = document.createElement('div');
-            mediaGrid.className = 'media-grid';
-            sortedLinks.filter(l => l.type === 'video' || l.type === 'image')
-                 .forEach(link => {
-                     if (link.type === 'video') mediaGrid.appendChild(buildVideoCard(link));
-                     else                       mediaGrid.appendChild(buildImageCard(link));
-                 });
-            const addVideoCard = document.createElement('button');
-            addVideoCard.className = 'add-type-card';
             addVideoCard.onclick = () => openVideoModal(cat.id);
             addVideoCard.innerHTML = `
                 <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -3547,137 +3438,6 @@
                 default: return '';
             }
         }
-
-        /* ── Twitter widget loader ── */
-        let _twitterWidgetPromise = null;
-        function loadTwitterWidget() {
-            if (_twitterWidgetPromise) return _twitterWidgetPromise;
-            _twitterWidgetPromise = new Promise(resolve => {
-                if (window.twttr && window.twttr.widgets) { resolve(); return; }
-                const s = document.createElement('script');
-                s.src = 'https://platform.twitter.com/widgets.js';
-                s.async = true;
-                s.onload  = () => { window.twttr ? window.twttr.ready(resolve) : resolve(); };
-                s.onerror = () => resolve();
-                document.head.appendChild(s);
-            });
-            return _twitterWidgetPromise;
-        }
-        // Render media from fxtwitter API response into container
-        function _renderFxTweetMedia(tweet, displayUrl, container) {
-            const photos  = tweet.media?.photos  || [];
-            const videos  = tweet.media?.videos  || [];
-            const author  = tweet.author;
-            const text    = tweet.text || '';
-
-            if (!photos.length && !videos.length) {
-                // No media — show text card
-                container.innerHTML = `<div style="padding:0.75rem 1rem;font-size:0.82rem;line-height:1.4">
-                    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem">
-                        ${author?.avatar_url ? `<img src="${escAttr(author.avatar_url)}" style="width:24px;height:24px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'">` : ''}
-                        <span style="font-weight:600;color:#e7e9ea">${escHtml(author?.name || '')}</span>
-                        <span style="color:#555">@${escHtml(author?.screen_name || '')}</span>
-                    </div>
-                    <p style="margin:0 0 0.5rem;color:#e7e9ea">${escHtml(text)}</p>
-                    <a href="${escAttr(displayUrl)}" target="_blank" rel="noopener noreferrer" style="color:#1d9bf0;font-size:0.75rem">View on X &rarr;</a>
-                </div>`;
-                return;
-            }
-
-            // Show images in a simple grid, videos as a <video> element
-            let mediaHtml = '';
-            for (const v of videos) {
-                const src = v.url || '';
-                if (src) mediaHtml += `<video src="${escAttr(src)}" controls playsinline style="width:100%;display:block;max-height:400px;background:#000" preload="metadata"></video>`;
-            }
-            if (photos.length) {
-                const cols = photos.length === 1 ? 1 : 2;
-                mediaHtml += `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:2px">` +
-                    photos.map(p => `<a href="${escAttr(displayUrl)}" target="_blank" rel="noopener noreferrer">
-                        <img src="${escAttr(p.url)}" style="width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in"
-                             onclick="event.preventDefault();openLightbox('${escAttr(p.url)}','')">
-                    </a>`).join('') + '</div>';
-            }
-            container.innerHTML = mediaHtml;
-        }
-
-        async function renderTweetInContainer(tweetId, container) {
-            const originalUrl = container.dataset.tweetUrl || '';
-            const displayUrl  = originalUrl || `https://x.com/i/web/status/${tweetId}`;
-
-            // Extract username from URL for fxtwitter fallback
-            let username = null;
-            try {
-                const m = new URL(originalUrl).pathname.match(/^\/([^/]+)\/status\//);
-                if (m && m[1] !== 'i') username = m[1];
-            } catch {}
-
-            // Build oEmbed URL — requires real twitter.com/{user}/status/{id}
-            let oembedTweetUrl = null;
-            if (username) {
-                try {
-                    const u = new URL(originalUrl);
-                    u.hostname = 'twitter.com';
-                    oembedTweetUrl = u.toString();
-                } catch {}
-            }
-
-            container.innerHTML = '<div style="color:#555;font-size:0.78rem;text-align:center;padding:1.5rem">Loading\u2026</div>';
-
-            // 1. Try official oEmbed
-            if (oembedTweetUrl) {
-                try {
-                    const resp = await fetch(`https://publish.twitter.com/oembed?url=${encodeURIComponent(oembedTweetUrl)}&theme=dark&dnt=true&omit_script=1`);
-                    if (resp.ok) {
-                        const data = await resp.json();
-                        if (!document.contains(container)) return;
-                        container.innerHTML = data.html || '';
-                        await loadTwitterWidget();
-                        if (window.twttr?.widgets?.load) twttr.widgets.load(container);
-                        return;
-                    }
-                } catch {}
-            }
-
-            if (!document.contains(container)) return;
-
-            // 2. Fallback: show the Thumbnail Image URL set on the video record
-            const thumbUrl = container.dataset.thumbUrl || '';
-            if (thumbUrl) {
-                container.innerHTML = `<a href="${escAttr(displayUrl)}" target="_blank" rel="noopener noreferrer" style="display:block">
-                    <img src="${escAttr(thumbUrl)}" style="width:100%;height:auto;display:block;cursor:pointer"
-                         alt="" onerror="this.closest('.tweet-embed-wrap').innerHTML=''">
-                </a>`;
-                return;
-            }
-
-            if (!document.contains(container)) return;
-
-            // 3. Final fallback: link card
-            container.innerHTML = `<div style="padding:0.9rem 1rem;display:flex;align-items:center;gap:0.6rem;font-size:0.82rem">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;color:#1d9bf0"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.259 5.622 5.905-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                <a href="${escAttr(displayUrl)}" target="_blank" rel="noopener noreferrer"
-                   style="color:#1d9bf0">View on X &rarr;</a>
-            </div>`;
-        }
-        // Auto-render tweets whenever .tweet-embed-wrap elements appear in the DOM
-        (function() {
-            const obs = new MutationObserver(muts => {
-                for (const mut of muts) {
-                    for (const node of mut.addedNodes) {
-                        if (node.nodeType !== 1) continue;
-                        const wraps = [];
-                        if (node.classList?.contains('tweet-embed-wrap')) wraps.push(node);
-                        node.querySelectorAll?.('.tweet-embed-wrap').forEach(el => wraps.push(el));
-                        for (const wrap of wraps) {
-                            const id  = wrap.dataset.tweetId;
-                            if (id) renderTweetInContainer(id, wrap);
-                        }
-                    }
-                }
-            });
-            obs.observe(document.body, { childList: true, subtree: true });
-        })();
 
         const PLATFORM_LABELS = { youtube: 'YouTube', twitter: 'X / Twitter', instagram: 'Instagram', tiktok: 'TikTok', twitch: 'Twitch', other: '' };
         const PLATFORM_BADGE_CLASS = { youtube: 'yt', twitter: 'tw', instagram: 'ig', tiktok: 'ttk', twitch: 'twitch', other: 'other' };
@@ -4181,13 +3941,9 @@
             let mediaHtml;
             let isThumbOnly = false;
             let isLinkOnly  = false;
-            let isTweet     = false;
             if (embed) {
                 if (embed.type === 'direct') {
                     mediaHtml = `<video src="${escAttr(embed.src)}" controls style="position:absolute;inset:0;width:100%;height:100%;background:#000" preload="metadata"></video>`;
-                } else if (embed.type === 'tweet') {
-                    isTweet = true;
-                    mediaHtml = `<div class="tweet-embed-wrap" data-tweet-id="${escAttr(embed.tweetId)}" data-tweet-url="${escAttr(embed.tweetUrl)}" data-thumb-url="${escAttr(link.thumbUrl || '')}"></div>`;
                 } else {
                     mediaHtml = `<iframe src="${escAttr(embed.src)}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" loading="lazy"></iframe>`;
                 }
@@ -4209,11 +3965,11 @@
                 mediaHtml = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#555;font-size:0.8rem">No video or thumbnail</div>`;
             }
 
-            const badgeLabel = embed ? (embed.type === 'youtube' ? 'YT' : embed.type === 'vimeo' ? 'VIMEO' : embed.type === 'tweet' ? 'X' : 'VIDEO') : (link.thumbUrl ? 'IMG' : link.url ? 'LINK' : '?');
+            const badgeLabel = embed ? (embed.type === 'youtube' ? 'YT' : embed.type === 'vimeo' ? 'VIMEO' : 'VIDEO') : (link.thumbUrl ? 'IMG' : link.url ? 'LINK' : '?');
 
             card.innerHTML = `
                 ${actionsHtml}
-                <div class="video-iframe-wrap${isThumbOnly ? ' video-iframe-wrap--thumb' : ''}${isTweet ? ' video-iframe-wrap--tweet' : ''}">${mediaHtml}</div>
+                <div class="video-iframe-wrap${isThumbOnly ? ' video-iframe-wrap--thumb' : ''}">${mediaHtml}</div>
                 <div class="video-card-body">
                     <span class="video-type-badge">${badgeLabel}</span>
                     <span class="video-card-name">${escHtml(link.name)}</span>
@@ -4812,26 +4568,12 @@
             return null;
         }
 
-        function getTweetId(url) {
-            try {
-                const u = new URL(url);
-                const h = u.hostname.replace(/^www\./, '');
-                if (h === 'x.com' || h === 'twitter.com') {
-                    const m = u.pathname.match(/\/status\/(\d+)/);
-                    if (m) return m[1];
-                }
-            } catch {}
-            return null;
-        }
-
         function getVideoEmbed(url) {
             if (!url) return null;
             const ytId = getYouTubeId(url);
             if (ytId) return { type: 'youtube', src: `https://www.youtube-nocookie.com/embed/${ytId}` };
             const vimeoId = getVimeoId(url);
             if (vimeoId) return { type: 'vimeo', src: `https://player.vimeo.com/video/${vimeoId}` };
-            const tweetId = getTweetId(url);
-            if (tweetId) return { type: 'tweet', tweetId, tweetUrl: url };
             if (/\.(mp4|webm|ogg|mov|m4v)(\?|$)/i.test(url)) return { type: 'direct', src: url };
             return null;
         }
@@ -5708,7 +5450,7 @@
                 urlHint.style.display = '';
             }
 
-            if (!embed || embed.type === 'tweet') { wrap.classList.remove('visible'); return; }
+            if (!embed) { wrap.classList.remove('visible'); return; }
 
             if (embed.type === 'direct') {
                 video.src = embed.src;
@@ -5786,10 +5528,12 @@
 
         /* ── Utils ── */
         function escHtml(str) {
-            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+            const safe = str == null || str === 'undefined' || str === 'null' ? '' : String(str);
+            return safe.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
         function escAttr(str) {
-            return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            const safe = str == null || str === 'undefined' || str === 'null' ? '' : String(str);
+            return safe.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         }
         function isValidUrl(str) {
             try { new URL(str); return true; } catch { return false; }

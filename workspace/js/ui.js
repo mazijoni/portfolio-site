@@ -196,7 +196,8 @@ export function confirm(msg) {
 
 /* ── HTML escape ── */
 export function escHtml(str) {
-    return String(str)
+    const safe = str == null || str === "undefined" || str === "null" ? "" : String(str);
+    return safe
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
