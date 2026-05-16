@@ -65,6 +65,7 @@ let _userDocUnsub     = null;
 let _savTimer         = null;
 let _userSavTimer     = null;
 let _localWriteInFlight = false;
+let _pendingRoomId    = null;
 
 /* ══════ SVG constants ══════ */
 const ESC_SVG = `<svg class="esc-logo-svg" viewBox="0 0 226.683 233.658" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="escGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#009FE3"/><stop offset="100%" stop-color="#E4007C"/></linearGradient></defs><path fill="url(#escGrad)" d="M 99.722 231.541 C 101.585 233.574 104.305 233.076 105.56 230.435 C 135.35 167.569 225.843 139.135 225.843 59.033 C 225.843 29.922 206.246 0.69 168.566 0.013 C 132.699 -0.635 100.509 22.469 97.152 59.87 C 96.145 36.188 80.613 25.269 62.7 25.269 C 27.461 25.269 -1.402 57.081 0.053 104.952 C 2.474 180.242 74.855 203.964 99.722 231.541 Z M 93.326 77.913 C 94.282 81.669 98.865 81.54 99.901 77.823 C 115.414 21.593 186.748 15.446 186.748 72.384 C 186.748 117.336 107.075 165.298 101.007 207.969 C 86.591 179.973 33.638 164.6 33.638 103.747 C 33.638 51.96 83.991 41.08 93.326 77.913 Z"/></svg>`;
@@ -74,6 +75,17 @@ const FIN_SVG = `<svg viewBox="0 0 226.683 233.658" xmlns="http://www.w3.org/200
 const _s  = ()  => _scores[_activeTab];
 const _cs = (id, v) => { _scores[_activeTab][id] = v; };
 const _ds = id  => { delete _scores[_activeTab][id]; };
+
+function _cloneScores(scores) {
+    return {
+        all: { ...(scores?.all || {}) },
+        finals: { ...(scores?.finals || {}) }
+    };
+}
+
+function _scoresEqual(left, right) {
+    return JSON.stringify(_cloneScores(left)) === JSON.stringify(_cloneScores(right));
+}
 
 /* ══════ Init ══════ */
 export function initEurovision() {
@@ -90,9 +102,10 @@ export async function initEurovisionUser(db, uid, displayName, photoURL) {
     // Load local first as fast fallback, then overwrite with Firestore personal ballot
     _loadLocal();
     await _loadUserBallot();
-    const saved = localStorage.getItem("esc_room");
-    if (saved) {
-        await _joinRoom(saved, firstName);
+    if (_pendingRoomId) {
+        const roomId = _pendingRoomId;
+        _pendingRoomId = null;
+        await _joinRoom(roomId, firstName);
     } else {
         _renderGrid();
         _renderLeaderboard();
@@ -110,10 +123,11 @@ export async function initEurovisionUser(db, uid, displayName, photoURL) {
 
 /* ══════ URL ══════ */
 function _checkUrlRoom() {
+    localStorage.removeItem("esc_room");
     const p = new URLSearchParams(window.location.search);
     const r = p.get("esc_room");
     if (!r) return;
-    localStorage.setItem("esc_room", r);
+    _pendingRoomId = r.trim().toUpperCase();
     const u = new URL(window.location.href);
     u.searchParams.delete("esc_room");
     history.replaceState({}, "", u.toString());
@@ -153,10 +167,6 @@ async function _loadUserBallot() {
                 finals: new Set(d.everScored.finals || [])
             };
         }
-        // Restore room across devices if not already in localStorage
-        if (d.roomId && !localStorage.getItem("esc_room")) {
-            localStorage.setItem("esc_room", d.roomId);
-        }
         _saveLocal(); // keep localStorage in sync
     } catch {}
 }
@@ -177,7 +187,6 @@ async function _flushUserSave() {
             scores:     _scores,
             finalists:  Array.from(_finalists),
             everScored: { all: Array.from(_everScored.all), finals: Array.from(_everScored.finals) },
-            roomId:     _roomId || null,
             updatedAt:  serverTimestamp()
         }, { merge: true });
     } catch {}
@@ -210,8 +219,10 @@ function _startUserBallotSync() {
         _renderTabBar();
         _renderGrid();
         _renderLeaderboard();
+        if (_roomId) _syncRoomMemberScores().catch(() => {});
         // NOTE: do NOT push scores to room here — the voting device already does that,
         // and pushing from the listener creates a write feedback loop between devices.
+        // The room member sync above is limited to this uid and keeps the active room in sync.
     });
 }
 
@@ -286,14 +297,11 @@ async function _createRoom(name) {
     const code = _genCode();
     const ref  = doc(_db, "esc_rooms", code);
     _roomId = code;
-    localStorage.setItem("esc_room", _roomId);
     await setDoc(ref, {
         created: serverTimestamp(),
         finalists: Array.from(_finalists),
         members: { [_uid]: { name, photoURL: _myPhotoURL, scores: _scores, joinedAt: Date.now() } }
     });
-    // Persist only the roomId — never flush full scores here (scores may not be loaded yet)
-    setDoc(doc(_db, "esc_users", _uid), { roomId: _roomId, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
     _subscribeRoom();
     _updateRoomUI();
     _saveRoomHistory(code, [_getName()]);
@@ -305,11 +313,7 @@ async function _joinRoom(roomId, name) {
     const ref  = doc(_db, "esc_rooms", roomId);
     const snap = await getDoc(ref).catch(() => null);
     if (!snap?.exists()) {
-        localStorage.removeItem("esc_room");
         _roomId = null;
-        if (_db && _uid) {
-            setDoc(doc(_db, "esc_users", _uid), { roomId: null }, { merge: true }).catch(() => {});
-        }
         _showToast("Room not found — starting fresh.", "warn");
         _renderGrid(); _renderLeaderboard();
         return;
@@ -323,8 +327,6 @@ async function _joinRoom(roomId, name) {
     await setDoc(ref, {
         members: { [_uid]: { name, photoURL: _myPhotoURL, scores: _scores, joinedAt: Date.now() } }
     }, { merge: true });
-    // Persist only the roomId — never flush full scores here (scores may not be loaded yet)
-    setDoc(doc(_db, "esc_users", _uid), { roomId: _roomId, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
     _subscribeRoom();
     _updateRoomUI();
     _renderGrid();
@@ -355,12 +357,26 @@ async function _leaveRoom() {
     if (_unsub) { _unsub(); _unsub = null; }
     _roomId  = null;
     _members = {};
-    localStorage.removeItem("esc_room");
-    // Clear roomId from Firestore user doc
-    if (_db && _uid) {
-        setDoc(doc(_db, "esc_users", _uid), { roomId: null }, { merge: true }).catch(() => {});
-    }
     _renderTabBar(); _renderGrid(); _updateRoomUI(); _renderLeaderboard(); _renderMembersBar();
+}
+
+async function _syncRoomMemberScores() {
+    if (!_db || !_uid || !_roomId) return;
+    const current = _members[_uid] || {};
+    if (_scoresEqual(current.scores, _scores) && current.name === _getName() && (current.photoURL || "") === _myPhotoURL) {
+        return;
+    }
+    await setDoc(doc(_db, "esc_rooms", _roomId), {
+        members: {
+            [_uid]: {
+                ...current,
+                name: _getName(),
+                photoURL: _myPhotoURL,
+                scores: _cloneScores(_scores),
+                updatedAt: Date.now()
+            }
+        }
+    }, { merge: true });
 }
 
 async function _pushScores(name) {
@@ -370,7 +386,7 @@ async function _pushScores(name) {
     // Also sync into the room if in one
     if (!_roomId) return;
     await setDoc(doc(_db, "esc_rooms", _roomId), {
-        members: { [_uid]: { name, scores: _scores, photoURL: _myPhotoURL, updatedAt: Date.now() } }
+        members: { [_uid]: { name, scores: _cloneScores(_scores), photoURL: _myPhotoURL, updatedAt: Date.now() } }
     }, { merge: true });
 }
 
