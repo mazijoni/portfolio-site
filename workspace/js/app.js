@@ -41,6 +41,7 @@ catch { ({ firebaseConfig, googleClientId, tmdbKey } = await import("../../fireb
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getFirestore(app);
+window.__WS_TMDB_KEY = tmdbKey || "";
 
 /* ── Export Firebase handles for all modules ── */
 export { auth, db, tmdbKey };

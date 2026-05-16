@@ -90,7 +90,6 @@ export async function initEurovisionUser(db, uid, displayName, photoURL) {
     // Load local first as fast fallback, then overwrite with Firestore personal ballot
     _loadLocal();
     await _loadUserBallot();
-    _startUserBallotSync(); // real-time cross-device ballot sync
     const saved = localStorage.getItem("esc_room");
     if (saved) {
         await _joinRoom(saved, firstName);
@@ -98,6 +97,8 @@ export async function initEurovisionUser(db, uid, displayName, photoURL) {
         _renderGrid();
         _renderLeaderboard();
     }
+    // Start live listener AFTER full init so it can't overwrite the just-loaded state
+    _startUserBallotSync();
     const ni = document.getElementById("esc-display-name");
     if (ni) ni.value = firstName;
 
@@ -139,12 +140,19 @@ async function _loadUserBallot() {
             return;
         }
         const d = snap.data();
-        if (d.scores)     _scores    = { all: d.scores.all || {}, finals: d.scores.finals || {} };
-        if (d.finalists)  _finalists = new Set(d.finalists);
-        if (d.everScored) _everScored = {
-            all:    new Set(d.everScored.all    || []),
-            finals: new Set(d.everScored.finals || [])
-        };
+        const fsVotes    = Object.keys(d.scores?.all || {}).length + Object.keys(d.scores?.finals || {}).length;
+        const localVotes = Object.keys(_scores.all || {}).length  + Object.keys(_scores.finals || {}).length;
+        if (localVotes > 0 && fsVotes === 0) {
+            // Firestore ballot is empty but we have local votes — push them back up (recovery)
+            _scheduleUserSave();
+        } else {
+            if (d.scores)     _scores    = { all: d.scores.all || {}, finals: d.scores.finals || {} };
+            if (d.finalists)  _finalists = new Set(d.finalists);
+            if (d.everScored) _everScored = {
+                all:    new Set(d.everScored.all    || []),
+                finals: new Set(d.everScored.finals || [])
+            };
+        }
         // Restore room across devices if not already in localStorage
         if (d.roomId && !localStorage.getItem("esc_room")) {
             localStorage.setItem("esc_room", d.roomId);
@@ -186,6 +194,12 @@ function _startUserBallotSync() {
         // Skip if a local write is in flight or debounce is pending — don't overwrite local votes
         if (_localWriteInFlight || _userSavTimer !== null) return;
         const d = snap.data();
+        // Safety: never overwrite existing local votes with an empty incoming ballot
+        const incomingHasVotes = Object.keys(d.scores?.all || {}).length > 0 ||
+                                 Object.keys(d.scores?.finals || {}).length > 0;
+        const localHasVotes   = Object.keys(_scores.all || {}).length > 0 ||
+                                 Object.keys(_scores.finals || {}).length > 0;
+        if (localHasVotes && !incomingHasVotes) return;
         if (d.scores)     _scores    = { all: d.scores.all || {}, finals: d.scores.finals || {} };
         if (d.finalists)  _finalists = new Set(d.finalists);
         if (d.everScored) _everScored = {
@@ -196,8 +210,8 @@ function _startUserBallotSync() {
         _renderTabBar();
         _renderGrid();
         _renderLeaderboard();
-        // Push freshly synced scores into room if in one
-        if (_roomId) _pushScores(_getName()).catch(() => {});
+        // NOTE: do NOT push scores to room here — the voting device already does that,
+        // and pushing from the listener creates a write feedback loop between devices.
     });
 }
 
@@ -278,7 +292,8 @@ async function _createRoom(name) {
         finalists: Array.from(_finalists),
         members: { [_uid]: { name, photoURL: _myPhotoURL, scores: _scores, joinedAt: Date.now() } }
     });
-    await _flushUserSave(); // persist roomId to account immediately
+    // Persist only the roomId — never flush full scores here (scores may not be loaded yet)
+    setDoc(doc(_db, "esc_users", _uid), { roomId: _roomId, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
     _subscribeRoom();
     _updateRoomUI();
     _saveRoomHistory(code, [_getName()]);
@@ -308,7 +323,8 @@ async function _joinRoom(roomId, name) {
     await setDoc(ref, {
         members: { [_uid]: { name, photoURL: _myPhotoURL, scores: _scores, joinedAt: Date.now() } }
     }, { merge: true });
-    await _flushUserSave(); // persist roomId to account immediately
+    // Persist only the roomId — never flush full scores here (scores may not be loaded yet)
+    setDoc(doc(_db, "esc_users", _uid), { roomId: _roomId, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
     _subscribeRoom();
     _updateRoomUI();
     _renderGrid();

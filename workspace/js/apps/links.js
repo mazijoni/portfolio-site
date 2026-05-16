@@ -15,7 +15,6 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
 import { refs }                from "../db.js";
-import { tmdbKey as _tmdbDefaultKey } from "../app.js";
 import { openModal, closeModal,
          setModalTitle, toast,
          confirm, escHtml }    from "../ui.js";
@@ -306,14 +305,14 @@ export function initLinks(db, user) {
         .addEventListener("change", e => { _sortMode = e.target.value; _render(); });
 
     document.getElementById("links-cat-select")
-        .addEventListener("change", e => { _activeCat = e.target.value; _render(); });
+        .addEventListener("change", e => { _switchCat(e.target.value); });
 
     document.getElementById("links-cat-bar")
         .addEventListener("click", e => {
             const addBtn = e.target.closest("[data-cat-action='add-cat']");
             if (addBtn) { _openCatForm(null); return; }
             const catBtn = e.target.closest("[data-cat-name]");
-            if (catBtn) { _activeCat = catBtn.dataset.catName; _render(); }
+            if (catBtn) { _switchCat(catBtn.dataset.catName); }
         });
 
     document.getElementById("links-body")
@@ -322,6 +321,23 @@ export function initLinks(db, user) {
         .addEventListener("submit", _onFormSubmit);
     document.getElementById("link-url-field")
         .addEventListener("input", _autoDetectType);
+    const batchField = document.getElementById("link-batch-field");
+    batchField?.addEventListener("input", _updateBatchHint);
+    batchField?.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        batchField.classList.add("is-dragover");
+    });
+    batchField?.addEventListener("dragleave", () => {
+        batchField.classList.remove("is-dragover");
+    });
+    batchField?.addEventListener("drop", (e) => {
+        e.preventDefault();
+        batchField.classList.remove("is-dragover");
+        const dropped = e.dataTransfer?.getData("text/uri-list") || e.dataTransfer?.getData("text/plain") || "";
+        if (!dropped) return;
+        batchField.value = [batchField.value.trim(), dropped.trim()].filter(Boolean).join("\n");
+        _updateBatchHint();
+    });
     document.getElementById("link-type-field")
         .addEventListener("change", e => _updateTypeHint(e.target.value));
     document.getElementById("link-title-field")
@@ -407,196 +423,38 @@ function _renderCatBar() {
     }
 }
 
+/* Switch to a category, showing the confirm screen if it's personal and not yet unlocked */
+function _switchCat(name) {
+    const catObj = _cats.find(c => c.name === name);
+    if (catObj?.locked && !_unlockedCats.has(catObj.id)) {
+        _showConfirmScreen(catObj);
+        return;
+    }
+    _activeCat = name;
+    _render();
+}
+
 /* ── Category lock helpers ── */
 const _unlockedCats = new Set(); // in-memory; cleared on page reload
 
-async function _sha256(str) {
-    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
-}
-async function _bioAvailable() {
-    if (typeof PublicKeyCredential === "undefined") return false;
-    return PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().catch(() => false);
-}
-async function _bioEnroll(catId) {
-    const uid = new Uint8Array(16);
-    new TextEncoder().encodeInto(catId.padEnd(16, "0").slice(0, 16), uid);
-    const cred = await navigator.credentials.create({ publicKey: {
-        challenge: crypto.getRandomValues(new Uint8Array(32)),
-        rp: { name: "Link Gallery", id: location.hostname },
-        user: { id: uid, name: "user", displayName: "Link Gallery" },
-        pubKeyCredParams: [{ alg: -7, type: "public-key" }, { alg: -257, type: "public-key" }],
-        authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
-        timeout: 60000,
-    }});
-    return btoa(String.fromCharCode(...new Uint8Array(cred.rawId)));
-}
-async function _bioVerify(credentialId) {
-    const rawId = Uint8Array.from(atob(credentialId), c => c.charCodeAt(0));
-    await navigator.credentials.get({ publicKey: {
-        challenge: crypto.getRandomValues(new Uint8Array(32)),
-        allowCredentials: [{ id: rawId, type: "public-key" }],
-        userVerification: "required",
-        timeout: 60000,
-    }});
-}
-async function _showLockScreen(cat) {
+async function _showConfirmScreen(cat) {
     const body = document.getElementById("links-body");
     if (!body) return;
-    const bioOk = !!cat.credentialId && await _bioAvailable();
-
-    let _pinValue  = "";
-    const MAX_PIN  = 20;
-
-    const _doUnlock = () => { _unlockedCats.add(cat.id); _activeCat = cat.name; _render(); };
-
-    const _offerBio = async () => {
-        const offerEl = body.querySelector("#ls-offer");
-        if (!offerEl) return _doUnlock();
-        offerEl.innerHTML = `
-            <p style="font-size:0.82rem;color:var(--text-secondary);margin:0 0 0.5rem">Enable fingerprint / Face ID for faster unlock?</p>
-            <div style="display:flex;gap:0.5rem;justify-content:center">
-                <button id="ls-bio-yes" class="ws-btn ws-btn-accent ws-btn-sm">Enable</button>
-                <button id="ls-bio-no" class="ws-btn ws-btn-ghost ws-btn-sm">Not now</button>
-            </div>`;
-        offerEl.style.display = "";
-        offerEl.querySelector("#ls-bio-yes").addEventListener("click", async () => {
-            try {
-                const credId = await _bioEnroll(cat.id);
-                _cats = _cats.map(c => c.id === cat.id ? { ...c, credentialId: credId } : c);
-                _saveCats(); cat.credentialId = credId;
-            } catch { /* declined */ }
-            _doUnlock();
-        });
-        offerEl.querySelector("#ls-bio-no").addEventListener("click", _doUnlock);
-    };
-
-    const _tryBio = async () => {
-        if (!bioOk) return;
-        try {
-            await _bioVerify(cat.credentialId);
-            _doUnlock();
-        } catch (err) {
-            if (err?.name !== "NotAllowedError") {
-                _showMsg("Biometric failed — enter PIN");
-            }
-        }
-    };
-
-    const _showMsg = (msg, isErr = true) => {
-        const el = body.querySelector("#ls-msg");
-        if (!el) return;
-        el.textContent = msg;
-        el.style.color = isErr ? "#f87171" : "var(--text-muted)";
-        el.style.display = "";
-        if (isErr) {
-            // Shake the dots
-            const dots = body.querySelector(".ls-pin-dots");
-            if (dots) { dots.classList.remove("ls-shake"); void dots.offsetWidth; dots.classList.add("ls-shake"); }
-        }
-    };
-
-    const _updateDots = () => {
-        const container = body.querySelector("#ls-pin-dots");
-        if (!container) return;
-        // Re-render dots to match current length (minimum 1 empty dot)
-        const show = Math.max(_pinValue.length + 1, 1);
-        const capped = Math.min(show, MAX_PIN);
-        container.innerHTML = Array.from({ length: capped }, (_, i) =>
-            `<div class="ls-pin-dot${i < _pinValue.length ? " filled" : ""}"></div>`
-        ).join("");
-        // Submit key: enabled only when there's input
-        const submitKey = body.querySelector(".ls-key--submit");
-        if (submitKey) submitKey.disabled = _pinValue.length === 0;
-    };
-
+    const _doOpen = () => { _unlockedCats.add(cat.id); _activeCat = cat.name; _render(); };
     body.innerHTML = `
         <div class="link-lockscreen">
-            <div class="link-ls-icon"><span class="material-symbols-outlined">lock</span></div>
+            <div class="link-ls-folder-icon">
+                <span class="material-symbols-outlined">${escHtml(cat.icon || "folder")}</span>
+            </div>
             <div class="link-ls-name">${escHtml(cat.name)}</div>
-            <div class="link-ls-sub">Enter PIN to unlock</div>
-
-            <div class="ls-pin-dots" id="ls-pin-dots"></div>
-            <div id="ls-msg" style="display:none;font-size:0.78rem;min-height:1.2em"></div>
-
-            ${bioOk ? `<button class="ls-bio-btn" id="ls-bio-btn" title="Use fingerprint / Face ID">
-                <span class="material-symbols-outlined">fingerprint</span>
-            </button>` : ""}
-
-            <div class="ls-keypad">
-                ${[1,2,3,4,5,6,7,8,9,"✓",0,"⌫"].map(k => `
-                    <button class="ls-key${k === "✓" ? " ls-key--submit" : ""}${k === "⌫" ? " ls-key--back" : ""}"
-                        data-key="${k}">${k}</button>`).join("")}
+            <div class="link-ls-sub">This is a personal folder</div>
+            <div class="link-ls-actions">
+                <button class="ws-btn ws-btn-accent" id="ls-open-btn">Open folder</button>
+                <button class="ws-btn ws-btn-ghost" id="ls-back-btn">Go back</button>
             </div>
-
-            <button class="ws-btn ws-btn-ghost ws-btn-sm ls-keyboard-toggle" id="ls-keyboard-toggle">Use keyboard instead</button>
-            <div id="ls-keyboard-wrap" style="display:none">
-                <form id="ls-form" class="link-ls-form" autocomplete="off" style="margin-top:0.5rem">
-                    <input type="password" class="link-ls-pw" id="ls-pw" placeholder="Password" autocomplete="current-password">
-                    <button type="submit" class="ws-btn ws-btn-accent">Unlock</button>
-                </form>
-            </div>
-            <div id="ls-offer" style="display:none;text-align:center;margin-top:0.5rem"></div>
         </div>`;
-
-    _updateDots();
-
-    // Keypad input
-    body.querySelector(".ls-keypad").addEventListener("click", async e => {
-        const btn = e.target.closest(".ls-key");
-        if (!btn) return;
-        const k = btn.dataset.key;
-        const msgEl = body.querySelector("#ls-msg");
-        if (msgEl) { msgEl.style.display = "none"; }
-        if (k === "⌫") {
-            _pinValue = _pinValue.slice(0, -1);
-        } else if (k === "✓") {
-            await _submitPin();
-            return;
-        } else if (_pinValue.length < MAX_PIN) {
-            _pinValue += k;
-        }
-        _updateDots();
-    });
-
-    const _submitPin = async () => {
-        if (!_pinValue) return;
-        const hash = await _sha256(_pinValue);
-        if (hash !== cat.passwordHash) {
-            _pinValue = "";
-            _updateDots();
-            _showMsg("Incorrect PIN");
-            return;
-        }
-        if (!cat.credentialId && await _bioAvailable()) await _offerBio(); else _doUnlock();
-    };
-
-    // Keyboard fallback form
-    body.querySelector("#ls-keyboard-toggle").addEventListener("click", () => {
-        const wrap = body.querySelector("#ls-keyboard-wrap");
-        wrap.style.display = wrap.style.display === "none" ? "" : "none";
-    });
-    const lsForm = body.querySelector("#ls-form");
-    if (lsForm) {
-        lsForm.addEventListener("submit", async e => {
-            e.preventDefault();
-            const pw = body.querySelector("#ls-pw").value;
-            if (!pw) return;
-            if (await _sha256(pw) !== cat.passwordHash) {
-                _showMsg("Incorrect password");
-                body.querySelector("#ls-pw").value = "";
-                return;
-            }
-            if (!cat.credentialId && await _bioAvailable()) await _offerBio(); else _doUnlock();
-        });
-    }
-
-    // Biometric button
-    if (bioOk) {
-        body.querySelector("#ls-bio-btn").addEventListener("click", _tryBio);
-        // Auto-trigger biometric on open
-        setTimeout(_tryBio, 300);
-    }
+    body.querySelector("#ls-open-btn").addEventListener("click", _doOpen);
+    body.querySelector("#ls-back-btn").addEventListener("click", () => { _activeCat = null; _render(); });
 }
 
 function _renderCatsGrid(body) {
@@ -695,6 +553,65 @@ function _isSafeUrl(url) {
         const u = new URL(url);
         return u.protocol === "https:" || u.protocol === "http:";
     } catch { return false; }
+}
+
+function _resolveSafeUrl(baseUrl, maybeUrl) {
+    const raw = String(maybeUrl || "").trim();
+    if (!raw) return "";
+    try {
+        const resolved = new URL(raw, baseUrl).toString();
+        return _isSafeUrl(resolved) ? resolved : "";
+    } catch {
+        return "";
+    }
+}
+
+async function _fetchHtmlThroughProxy(url, timeoutMs = 8000) {
+    const loaders = [
+        async () => {
+            const res = await fetch(
+                `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,
+                { signal: AbortSignal.timeout(timeoutMs) }
+            );
+            if (!res.ok) return "";
+            return await res.text();
+        },
+        async () => {
+            const res = await fetch(
+                `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+                { signal: AbortSignal.timeout(timeoutMs) }
+            );
+            if (!res.ok) return "";
+            const json = await res.json().catch(() => null);
+            return json?.contents || "";
+        },
+    ];
+
+    for (const load of loaders) {
+        try {
+            const html = String(await load() || "").trim();
+            if (html) return html;
+        } catch {
+            // Try the next proxy.
+        }
+    }
+
+    return "";
+}
+
+function _extractUrlsFromText(raw) {
+    const matches = String(raw || "").match(/https?:\/\/[^\s<>"']+/gi) || [];
+    return [...new Set(matches.map(url => url.replace(/[),.;!?]+$/, "")))];
+}
+
+function _updateBatchHint() {
+    const field = document.getElementById("link-batch-field");
+    const hint = document.getElementById("link-batch-hint");
+    if (!field || !hint) return;
+    const count = _extractUrlsFromText(field.value).length;
+    hint.textContent = count
+        ? `${count} URL${count === 1 ? "" : "s"} ready to import.`
+        : "Drop text, link selections, or paste many URLs at once.";
 }
 
 const _serviceLabel = link => link.title || _domain(link.url) || "Service";
@@ -1157,9 +1074,11 @@ function _mghVideoCard(link) {
     const persons = personIds.map(id => _links.find(l => l.id === id)).filter(Boolean);
     let mediaHtml, isThumb = false, isLink = false;
     if (embed) {
-        mediaHtml = embed.type === "direct"
-            ? `<video src="${escHtml(embed.src)}" controls style="position:absolute;inset:0;width:100%;height:100%;background:#000" preload="metadata"></video>`
-            : `<iframe src="${escHtml(embed.src)}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" loading="lazy"></iframe>`;
+        if (embed.type === "direct") {
+            mediaHtml = `<video src="${escHtml(embed.src)}" controls style="position:absolute;inset:0;width:100%;height:100%;background:#000" preload="metadata"></video>`;
+        } else {
+            mediaHtml = `<iframe src="${escHtml(embed.src)}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" loading="lazy"></iframe>`;
+        }
     } else if (link.thumbUrl) {
         isThumb = true;
         mediaHtml = `<img src="${escHtml(link.thumbUrl)}" alt="${escHtml(link.title || "")}" style="width:100%;height:auto;display:block">
@@ -1201,7 +1120,7 @@ function _mghVideoCard(link) {
 /* ── Image card ── */
 function _mghImageCard(link) {
     const card = document.createElement("div"); card.className = "image-card";
-    const src = link.url || "";
+    const src = link.url || link.thumbUrl || "";
     const creator = _mghFindCreatorFor(link);
     const personIds = link.personIds || (link.personId ? [link.personId] : []);
     const persons = personIds.map(id => _links.find(l => l.id === id)).filter(Boolean);
@@ -1257,6 +1176,66 @@ function _mghCreatorCard(link) {
     return card;
 }
 
+/* ── Feed card (YouTube Shorts style) ── */
+function _mghFeedCard(link) {
+    const isVideo = ["youtube-video", "youtube-playlist", "video"].includes(link.type);
+    const creator = _mghFindCreatorFor(link);
+    const personIds = link.personIds || (link.personId ? [link.personId] : []);
+    const persons = personIds.map(id => _links.find(l => l.id === id)).filter(Boolean);
+
+    const card = document.createElement("div");
+    card.className = "feed-card";
+    card.dataset.id = link.id;
+
+    // Media fill
+    let mediaHtml = "";
+    if (isVideo) {
+        const embed = _mghEmbed(link.url);
+        if (embed) {
+            if (embed.type === "direct") {
+                mediaHtml = `<video class="feed-card-media" src="${escHtml(embed.src)}" controls preload="metadata"></video>`;
+            } else {
+                mediaHtml = `<iframe class="feed-card-media" src="${escHtml(embed.src)}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" loading="lazy"></iframe>`;
+            }
+        } else if (link.thumbUrl) {
+            mediaHtml = `<img class="feed-card-media" src="${escHtml(link.thumbUrl)}" alt="${escHtml(link.title || "")}">
+                <div class="feed-card-play-btn"><svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" fill="rgba(0,0,0,0.5)" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/><path d="M13 10.5l10 5.5-10 5.5z" fill="white"/></svg></div>`;
+        } else {
+            mediaHtml = `<div class="feed-card-placeholder"><svg viewBox="0 0 32 32" fill="none"><path d="M13 10.5l10 5.5-10 5.5z" fill="rgba(255,255,255,0.4)"/></svg></div>`;
+        }
+    } else {
+        const src = link.thumbUrl || link.url;
+        if (src) {
+            mediaHtml = `<img class="feed-card-media" src="${escHtml(src)}" alt="${escHtml(link.title || "")}">`;
+        } else {
+            mediaHtml = `<div class="feed-card-placeholder"></div>`;
+        }
+    }
+
+    const avatarHtml = creator?.thumbUrl
+        ? `<img class="feed-card-avatar" src="${escHtml(creator.thumbUrl)}" alt="${escHtml(creator.title || "")}">`
+        : `<div class="feed-card-avatar feed-card-avatar--fb"><svg viewBox="0 0 14 14" fill="none" width="14" height="14"><circle cx="7" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2.761 2.686-5 6-5s6 2.239 6 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></div>`;
+
+    card.innerHTML = `
+        <div class="feed-card-media-wrap">${mediaHtml}</div>
+        <div class="feed-card-overlay">
+            <div class="feed-card-info">
+                ${link.title ? `<div class="feed-card-title">${escHtml(link.title)}</div>` : ""}
+                ${creator ? `<div class="feed-card-creator">${avatarHtml}<span class="feed-card-creator-name">${escHtml(creator.title || "")}</span></div>` : ""}
+                ${persons.length ? `<div class="feed-card-persons">${persons.map(p => `<span class="feed-card-person-tag">${escHtml(p.title || "")}</span>`).join("")}</div>` : ""}
+            </div>
+        </div>`;
+
+    if (isVideo && link.thumbUrl && link.url)
+        card.querySelector(".feed-card-play-btn")?.addEventListener("click", e => { e.stopPropagation(); window.open(link.url, "_blank", "noopener"); });
+    if (!isVideo && (link.thumbUrl || link.url))
+        card.querySelector(".feed-card-media")?.addEventListener("click", e => { e.stopPropagation(); _mghLightbox(link.thumbUrl || link.url); });
+    card.querySelector(".feed-card-creator")?.addEventListener("click", e => { e.stopPropagation(); _mghOpenCreatorPanel(creator); });
+    card.querySelectorAll(".feed-card-person-tag").forEach((el, i) => el.addEventListener("click", e => { e.stopPropagation(); if (persons[i]) _mghOpenCreatorPanel(persons[i]); }));
+    card.appendChild(_mghCardActions(link));
+    return card;
+}
+
 /* ══════════ MEDIA HUB VIEW ══════════ */
 
 function _renderMediaHub(body, cat) {
@@ -1267,6 +1246,13 @@ function _renderMediaHub(body, cat) {
     let _mghLayout = localStorage.getItem(`mghLayout_${cat.id}`) || "grid";
     let _mghSearch = "";
     let _mghSectionOrder = (() => { try { return JSON.parse(localStorage.getItem(`mghOrder_${cat.id}`) || "null") || null; } catch { return null; } })();
+    let _mghFeedIds = null; // stable shuffled ID list for feed mode
+
+    function _shuffleArr(arr) {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+        return a;
+    }
 
     const CREATOR_TYPES = ["creator", "youtube-channel"];
     const PERSON_TYPES  = ["person"];
@@ -1295,6 +1281,9 @@ function _renderMediaHub(body, cat) {
             <button class="ws-btn ws-btn-ghost ws-btn-icon mgh-layout-btn ${_mghLayout === "list" ? "active" : ""}" id="mgh-layout-list" title="List" data-layout="list">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
             </button>
+            <button class="ws-btn ws-btn-ghost ws-btn-icon mgh-layout-btn ${_mghLayout === "feed" ? "active" : ""}" id="mgh-layout-feed" title="Feed (shuffled)" data-layout="feed">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="9" height="13" rx="1"/><rect x="13" y="2" width="9" height="8" rx="1"/><rect x="2" y="17" width="9" height="5" rx="1"/><rect x="13" y="12" width="9" height="10" rx="1"/></svg>
+            </button>
             <button class="ws-btn ws-btn-ghost ws-btn-icon" id="mgh-btn-search" title="Search">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </button>
@@ -1310,7 +1299,7 @@ function _renderMediaHub(body, cat) {
     toolbar.appendChild(addBtn);
     hub.appendChild(toolbar);
 
-    const mghBody = document.createElement("div"); mghBody.className = `mgh-body media-body${_mghLayout === "list" ? " layout-list" : ""}`;
+    const mghBody = document.createElement("div"); mghBody.className = `mgh-body media-body${_mghLayout === "list" ? " layout-list" : ""}${_mghLayout === "feed" ? " layout-feed" : ""}`;  
     hub.appendChild(mghBody);
     body.appendChild(hub);
 
@@ -1319,7 +1308,9 @@ function _renderMediaHub(body, cat) {
         _mghLayout = btn.dataset.layout;
         localStorage.setItem(`mghLayout_${cat.id}`, _mghLayout);
         mghBody.classList.toggle("layout-list", _mghLayout === "list");
+        mghBody.classList.toggle("layout-feed", _mghLayout === "feed");
         toolbar.querySelectorAll(".mgh-layout-btn").forEach(b => b.classList.toggle("active", b === btn));
+        _renderSections();
     }));
 
     // Search
@@ -1361,6 +1352,26 @@ function _renderMediaHub(body, cat) {
         const images   = visible.filter(l => IMAGE_TYPES.includes(l.type));
         const videos   = visible.filter(l => VIDEO_TYPES.includes(l.type));
         const sites    = visible.filter(l => ![...CREATOR_TYPES, ...PERSON_TYPES, ...IMAGE_TYPES, ...VIDEO_TYPES].includes(l.type));
+
+        // Feed mode — portrait scroll-snap cards (Shorts style)
+        if (_mghLayout === "feed") {
+            const allMedia = [...images, ...videos];
+            if (!allMedia.length) { mghBody.innerHTML = `<div class="ws-placeholder">No images or videos in this hub yet.</div>`; return; }
+            const currentIds = new Set(allMedia.map(l => l.id));
+            if (!_mghFeedIds) {
+                _mghFeedIds = _shuffleArr(allMedia.map(l => l.id));
+            } else {
+                _mghFeedIds = _mghFeedIds.filter(id => currentIds.has(id));
+                const seen = new Set(_mghFeedIds);
+                const newIds = allMedia.filter(l => !seen.has(l.id)).map(l => l.id);
+                _mghFeedIds = [..._shuffleArr(newIds), ..._mghFeedIds];
+            }
+            const idMap = Object.fromEntries(allMedia.map(l => [l.id, l]));
+            const feedGrid = document.createElement("div"); feedGrid.className = "shorts-grid";
+            _mghFeedIds.map(id => idMap[id]).filter(Boolean).forEach(l => feedGrid.appendChild(_mghFeedCard(l)));
+            mghBody.appendChild(feedGrid);
+            return;
+        }
 
         const SECS = {
             creator: { label: "Creators",        items: creators, gridClass: "creators-grid", buildCard: _mghCreatorCard },
@@ -1796,7 +1807,7 @@ function _onBodyClick(e) {
         const _catName = catCard.dataset.catName;
         const _catObj  = _cats.find(c => c.name === _catName);
         if (_catObj?.locked && !_unlockedCats.has(_catObj.id)) {
-            _showLockScreen(_catObj);
+            _showConfirmScreen(_catObj);
             return;
         }
         _activeCat = _catName;
@@ -1940,12 +1951,8 @@ function _ensureCatModal() {
                 <div class="form-group" id="link-cat-lock-group">
                     <label class="link-cat-lock-toggle">
                         <input type="checkbox" id="link-cat-lock-field">
-                        <span>Lock with password</span>
+                        <span>Personal folder <span style="font-weight:400;color:var(--text-muted)">(asks before opening)</span></span>
                     </label>
-                    <div id="link-cat-lock-pw-wrap" style="display:none">
-                        <input type="text" inputmode="numeric" pattern="[0-9]*" id="link-cat-lock-pw" placeholder="Set PIN (digits only)" maxlength="20" autocomplete="new-password" style="margin-top:0.5rem;width:100%">
-                        <p style="margin-top:4px;font-size:0.75rem;color:var(--text-muted)">Fingerprint / Face ID will be offered after first unlock if your device supports it.</p>
-                    </div>
                 </div>
                 <div class="ws-modal-footer">
                     <button type="button" class="ws-btn ws-btn-ghost" data-modal="modal-link-cat">Cancel</button>
@@ -2004,15 +2011,7 @@ function _ensureCatModal() {
         overlay.querySelectorAll(".link-cat-icon-swatch").forEach(s => s.classList.toggle("selected", s === sw));
     });
 
-    overlay.querySelector("#link-cat-lock-field").addEventListener("change", e => {
-        overlay.querySelector("#link-cat-lock-pw-wrap").style.display = e.target.checked ? "" : "none";
-    });
-    // Enforce digits-only in the PIN field
-    document.getElementById("link-cat-lock-pw").addEventListener("input", e => {
-        const el = e.target;
-        const cleaned = el.value.replace(/\D/g, "");
-        if (el.value !== cleaned) el.value = cleaned;
-    });
+    overlay.querySelector("#link-cat-lock-field").addEventListener("change", () => {});
     document.getElementById("form-link-cat").addEventListener("submit", _onCatFormSubmit);
 }
 
@@ -2045,10 +2044,7 @@ function _openCatForm(editId) {
         );
         selectedIcon = cat.icon || "folder";
         const _lf = document.getElementById("link-cat-lock-field");
-        const _lpw = document.getElementById("link-cat-lock-pw");
-        const _lpww = document.getElementById("link-cat-lock-pw-wrap");
-        if (_lf) { _lf.checked = !!cat.locked; if (_lpww) _lpww.style.display = cat.locked ? "" : "none"; }
-        if (_lpw) { _lpw.value = ""; _lpw.placeholder = cat.locked ? "Change password (leave blank to keep)" : "Set password"; }
+        if (_lf) { _lf.checked = !!cat.locked; }
     } else {
         setModalTitle("modal-link-cat", "New Category");
         document.getElementById("btn-link-cat-submit").textContent = "Create";
@@ -2058,10 +2054,7 @@ function _openCatForm(editId) {
         document.querySelectorAll("#link-cat-prefabs .lc-prefab").forEach(b =>
             b.classList.toggle("active", b.dataset.prefab === ""));
         const _lf2 = document.getElementById("link-cat-lock-field");
-        const _lpw2 = document.getElementById("link-cat-lock-pw");
-        const _lpww2 = document.getElementById("link-cat-lock-pw-wrap");
-        if (_lf2) { _lf2.checked = false; if (_lpww2) _lpww2.style.display = "none"; }
-        if (_lpw2) { _lpw2.value = ""; _lpw2.placeholder = "Set password"; }
+        if (_lf2) { _lf2.checked = false; }
     }
     document.getElementById("link-cat-icon-ms").textContent = selectedIcon;
     const _iconFieldEl = document.getElementById("link-cat-icon-field");
@@ -2085,18 +2078,7 @@ async function _onCatFormSubmit(e) {
 
     // Lock settings
     const lockChecked = document.getElementById("link-cat-lock-field")?.checked || false;
-    const lockPwVal   = document.getElementById("link-cat-lock-pw")?.value.trim() || "";
-    const existingCat = editId ? _cats.find(c => c.id === editId) : null;
-    let lockData = { locked: false, passwordHash: null, credentialId: null };
-    if (lockChecked) {
-        if (lockPwVal) {
-            lockData = { locked: true, passwordHash: await _sha256(lockPwVal), credentialId: null };
-        } else if (existingCat?.locked && existingCat?.passwordHash) {
-            lockData = { locked: true, passwordHash: existingCat.passwordHash, credentialId: existingCat.credentialId || null };
-        } else {
-            toast("Enter a password to lock this category", "error"); return;
-        }
-    }
+    const lockData = { locked: lockChecked, passwordHash: null, credentialId: null };
 
     if (editId) {
         const old = _cats.find(c => c.id === editId);
@@ -2203,6 +2185,9 @@ function _openForm(editId) {
             const selIds = link.personIds || (link.personId ? [link.personId] : []);
             Array.from(personSel.options).forEach(o => { o.selected = selIds.includes(o.value); });
         }
+        document.getElementById("link-batch-group").style.display = "none";
+        document.getElementById("link-batch-field").value = "";
+        _updateBatchHint();
         _updateTypeHint(link.type || "website");
     } else {
         setModalTitle("modal-link", "Add Link");
@@ -2210,6 +2195,9 @@ function _openForm(editId) {
         document.getElementById("link-id-field").value = "";
         const preselect = (_activeCat !== "all" && _activeCat !== "_uncat") ? _activeCat : "";
         _populateCatSelect(preselect);
+        document.getElementById("link-batch-group").style.display = "";
+        document.getElementById("link-batch-field").value = "";
+        _updateBatchHint();
         _updateTypeHint("website");
     }
 
@@ -2268,31 +2256,43 @@ const _STREAMING_DOMAINS = [
     "pstream",
 ];
 
+function _detectTypeFromUrl(rawUrl) {
+    const url = String(rawUrl || "").trim().toLowerCase();
+    if (!url) return "website";
+    if (url.includes("youtube.com/channel") || url.includes("youtube.com/@") ||
+        url.includes("youtube.com/c/") || url.includes("youtube.com/user/")) {
+        return "youtube-channel";
+    }
+    if (url.includes("youtube.com/playlist") ||
+        (url.includes("youtube.com/watch") && url.includes("list="))) {
+        return "youtube-playlist";
+    }
+    if (url.includes("youtube.com/watch") || url.includes("youtu.be/")) {
+        return "youtube-video";
+    }
+    if (_STREAMING_DOMAINS.some(d => url.includes(d))) {
+        return "streaming-service";
+    }
+    if (/\.(mp4|webm|ogg|ogv|mov|m4v)(\?|#|$)/.test(url)) {
+        return "video";
+    }
+    if (/\.(jpg|jpeg|png|gif|webp|svg|avif|bmp)(\?|#|$)/.test(url)) {
+        return "image";
+    }
+    if (/\.(3mf|stl|obj|step|gltf|glb)(\?|#|$)/.test(url) ||
+        /makerworld\.bambulab\.com|printables\.com|thingiverse\.com|thangs\.com/.test(url)) {
+        return "3d-model";
+    }
+    return "website";
+}
+
 function _autoDetectType() {
     // Don't overwrite a type the user has already chosen
     const typeField = document.getElementById("link-type-field");
     if (typeField.value && typeField.value !== "website") return;
 
-    const url = document.getElementById("link-url-field").value.trim().toLowerCase();
-    let type = "website";
-    if (url.includes("youtube.com/channel") || url.includes("youtube.com/@") ||
-        url.includes("youtube.com/c/") || url.includes("youtube.com/user/")) {
-        type = "youtube-channel";
-    } else if (url.includes("youtube.com/playlist") ||
-               (url.includes("youtube.com/watch") && url.includes("list="))) {
-        type = "youtube-playlist";
-    } else if (url.includes("youtube.com/watch") || url.includes("youtu.be/")) {
-        type = "youtube-video";
-    } else if (_STREAMING_DOMAINS.some(d => url.includes(d))) {
-        type = "streaming-service";
-    } else if (/\.(mp4|webm|ogg|ogv|mov|m4v)(\?|#|$)/.test(url)) {
-        type = "video";
-    } else if (/\.(jpg|jpeg|png|gif|webp|svg|avif|bmp)(\?|#|$)/.test(url)) {
-        type = "image";
-    } else if (/\.(3mf|stl|obj|step|gltf|glb)(\?|#|$)/.test(url) ||
-               /makerworld\.bambulab\.com|printables\.com|thingiverse\.com|thangs\.com/.test(url)) {
-        type = "3d-model";
-    }
+    const url = document.getElementById("link-url-field").value.trim();
+    const type = _detectTypeFromUrl(url);
     document.getElementById("link-type-field").value = type;
     _updateTypeHint(type);
 }
@@ -2332,20 +2332,37 @@ function _extractTitleFromUrl(url) {
         // pstream / TMDB slug: /media/tmdb-movie-12345-the-dark-knight
         const m = path.match(/tmdb-(?:movie|tv)-\d+-(.+?)(?:\/|$)/);
         if (m) return m[1].replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()).trim();
+        const parts = path.split("/").filter(Boolean);
+        const last = parts[parts.length - 1] || "";
+        const prev = parts[parts.length - 2] || "";
+        if (/^\d+$/.test(last) && prev) {
+            return prev
+                .replace(/-\d+$/, "")
+                .replace(/[-_]/g, " ")
+                .replace(/\b\w/g, c => c.toUpperCase())
+                .trim();
+        }
         // Fallback: last meaningful path segment
-        const seg = path.split("/").filter(Boolean).pop() || "";
+        const seg = last;
         if (!seg || /^\d+$/.test(seg)) return "";
         return seg.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase()).split(".")[0].trim();
     } catch { return ""; }
 }
 
+function _siteDisplayName(url) {
+    try {
+        const host = new URL(url).hostname.replace(/^www\./, "");
+        const parts = host.split(".");
+        const core = parts.length >= 2 ? parts[parts.length - 2] : parts[0] || "";
+        return core.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase()).trim();
+    } catch {
+        return "";
+    }
+}
+
 async function _fetchTitleFromStreamingPage(url) {
     try {
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-        const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(7000) });
-        if (!res.ok) return null;
-        const json = await res.json();
-        const html = json.contents || "";
+    const html = await _fetchHtmlThroughProxy(url, 7000);
         if (!html) return null;
         // og:title (two attribute orderings)
         const og = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)
@@ -2358,11 +2375,158 @@ async function _fetchTitleFromStreamingPage(url) {
     } catch { return null; }
 }
 
+async function _fetchPagePreviewMeta(url) {
+    try {
+        const html = await _fetchHtmlThroughProxy(url, 8000);
+        if (!html) return null;
+
+        const pick = (...patterns) => {
+            for (const pattern of patterns) {
+                const match = html.match(pattern);
+                if (match?.[1]) return match[1].trim();
+            }
+            return "";
+        };
+
+        const title = pick(
+            /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i,
+            /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i,
+            /<meta[^>]+name=["']twitter:title["'][^>]+content=["']([^"']+)["']/i,
+            /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:title["']/i,
+            /<title[^>]*>([^<]+)<\/title>/i,
+        ).replace(/\s*[|\u2013\u2014].*$/, "").trim();
+
+        let imageUrl = pick(
+            /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i,
+            /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image(?::secure_url)?["']/i,
+            /<meta[^>]+name=["']twitter:image(?::src)?["'][^>]+content=["']([^"']+)["']/i,
+            /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image(?::src)?["']/i,
+            /<meta[^>]+itemprop=["']image["'][^>]+content=["']([^"']+)["']/i,
+            /<meta[^>]+content=["']([^"']+)["'][^>]+itemprop=["']image["']/i,
+        );
+
+        if (!imageUrl) {
+            imageUrl = pick(
+                /<img[^>]+class=["'][^"']*img-content[^"']*["'][^>]+src=["']([^"']+)["']/i,
+                /<img[^>]+src=["']([^"']+)["'][^>]+class=["'][^"']*img-content[^"']*["']/i,
+                /<img[^>]+class=["'][^"']*(?:main|hero|primary)[^"']*["'][^>]+src=["']([^"']+)["']/i,
+                /<img[^>]+src=["']([^"']+contents\/[^"']+\.(?:jpg|jpeg|png|webp|gif|avif))["']/i,
+                /<img[^>]+src=["']([^"']+\.(?:jpg|jpeg|png|webp|gif|avif))["']/i,
+            );
+        }
+
+        return {
+            title,
+            imageUrl: _resolveSafeUrl(url, imageUrl),
+        };
+    } catch {
+        return null;
+    }
+}
+
+async function _buildBatchLinkData(url, category, preferredType = "") {
+    const type = preferredType || _detectTypeFromUrl(url);
+    const detectedType = _detectTypeFromUrl(url);
+    const meta = await _fetchPagePreviewMeta(url);
+    const parsedCreator = _mghParseCreatorUrl(url);
+    const isDirectImage = detectedType === "image";
+    const derivedTitle = _extractTitleFromUrl(url);
+    const siteName = _siteDisplayName(url);
+
+    let thumbUrl = "";
+    if (type === "image") {
+        thumbUrl = isDirectImage ? url : (meta?.imageUrl || "");
+    } else if (meta?.imageUrl) {
+        thumbUrl = meta.imageUrl;
+    } else if (type === "youtube-channel" && parsedCreator?.platform && parsedCreator?.username) {
+        thumbUrl = _mghCreatorAvatar(parsedCreator.platform, parsedCreator.username);
+    } else if (_isSafeUrl(url)) {
+        thumbUrl = _mghThumb(url);
+    }
+
+    const finalUrl = (type === "image" && !isDirectImage && meta?.imageUrl) ? meta.imageUrl : url;
+    const finalTitle = (type === "image" && !isDirectImage && derivedTitle)
+        ? `${derivedTitle}${siteName ? ` - ${siteName}` : ""}`
+        : (meta?.title || derivedTitle || _domain(url) || url).trim();
+
+    const data = {
+        url: finalUrl,
+        title: finalTitle,
+        type,
+        category,
+        description: "",
+        thumbUrl: thumbUrl && _isSafeUrl(thumbUrl) ? thumbUrl : "",
+        pinned: false,
+        sortOrder: Date.now(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+    };
+
+    if (type === "image" && !isDirectImage && finalUrl !== url) {
+        data.sourceUrl = url;
+    }
+
+    if (type === "youtube-channel" && parsedCreator?.username) {
+        data.username = parsedCreator.username;
+        data.platform = parsedCreator.platform;
+    }
+
+    return data;
+}
+
+async function _importBatchUrls(urls, category, preferredType = "") {
+    const uniqueUrls = [...new Set(urls.filter(_isSafeUrl))];
+    if (!uniqueUrls.length) {
+        toast("Paste at least one valid http/https URL", "error");
+        return false;
+    }
+
+    let added = 0;
+    let failed = 0;
+    for (const url of uniqueUrls) {
+        try {
+            const data = await _buildBatchLinkData(url, category, preferredType);
+            data.sortOrder = Date.now() + added;
+            await addDoc(refs.galleryLinks(_db, _user.uid), data);
+            added++;
+        } catch (err) {
+            console.error("[links] batch import failed:", url, err);
+            failed++;
+        }
+    }
+
+    if (added) {
+        toast(`Imported ${added} link${added === 1 ? "" : "s"}${failed ? `, ${failed} failed` : ""}`, failed ? "" : "success");
+        return true;
+    }
+
+    toast("Could not import the dropped URLs", "error");
+    return false;
+}
+
 async function _onFormSubmit(e) {
     e.preventDefault();
+    const editId = document.getElementById("link-id-field").value;
+    const selectedType = document.getElementById("link-type-field").value || "website";
+    const batchField = document.getElementById("link-batch-field");
+    const batchUrls = !editId
+        ? _extractUrlsFromText(`${document.getElementById("link-url-field")?.value || ""}\n${batchField?.value || ""}`)
+        : [];
+
+    if (!editId && batchUrls.length > 1) {
+        const category = document.getElementById("link-cat-field").value.trim();
+        const preferredType = selectedType === "website" ? "" : selectedType;
+        const imported = await _importBatchUrls(batchUrls, category, preferredType);
+        if (imported) {
+            closeModal("modal-link");
+            _editId = null;
+        }
+        return;
+    }
+
     const url = document.getElementById("link-url-field").value.trim();
-    const _fType = document.getElementById("link-type-field").value || "website";
-    if (!_isSafeUrl(url) && _fType !== "image" && _fType !== "3d-model") {
+    const _fType = selectedType;
+    if (!_isSafeUrl(url) && _fType !== "image" && _fType !== "3d-model" && _fType !== "person") {
         toast("Please enter a valid http/https URL", "error"); return;
     }
 
@@ -2492,7 +2656,6 @@ async function _onFormSubmit(e) {
         }
     }
 
-    const editId = document.getElementById("link-id-field").value;
     try {
         if (editId) {
             await updateDoc(doc(_db, "users", _user.uid, "gallery-links", editId), data);
@@ -2550,7 +2713,7 @@ const _shCollapsedColls = new Set(); // collection names collapsed (hub)
 let   _sdInsertAfter    = false;     // true = insert after drop target on drop
 let   _hubLastServices  = null;      // services list for hub re-render after drag
 
-function _getTmdbKey() { return _tmdbDefaultKey || ""; }
+function _getTmdbKey() { return window.__WS_TMDB_KEY || ""; }
 async function _fetchTmdbMeta(urlStr, title, type) {
     const key = _getTmdbKey();
     if (!key) return null;
