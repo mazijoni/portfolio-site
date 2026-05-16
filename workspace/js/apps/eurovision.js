@@ -8,6 +8,8 @@ import {
     doc, setDoc, getDoc, onSnapshot, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
+import { refs } from "../db.js";
+
 export const COUNTRIES = [
     { id: "al", name: "Albania",        flag: "🇦🇱" },
     { id: "am", name: "Armenia",        flag: "🇦🇲" },
@@ -68,6 +70,7 @@ let _localWriteInFlight = false;
 let _pendingRoomId    = null;
 let _userBallotLoaded = false;
 let _scoresUpdatedAt  = 0;
+let _roomHistory      = [];
 
 /* ══════ SVG constants ══════ */
 const ESC_SVG = `<svg class="esc-logo-svg" viewBox="0 0 226.683 233.658" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="escGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#009FE3"/><stop offset="100%" stop-color="#E4007C"/></linearGradient></defs><path fill="url(#escGrad)" d="M 99.722 231.541 C 101.585 233.574 104.305 233.076 105.56 230.435 C 135.35 167.569 225.843 139.135 225.843 59.033 C 225.843 29.922 206.246 0.69 168.566 0.013 C 132.699 -0.635 100.509 22.469 97.152 59.87 C 96.145 36.188 80.613 25.269 62.7 25.269 C 27.461 25.269 -1.402 57.081 0.053 104.952 C 2.474 180.242 74.855 203.964 99.722 231.541 Z M 93.326 77.913 C 94.282 81.669 98.865 81.54 99.901 77.823 C 115.414 21.593 186.748 15.446 186.748 72.384 C 186.748 117.336 107.075 165.298 101.007 207.969 C 86.591 179.973 33.638 164.6 33.638 103.747 C 33.638 51.96 83.991 41.08 93.326 77.913 Z"/></svg>`;
@@ -108,6 +111,10 @@ function _getBallotStamp(data) {
 function _applyRemoteScores(scores, ballotUpdatedAt) {
     _scores = _cloneScores(scores);
     _scoresUpdatedAt = Math.max(Number(ballotUpdatedAt || 0), _scoresUpdatedAt);
+}
+
+function _settingsRef() {
+    return refs.eurovisionSettings(_db, _uid);
 }
 
 /* ══════ Init ══════ */
@@ -170,18 +177,35 @@ function _checkUrlRoom() {
 async function _loadUserBallot() {
     if (!_db || !_uid) return;
     try {
-        const snap = await getDoc(doc(_db, "esc_users", _uid));
+        let snap = await getDoc(_settingsRef());
+        if (!snap.exists()) {
+            const legacySnap = await getDoc(doc(_db, "esc_users", _uid)).catch(() => null);
+            if (legacySnap?.exists()) {
+                const legacy = legacySnap.data();
+                await setDoc(_settingsRef(), {
+                    scores: legacy.scores || { all: {}, finals: {} },
+                    finalists: legacy.finalists || Array.from(_finalists),
+                    everScored: legacy.everScored || { all: [], finals: [] },
+                    roomId: legacy.roomId || null,
+                    ballotUpdatedAt: Number(legacy.ballotUpdatedAt || 0),
+                    roomHistory: _roomHistory,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+                snap = await getDoc(_settingsRef());
+            }
+        }
         if (!snap.exists()) {
             // No Firestore doc yet — migrate any existing localStorage votes up immediately
             const hasVotes = Object.keys(_scores.all || {}).length > 0 ||
                              Object.keys(_scores.finals || {}).length > 0 ||
                              _everScored.all.size > 0 || _everScored.finals.size > 0;
             if (hasVotes) {
-                await setDoc(doc(_db, "esc_users", _uid), {
+                await setDoc(_settingsRef(), {
                     scores:     _scores,
                     finalists:  Array.from(_finalists),
                     everScored: { all: Array.from(_everScored.all), finals: Array.from(_everScored.finals) },
                     ballotUpdatedAt: _scoresUpdatedAt,
+                    roomHistory: _roomHistory,
                     updatedAt:  serverTimestamp()
                 }, { merge: true });
             }
@@ -207,6 +231,7 @@ async function _loadUserBallot() {
             _pendingRoomId = d.roomId;
             localStorage.setItem("esc_room", d.roomId);
         }
+        _roomHistory = Array.isArray(d.roomHistory) ? d.roomHistory : [];
         _saveLocal(); // keep localStorage in sync
     } catch {}
     _userBallotLoaded = true;
@@ -224,12 +249,13 @@ async function _flushUserSave() {
     _userSavTimer = null;
     _localWriteInFlight = true;
     try {
-        await setDoc(doc(_db, "esc_users", _uid), {
+        await setDoc(_settingsRef(), {
             scores:     _scores,
             finalists:  Array.from(_finalists),
             everScored: { all: Array.from(_everScored.all), finals: Array.from(_everScored.finals) },
             roomId:     _roomId || null,
             ballotUpdatedAt: _scoresUpdatedAt,
+            roomHistory: _roomHistory,
             updatedAt:  serverTimestamp()
         }, { merge: true });
     } catch {}
@@ -240,7 +266,7 @@ async function _flushUserSave() {
 function _startUserBallotSync() {
     if (_userDocUnsub) { _userDocUnsub(); _userDocUnsub = null; }
     if (!_db || !_uid) return;
-    _userDocUnsub = onSnapshot(doc(_db, "esc_users", _uid), snap => {
+    _userDocUnsub = onSnapshot(_settingsRef(), snap => {
         // Skip our own pending local writes — local state is already up to date
         if (!snap.exists() || snap.metadata.hasPendingWrites) return;
         // Skip if a local write is in flight or debounce is pending — don't overwrite local votes
@@ -260,6 +286,7 @@ function _startUserBallotSync() {
             all:    new Set(d.everScored.all    || []),
             finals: new Set(d.everScored.finals || [])
         };
+        _roomHistory = Array.isArray(d.roomHistory) ? d.roomHistory : _roomHistory;
         _saveLocal();
         _renderTabBar();
         _renderGrid();
@@ -276,26 +303,28 @@ const HISTORY_KEY = "esc_room_history";
 const HISTORY_MAX = 8;
 
 function _saveRoomHistory(code, memberNames) {
-    try {
-        let hist = _loadRoomHistory();
-        hist = hist.filter(r => r.code !== code);
-        hist.unshift({ code, names: memberNames || [], ts: Date.now() });
-        if (hist.length > HISTORY_MAX) hist = hist.slice(0, HISTORY_MAX);
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
-    } catch {}
+    let hist = _loadRoomHistory();
+    hist = hist.filter(r => r.code !== code);
+    hist.unshift({ code, names: memberNames || [], ts: Date.now() });
+    if (hist.length > HISTORY_MAX) hist = hist.slice(0, HISTORY_MAX);
+    _roomHistory = hist;
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(hist)); } catch {}
+    _scheduleUserSave();
 }
 
 function _loadRoomHistory() {
     try {
-        return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
-    } catch { return []; }
+        const cached = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+        if (_roomHistory.length) return _roomHistory;
+        return cached;
+    } catch { return _roomHistory; }
 }
 
 function _removeFromHistory(code) {
-    try {
-        const hist = _loadRoomHistory().filter(r => r.code !== code);
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
-    } catch {}
+    const hist = _loadRoomHistory().filter(r => r.code !== code);
+    _roomHistory = hist;
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(hist)); } catch {}
+    _scheduleUserSave();
 }
 
 /* ══════ Local persistence ══════ */
@@ -306,8 +335,10 @@ function _saveLocal() {
         localStorage.setItem(LOCAL_KEY, JSON.stringify({
             scores:     _scores,
             finalists:  Array.from(_finalists),
-            everScored: { all: Array.from(_everScored.all), finals: Array.from(_everScored.finals) }
+            everScored: { all: Array.from(_everScored.all), finals: Array.from(_everScored.finals) },
+            roomHistory: _roomHistory
         }));
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(_roomHistory));
     } catch {}
 }
 
@@ -322,6 +353,7 @@ function _loadLocal() {
             all:    new Set(d.everScored.all    || []),
             finals: new Set(d.everScored.finals || [])
         };
+        if (Array.isArray(d.roomHistory)) _roomHistory = d.roomHistory;
     } catch {}
 }
 
