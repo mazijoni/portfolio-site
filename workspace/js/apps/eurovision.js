@@ -119,6 +119,9 @@ export async function initEurovisionUser(db, uid, displayName, photoURL) {
     document.addEventListener("visibilitychange", () => {
         if (document.hidden) _flushUserSave();
     });
+    window.addEventListener("pagehide", () => {
+        _flushUserSave();
+    });
 }
 
 /* ══════ URL ══════ */
@@ -417,7 +420,7 @@ function _assign(countryId, pts) {
         _everScored[_activeTab].add(countryId); // keep in leaderboard even if later removed
     }
     _saveLocal();
-    _scheduleUserSave(); // persist to account across rooms/devices
+    _flushUserSave().catch(() => {}); // persist immediately across devices
     _renderGrid();
     _renderLeaderboard();
     _scheduleSave();    // also sync to room if in one
@@ -433,7 +436,7 @@ function _toggleFinalist(id) {
         _finalists.add(id);
     }
     _saveLocal();
-    _scheduleUserSave(); // persist to account
+    _flushUserSave().catch(() => {}); // persist immediately across devices
     _renderTabBar();
     _renderGrid();
     _renderLeaderboard();
