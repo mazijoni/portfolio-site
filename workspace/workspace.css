@@ -10200,6 +10200,12 @@ body.adm-page {
     font-family: 'Poppins', sans-serif;
 }
 
+@media (max-width: 600px) {
+    .esc-app {
+        padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+    }
+}
+
 /* -- HEADER -- */
 .esc-header {
     display: flex;
@@ -11138,6 +11144,7 @@ body[data-hub-app="sheet"] .ws-fab { display: none !important; }
         min-height: 0;
         display: flex;
         flex-direction: column;
+        padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
     }
     /* Let grid flow to natural height, no clipping */
     .esc-grid-wrap { overflow-y: visible; flex-shrink: 0; }
