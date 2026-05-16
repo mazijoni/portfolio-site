@@ -58,6 +58,10 @@ export const refs = {
     linkSettings: (db, uid) =>
         doc(db, "users", uid, "settings", "links"),
 
+    /** users/{uid}/settings/eurovision — single doc for Eurovision ballot, room, and history */
+    eurovisionSettings: (db, uid) =>
+        doc(db, "users", uid, "settings", "eurovision"),
+
     /** users/{uid}/projects/{pid} — single project doc */
     project: (db, uid, pid) =>
         doc(db, "users", uid, "projects", pid),
