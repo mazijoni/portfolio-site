@@ -1,0 +1,1050 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Orbit Browser — Maze_Development</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20,400,0,0" />
+
+<style>
+  :root{
+    --paper:     #0e0c08;
+    --paper-2:   #16130c;
+    --paper-3:   #1f1b12;
+    --ink:       #ece6d5;
+    --ink-2:     #c9c3b0;
+    --ink-mute:  #8a8472;
+    --ink-dim:   #59574a;
+    --line:      rgba(236,230,213,.10);
+    --line-2:    rgba(236,230,213,.22);
+    --accent:    #c772fe;
+    --accent-ink:#0a0a0a;
+    --serif: 'Instrument Serif', 'Iowan Old Style', 'Apple Garamond', Georgia, serif;
+    --sans:  'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --mono:  'Geist Mono', ui-monospace, monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--paper);color:var(--ink)}
+  body{
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+    overflow-x:hidden;
+  }
+  a{color:inherit;text-decoration:none}
+  button{font-family:inherit;color:inherit}
+  ::selection{background:var(--accent);color:var(--accent-ink)}
+  .material-symbols-rounded{
+    font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 20;
+    vertical-align:middle;user-select:none;
+  }
+  .ms-fill{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 20}
+
+  em{font-style:italic}
+  .serif{font-family:var(--serif);font-weight:400;letter-spacing:-.005em}
+  .mono{font-family:var(--mono);letter-spacing:.02em}
+  .meta{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-mute)}
+
+  /* ─── PAPER GRAIN ─────────────────────────────────────────── */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:
+      radial-gradient(rgba(236,230,213,.025) 1px, transparent 1px);
+    background-size:3px 3px;
+    opacity:.6;
+  }
+  body::after{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(ellipse 80% 60% at 70% -10%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 70%);
+  }
+
+  /* ─── TOP MASTHEAD ────────────────────────────────────────── */
+  .masthead{
+    position:sticky;top:0;z-index:30;
+    border-bottom:1px solid var(--line);
+    background:color-mix(in oklab, var(--paper) 88%, transparent);
+    backdrop-filter:blur(10px);
+  }
+  .masthead-inner{
+    max-width:1320px;margin:0 auto;
+    display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+    padding:16px 32px;gap:24px;
+  }
+  .mast-l{display:flex;align-items:center;gap:14px;font-family:var(--mono);font-size:11px;color:var(--ink-mute);letter-spacing:.1em;text-transform:uppercase}
+  .mast-l .dot{width:6px;height:6px;border-radius:50%;background:#3fd17e;box-shadow:0 0 0 3px color-mix(in oklab, #3fd17e 30%, transparent)}
+  .mast-c{
+    font-family:var(--serif);font-style:italic;font-size:20px;
+    color:var(--ink);letter-spacing:-.01em;
+    display:flex;align-items:baseline;gap:.18em;
+  }
+  .mast-c b{font-family:var(--sans);font-style:normal;font-weight:600;font-size:12px;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--ink-mute)}
+  .mast-r{display:flex;justify-content:flex-end;align-items:center;gap:22px;font-size:13px;font-family:var(--sans);color:var(--ink-mute)}
+  .mast-r a:hover{color:var(--ink)}
+  .mast-r .pill{
+    display:inline-flex;align-items:center;gap:6px;
+    background:var(--ink);color:var(--paper);padding:6px 12px;border-radius:0;
+    font-size:11px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;
+  }
+  .mast-r .pill:hover{background:var(--accent);color:var(--accent-ink)}
+  .mast-r .pill .material-symbols-rounded{font-size:14px}
+
+  /* ─── PAGE FRAME ──────────────────────────────────────────── */
+  .frame{max-width:1320px;margin:0 auto;padding:0 32px;position:relative;z-index:1}
+
+  /* ─── HERO ────────────────────────────────────────────────── */
+  .hero{padding:72px 0 56px;position:relative}
+  .hero-issue{
+    display:flex;justify-content:space-between;align-items:flex-end;gap:24px;
+    padding-bottom:36px;border-bottom:1px solid var(--line);margin-bottom:48px;
+    flex-wrap:wrap;
+  }
+  .hero-issue .l, .hero-issue .r{display:flex;flex-direction:column;gap:4px}
+  .hero-issue .meta{color:var(--ink-mute)}
+  .hero-issue .ed{font-family:var(--serif);font-style:italic;font-size:18px;color:var(--ink)}
+  .hero-issue .r{text-align:right}
+
+  .lockup{
+    display:grid;grid-template-columns:1.05fr .95fr;gap:64px;align-items:end;
+  }
+  .lock-l{display:flex;flex-direction:column;gap:36px;min-width:0}
+
+  .wordmark{
+    font-family:var(--serif);
+    font-size:clamp(96px, 15vw, 240px);
+    line-height:.86;letter-spacing:-.025em;font-weight:400;
+    color:var(--ink);margin-left:-.04em;
+  }
+  .wordmark .it{font-style:italic;color:var(--accent)}
+  .wordmark .reg{font-family:var(--mono);font-size:.09em;color:var(--ink-mute);
+    letter-spacing:.16em;vertical-align:super;margin-left:.1em;font-style:normal}
+
+  .deck{
+    font-family:var(--serif);font-size:clamp(22px, 2.2vw, 30px);
+    line-height:1.28;color:var(--ink-2);max-width:24ch;
+    letter-spacing:-.005em;text-wrap:pretty;
+  }
+  .deck em{color:var(--accent)}
+
+  .lock-r{display:flex;flex-direction:column;gap:24px;min-width:0;padding-bottom:6px}
+  .byline{
+    display:flex;flex-direction:column;gap:14px;
+    padding:20px 0 22px;border-top:1px solid var(--ink);border-bottom:1px solid var(--line);
+  }
+  .byline .kicker{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--ink-mute);
+  }
+  .byline p{
+    font-family:var(--sans);font-size:15.5px;line-height:1.62;color:var(--ink-2);
+    max-width:42ch;text-wrap:pretty;
+  }
+  .byline p b{color:var(--ink);font-weight:500}
+  .byline p em{font-family:var(--serif);font-style:italic;font-size:1.12em;color:var(--ink);letter-spacing:-.005em}
+
+  .cta-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;
+    height:44px;padding:0 18px;border-radius:0;
+    font-size:13px;font-weight:500;letter-spacing:.02em;text-transform:uppercase;
+    border:1px solid transparent;cursor:pointer;
+    font-family:var(--sans);
+    transition:transform .12s ease, background .15s ease, color .15s ease, border-color .15s;
+  }
+  .btn .material-symbols-rounded{font-size:18px}
+  .btn:hover{transform:translateY(-1px)}
+  .btn-primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .btn-primary:hover{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .btn-ghost{background:transparent;color:var(--ink);border-color:var(--line-2)}
+  .btn-ghost:hover{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+
+  .filerow{
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    font-family:var(--mono);font-size:11px;color:var(--ink-mute);letter-spacing:.04em;
+  }
+  .filerow i{display:inline-block;width:1px;height:11px;background:var(--line-2)}
+  .filerow .ok{color:#3fd17e;display:inline-flex;align-items:center;gap:5px}
+  .filerow .ok .material-symbols-rounded{font-size:13px}
+
+  /* ─── GALLERY (image switcher) ────────────────────────────── */
+  .stage{padding:0 0 88px}
+
+  .gallery{position:relative;display:flex;flex-direction:column;gap:20px}
+
+  /* slide stack */
+  .gallery-stage{
+    position:relative;
+    aspect-ratio: 16 / 9;
+    /* keep a dark backdrop to avoid bright flashes when images crossfade */
+    background:var(--paper-3);
+    border:1px solid rgba(0,0,0,.12);
+    /* subtle cast shadow instead of the stacked box behind the image */
+    box-shadow:0 18px 36px rgba(0,0,0,.45);
+    overflow:hidden;
+  }
+  .gallery-slide{
+    position:absolute;inset:0;
+    opacity:0;/* keep slides visible for smooth crossfade */
+    transition:opacity .6s ease;
+    display:flex;
+    pointer-events:none;
+  }
+  .gallery-slide[data-active="true"]{opacity:1;transition:opacity .6s ease;pointer-events:auto}
+  .gallery-slide img{
+    width:100%;height:100%;display:block;object-fit:cover;
+    background:#1f1b12;
+  }
+
+  /* fig label overlaid top-left */
+  .gallery-fig{
+    position:absolute;left:18px;top:16px;z-index:2;
+    display:inline-flex;align-items:center;gap:8px;
+    padding:7px 12px;background:color-mix(in oklab, var(--paper) 80%, transparent);
+    backdrop-filter:blur(8px);
+    border:1px solid var(--line-2);
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-mute);
+    pointer-events:none;
+  }
+  .gallery-fig b{color:var(--accent);font-weight:500}
+  .gallery-fig em{font-family:var(--serif);font-style:italic;font-size:13px;color:var(--ink);letter-spacing:0;text-transform:none;margin-left:4px}
+
+  /* progress hairline — continuous countdown */
+  .gallery-progress{
+    position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--line);z-index:2;overflow:hidden;
+  }
+  .gallery-progress i{
+    display:block;height:100%;background:var(--accent);
+    width:0%;
+    transition:width .15s linear;
+  }
+  .gallery[data-paused="true"] .gallery-progress i{transition:none}
+
+  /* tabs row below image */
+  .gallery-tabs{
+    display:grid;grid-template-columns:repeat(4, 1fr);
+    border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  }
+  .gallery-tab{
+    appearance:none;border:0;background:transparent;cursor:pointer;
+    display:flex;flex-direction:column;align-items:flex-start;gap:6px;
+    padding:18px 20px;text-align:left;
+    border-right:1px solid var(--line);
+    transition:background .15s, color .15s;
+    color:var(--ink-mute);
+  }
+  .gallery-tab:last-child{border-right:0}
+  .gallery-tab .num{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-dim)}
+  .gallery-tab .name{font-family:var(--serif);font-size:22px;letter-spacing:-.005em;line-height:1;color:var(--ink-mute);font-weight:400}
+  .gallery-tab .name em{font-style:italic}
+  .gallery-tab .desc{font-size:12.5px;color:var(--ink-dim);line-height:1.45;text-wrap:pretty}
+  .gallery-tab:hover{background:color-mix(in oklab, var(--accent) 5%, transparent)}
+  .gallery-tab:hover .name{color:var(--ink)}
+  .gallery-tab[aria-selected="true"]{background:color-mix(in oklab, var(--accent) 8%, transparent)}
+  .gallery-tab[aria-selected="true"] .num{color:var(--accent)}
+  .gallery-tab[aria-selected="true"] .name{color:var(--ink)}
+
+  /* prev/next + counter */
+  .gallery-controls{
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    font-family:var(--mono);font-size:11px;color:var(--ink-mute);letter-spacing:.1em;text-transform:uppercase;
+  }
+  .gallery-controls .left{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;min-width:0}
+  .gallery-controls .left em{font-family:var(--serif);font-style:italic;font-size:16px;color:var(--ink);letter-spacing:-.005em;text-transform:none}
+  .gallery-controls .nav{display:flex;align-items:center;gap:6px}
+  .gallery-controls .nav button{
+    appearance:none;background:transparent;border:1px solid var(--line-2);cursor:pointer;
+    width:34px;height:34px;display:grid;place-items:center;color:var(--ink-2);
+    transition:color .15s, border-color .15s, background .15s;
+  }
+  .gallery-controls .nav button:hover{color:var(--ink);border-color:var(--ink);background:rgba(236,230,213,.04)}
+  .gallery-controls .nav button .material-symbols-rounded{font-size:18px}
+  .gallery-controls .idx{padding:0 12px;font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--ink-mute)}
+  .gallery-controls .idx b{color:var(--ink);font-weight:500}
+
+  /* ─── MARQUEE STRIP ───────────────────────────────────────── */
+  .strip{
+    border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);
+    background:var(--ink);color:var(--paper);
+    padding:14px 0;overflow:hidden;font-family:var(--mono);font-size:13px;letter-spacing:.18em;text-transform:uppercase;
+  }
+  .strip-track{display:flex;gap:48px;white-space:nowrap;animation:strip 38s linear infinite}
+  .strip-track span{display:inline-flex;align-items:center;gap:14px}
+  .strip-track .sep{color:var(--accent);font-style:italic;font-family:var(--serif);text-transform:none;letter-spacing:0;font-size:18px}
+  @keyframes strip{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+  /* ─── SECTION HEAD ────────────────────────────────────────── */
+  .section{padding:120px 0;position:relative}
+  .section-head{
+    display:grid;grid-template-columns:200px 1fr;gap:48px;
+    padding-bottom:64px;border-bottom:1px solid var(--ink);margin-bottom:56px;
+    align-items:end;
+  }
+  .section-num{
+    font-family:var(--mono);font-size:11px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--ink-mute);
+    display:flex;flex-direction:column;gap:8px;
+  }
+  .section-num b{font-family:var(--serif);font-style:italic;font-size:38px;color:var(--ink);font-weight:400;letter-spacing:-.01em}
+  .section-title{
+    font-family:var(--serif);font-size:clamp(44px, 5.5vw, 80px);line-height:.98;
+    font-weight:400;letter-spacing:-.018em;color:var(--ink);margin:0;text-wrap:balance;
+    max-width:18ch;
+  }
+  .section-title em{font-style:italic;color:var(--accent)}
+
+  /* ─── ABOUT ───────────────────────────────────────────────── */
+  .about{display:grid;grid-template-columns:1fr 1.3fr;gap:64px;align-items:start}
+  .pullquote{
+    font-family:var(--serif);font-size:clamp(28px, 3vw, 42px);line-height:1.15;
+    color:var(--ink);letter-spacing:-.01em;text-wrap:balance;
+    padding-right:24px;border-left:2px solid var(--accent);padding-left:24px;
+  }
+  .pullquote em{font-style:italic;color:var(--accent)}
+  .pullquote cite{
+    display:block;margin-top:24px;font-style:normal;
+    font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-mute);
+  }
+  .about-body{
+    columns:2;column-gap:48px;column-rule:1px solid var(--line);
+    font-size:15.5px;line-height:1.7;color:var(--ink-2);
+  }
+  .about-body p{break-inside:avoid;margin-bottom:1.1em;text-wrap:pretty}
+  .about-body p:first-child::first-letter{
+    font-family:var(--serif);font-style:italic;font-size:5em;line-height:.85;
+    float:left;margin:6px 8px -4px 0;color:var(--accent);
+  }
+  .about-body b{color:var(--ink);font-weight:500}
+  .about-body em{font-family:var(--serif);font-style:italic;font-size:1.12em;color:var(--ink);letter-spacing:-.005em}
+
+  /* ─── FEATURES (editorial list, not cards) ────────────────── */
+  .feats{display:flex;flex-direction:column;border-top:1px solid var(--ink)}
+  .feat{
+    display:grid;grid-template-columns:80px 1fr 1.5fr auto;
+    gap:48px;align-items:baseline;
+    padding:32px 0;border-bottom:1px solid var(--line);
+    transition:background .15s;
+    cursor:default;
+  }
+  .feat:hover{background:color-mix(in oklab, var(--accent) 8%, transparent)}
+  .feat:hover .feat-arrow{color:var(--accent);transform:translateX(6px)}
+  .feat-num{font-family:var(--mono);font-size:13px;color:var(--ink-mute);letter-spacing:.1em}
+  .feat-name{
+    font-family:var(--serif);font-size:clamp(28px, 2.6vw, 38px);line-height:1;
+    color:var(--ink);font-weight:400;letter-spacing:-.01em;text-wrap:balance;
+  }
+  .feat-name em{font-style:italic;color:var(--accent)}
+  .feat-desc{font-size:15.5px;line-height:1.55;color:var(--ink-mute);max-width:48ch;text-wrap:pretty}
+  .feat-arrow{
+    color:var(--ink-dim);transition:color .15s, transform .2s;
+    display:inline-flex;align-items:center;font-size:22px;
+  }
+  .feat-arrow::after{content:"→"}
+
+  /* ─── DOWNLOAD ────────────────────────────────────────────── */
+  .download{
+    display:grid;grid-template-columns:1.1fr 1fr;gap:64px;align-items:start;
+  }
+  .dl-card{
+    background:var(--ink);color:var(--paper);
+    padding:48px;display:flex;flex-direction:column;gap:24px;
+    position:relative;overflow:hidden;
+  }
+  .dl-card::before{
+    content:"";position:absolute;right:-80px;bottom:-80px;width:280px;height:280px;border-radius:50%;
+    background:radial-gradient(closest-side, color-mix(in oklab, var(--accent) 60%, transparent), transparent 70%);
+    pointer-events:none;
+  }
+  .dl-card .meta{color:color-mix(in oklab, var(--paper) 60%, transparent)}
+  .dl-card h3{
+    font-family:var(--serif);font-size:clamp(44px, 5vw, 64px);line-height:1;
+    font-weight:400;letter-spacing:-.015em;margin:0;color:var(--paper);
+  }
+  .dl-card h3 em{font-style:italic;color:var(--accent)}
+  .dl-card p{font-size:15.5px;line-height:1.6;color:color-mix(in oklab, var(--paper) 78%, transparent);max-width:42ch}
+  .dl-card .cta-row .btn-primary{background:var(--paper);color:var(--ink);border-color:var(--paper)}
+  .dl-card .cta-row .btn-primary:hover{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .dl-card .cta-row .btn-ghost{color:var(--paper);border-color:color-mix(in oklab, var(--paper) 40%, transparent)}
+  .dl-card .cta-row .btn-ghost:hover{background:var(--paper);color:var(--ink);border-color:var(--paper)}
+  .dl-card .filerow{color:color-mix(in oklab, var(--paper) 60%, transparent)}
+  .dl-card .filerow .ok{color:#3fd17e}
+  .dl-card .filerow i{background:color-mix(in oklab, var(--paper) 24%, transparent)}
+
+  .steps{display:flex;flex-direction:column;border-top:1px solid var(--ink)}
+  .step{
+    display:grid;grid-template-columns:60px 1fr auto;gap:20px;align-items:baseline;
+    padding:22px 0;border-bottom:1px solid var(--line);
+  }
+  .step .n{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--ink-mute)}
+  .step .l{display:flex;flex-direction:column;gap:4px}
+  .step .l b{font-family:var(--serif);font-style:italic;font-size:22px;color:var(--ink);font-weight:400;letter-spacing:-.005em;line-height:1.1}
+  .step .l span{font-size:14px;color:var(--ink-mute);line-height:1.5}
+  .step .ic{color:var(--ink-dim)}
+
+  /* ─── CONTACT ─────────────────────────────────────────────── */
+  .contacts{display:grid;grid-template-columns:repeat(4, 1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-top:1px solid var(--ink)}
+  .contact{
+    display:flex;flex-direction:column;gap:8px;padding:28px;background:var(--paper);
+    transition:background .15s;
+  }
+  .contact:hover{background:color-mix(in oklab, var(--accent) 10%, var(--paper))}
+  .contact .meta{font-size:10.5px}
+  .contact b{
+    font-family:var(--serif);font-style:italic;font-size:24px;font-weight:400;
+    letter-spacing:-.005em;color:var(--ink);
+  }
+  .contact span{font-family:var(--mono);font-size:12px;color:var(--ink-mute);letter-spacing:.02em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* ─── COLOPHON / FOOTER ──────────────────────────────────── */
+  .colophon{
+    padding:64px 0 32px;border-top:1px solid var(--ink);
+    display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:48px;
+  }
+  .colophon-brand h4{font-family:var(--serif);font-size:38px;font-weight:400;letter-spacing:-.015em;line-height:1}
+  .colophon-brand h4 em{font-style:italic;color:var(--accent)}
+  .colophon-brand p{font-size:14px;color:var(--ink-mute);max-width:34ch;margin-top:14px;line-height:1.55}
+  .colcol h5{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-mute);font-weight:500;margin-bottom:14px}
+  .colcol ul{list-style:none;display:flex;flex-direction:column;gap:8px}
+  .colcol a{font-size:14px;color:var(--ink-2)}
+  .colcol a:hover{color:var(--accent)}
+
+  .endbar{
+    padding:20px 0 40px;border-top:1px solid var(--line);
+    display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap;
+    font-family:var(--mono);font-size:11px;color:var(--ink-mute);letter-spacing:.06em;
+  }
+  .endbar em{font-family:var(--serif);font-style:italic;font-size:16px;color:var(--ink);letter-spacing:0;text-transform:none}
+
+  /* ─── RESPONSIVE ─────────────────────────────────────────── */
+  @media (max-width: 1080px){
+    .lockup{grid-template-columns:1fr;gap:32px;align-items:start}
+    .lock-r{padding-bottom:0}
+    .deck{max-width:none}
+    .about{grid-template-columns:1fr;gap:36px}
+    .about-body{columns:1}
+    .download{grid-template-columns:1fr;gap:36px}
+    .section-head{grid-template-columns:1fr;gap:18px}
+    .feat{grid-template-columns:50px 1fr;gap:18px}
+    .feat-desc, .feat-arrow{grid-column:2}
+    .contacts{grid-template-columns:repeat(2, 1fr)}
+    .colophon{grid-template-columns:1fr 1fr;gap:32px}
+  }
+  @media (max-width: 640px){
+    .frame{padding:0 20px}
+    .mast-r{display:none}
+    .masthead-inner{grid-template-columns:1fr auto}
+    .hero{padding:48px 0 32px}
+    .wordmark{font-size:24vw}
+    .contacts{grid-template-columns:1fr}
+    .colophon{grid-template-columns:1fr;gap:28px}
+    .section{padding:80px 0}
+    .endbar{flex-direction:column;align-items:flex-start;gap:10px}
+    .gallery-bar .b-title{display:none}
+  }
+</style>
+</head>
+<body>
+
+<!-- UNDER DEVELOPMENT MODAL -->
+<div id="dev-modal" class="dev-modal" aria-hidden="true" role="dialog" aria-labelledby="dev-modal-title">
+  <div class="dev-modal-panel">
+    <h2 id="dev-modal-title">Under development</h2>
+    <p>This Orbit page and the browser are actively under development. Features, downloads and screenshots may change frequently. Thanks for trying it — feedback is welcome.</p>
+    <div class="dev-modal-actions">
+      <button id="dev-ok" class="btn btn-primary">Okay</button>
+      <button id="dev-remind" class="btn btn-ghost">Remind me next session</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .dev-modal{
+    position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:9999;
+    background:linear-gradient(rgba(0,0,0,.55), rgba(0,0,0,.55));backdrop-filter:blur(3px);
+  }
+  .dev-modal[aria-hidden="false"]{display:flex}
+  .dev-modal-panel{
+    max-width:720px;width:90%;background:var(--paper);color:var(--ink);padding:28px;border-radius:10px;
+    box-shadow:0 18px 40px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.03);
+  }
+  .dev-modal-panel h2{margin:0 0 8px;font-family:var(--serif);font-size:28px}
+  .dev-modal-panel p{color:var(--ink-2);line-height:1.5;margin:0 0 18px}
+  .dev-modal-actions{display:flex;gap:12px;justify-content:flex-end}
+</style>
+
+<script>
+  (function(){
+    try{
+      const modal = document.getElementById('dev-modal');
+      const ok = document.getElementById('dev-ok');
+      const remind = document.getElementById('dev-remind');
+      const dismissed = sessionStorage.getItem('orbit-dev-dismissed');
+      function show(){ modal.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden'; }
+      function hide(persist){ modal.setAttribute('aria-hidden','true'); document.body.style.overflow=''; if(persist) sessionStorage.setItem('orbit-dev-dismissed','1'); }
+      // show on entry unless user dismissed this session
+      if(!dismissed) setTimeout(show, 220);
+      ok.addEventListener('click', ()=> hide(false));
+      remind.addEventListener('click', ()=> hide(true));
+      // allow escape key to close (non-persistent)
+      document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') hide(false); });
+    }catch(e){console.warn('dev modal init failed', e)}
+  })();
+</script>
+
+<!-- ═══ MASTHEAD ═══════════════════════════════════════════ -->
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="mast-l">
+      <span class="dot" aria-hidden="true"></span>
+      <span>VOL. 0 · ISSUE 04 · BETA</span>
+    </div>
+    <a href="#top" class="mast-c">
+      <span>Orbit</span><b>BROWSER</b>
+    </a>
+    <nav class="mast-r" aria-label="Primary">
+      <a href="#about">About</a>
+      <a href="#features">Features</a>
+      <a href="https://github.com/mazijoni/maze_browser" target="_blank" rel="noopener">Source</a>
+      <a href="../index.html" class="pill">
+        <span class="material-symbols-rounded">arrow_outward</span>Portfolio
+      </a>
+      <a href="#download" class="pill">
+        <span class="material-symbols-rounded">download</span>Download
+      </a>
+    </nav>
+  </div>
+</header>
+
+<div class="frame" id="top">
+
+  <!-- ═══ HERO ═══════════════════════════════════════════════ -->
+  <section class="hero">
+    <div class="hero-issue">
+      <div class="l">
+        <span class="meta">Maze_Development · Solo build</span>
+        <span class="ed">An experiment in <em>shaping</em> the browser back.</span>
+      </div>
+      <div class="r">
+        <span class="meta">May 2026 · Windows 10/11 · x64</span>
+        <span class="ed">v0.4.2 — <em>open beta</em></span>
+      </div>
+    </div>
+
+    <div class="lockup">
+      <div class="lock-l">
+        <h1 class="wordmark" aria-label="Orbit Browser">
+          Or<span class="it">bit</span><span class="reg">®</span>
+        </h1>
+        <p class="deck">
+          A browser that <em>bends</em>&nbsp;— every panel, shortcut and pixel of the chrome ready to be your own.
+        </p>
+      </div>
+
+      <aside class="lock-r">
+        <div class="byline">
+          <span class="kicker">From the developer</span>
+          <p>
+            Hey, I'm <b>Jonatan</b>. I wanted a browser that didn't push back when I tried to change it &mdash;
+            so I built one. <em>Chromium under the hood</em>, the lid off everywhere else. No telemetry,
+            no account, no rush.
+          </p>
+        </div>
+
+        <div class="cta-row">
+          <a href="#download" class="btn btn-primary">
+            <span class="material-symbols-rounded">download</span>
+            Download for Windows
+          </a>
+          <a href="https://github.com/mazijoni/maze_browser" class="btn btn-ghost" target="_blank" rel="noopener">
+            <span class="material-symbols-rounded">code</span>
+            Source on GitHub
+          </a>
+        </div>
+
+        <div class="filerow">
+          <span class="ok"><span class="material-symbols-rounded ms-fill">check_circle</span>v0.4.2-beta</span>
+          <i></i>
+          <span>~96 MB · signed</span>
+          <i></i>
+          <span>Chromium 136</span>
+          <i></i>
+          <span>SHA-256 verified</span>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- IMAGE GALLERY (no browser chrome) -->
+  <section class="stage" aria-label="Screenshots of Orbit">
+    <div class="gallery" id="gallery">
+
+      <div class="gallery-stage">
+        <span class="gallery-fig">
+          FIG.&nbsp;<b id="cap-num">01</b><em id="cap-text">Home — your new tab, your way.</em>
+        </span>
+        <div class="gallery-slide" data-active="true">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900'%3E%3Crect width='1600' height='900' fill='%231f1b12'/%3E%3Crect width='1600' height='180' fill='%23c772fe' fill-opacity='0.18'/%3E%3Ctext x='800' y='430' font-family='Geist,ui-sans-serif,sans-serif' font-size='64' fill='%23c772fe' text-anchor='middle'%3EOrbit%20Preview%3C/text%3E%3Ctext x='800' y='520' font-family='Geist,ui-sans-serif,sans-serif' font-size='32' fill='%23c9c3b0' text-anchor='middle'%3EHome%20—%20your%20new%20tab%2C%20your%20way.%3C/text%3E%3C/svg%3E" alt="Orbit placeholder screenshot - Home">
+        </div>
+        <div class="gallery-slide">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900'%3E%3Crect width='1600' height='900' fill='%231f1b12'/%3E%3Crect width='1600' height='180' fill='%23c772fe' fill-opacity='0.18'/%3E%3Ctext x='800' y='430' font-family='Geist,ui-sans-serif,sans-serif' font-size='64' fill='%23c772fe' text-anchor='middle'%3EOrbit%20Preview%3C/text%3E%3Ctext x='800' y='520' font-family='Geist,ui-sans-serif,sans-serif' font-size='32' fill='%23c9c3b0' text-anchor='middle'%3ECustomize%20—%20every%20surface%20bends.%3C/text%3E%3C/svg%3E" alt="Orbit placeholder screenshot - Customize">
+        </div>
+        <div class="gallery-slide">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900'%3E%3Crect width='1600' height='900' fill='%231f1b12'/%3E%3Crect width='1600' height='180' fill='%23c772fe' fill-opacity='0.18'/%3E%3Ctext x='800' y='430' font-family='Geist,ui-sans-serif,sans-serif' font-size='64' fill='%23c772fe' text-anchor='middle'%3EOrbit%20Preview%3C/text%3E%3Ctext x='800' y='520' font-family='Geist,ui-sans-serif,sans-serif' font-size='32' fill='%23c9c3b0' text-anchor='middle'%3ESpaces%20—%20Personal%2C%20Work%2C%20Side.%3C/text%3E%3C/svg%3E" alt="Orbit placeholder screenshot - Spaces">
+        </div>
+        <div class="gallery-slide">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900'%3E%3Crect width='1600' height='900' fill='%231f1b12'/%3E%3Crect width='1600' height='180' fill='%23c772fe' fill-opacity='0.18'/%3E%3Ctext x='800' y='430' font-family='Geist,ui-sans-serif,sans-serif' font-size='64' fill='%23c772fe' text-anchor='middle'%3EOrbit%20Preview%3C/text%3E%3Ctext x='800' y='520' font-family='Geist,ui-sans-serif,sans-serif' font-size='32' fill='%23c9c3b0' text-anchor='middle'%3EPalette%20—%20Ctrl-K%20to%20anywhere.%3C/text%3E%3C/svg%3E" alt="Orbit placeholder screenshot - Palette">
+        </div>
+        <div class="gallery-progress" aria-hidden="true"><i id="progress"></i></div>
+      </div>
+      <div class="gallery-tabs" role="tablist">
+        <button class="gallery-tab" role="tab" aria-selected="true"  data-target="0">
+          <span class="num">01 · Home</span>
+          <span class="name">A new tab, <em>your way</em></span>
+          <span class="desc">Greeting, omnibox, pinned spaces, resume list.</span>
+        </button>
+        <button class="gallery-tab" role="tab" aria-selected="false" data-target="1">
+          <span class="num">02 · Customize</span>
+          <span class="name">Every <em>surface</em> bends</span>
+          <span class="desc">Accent, density, fonts, layout — live.</span>
+        </button>
+        <button class="gallery-tab" role="tab" aria-selected="false" data-target="2">
+          <span class="num">03 · Spaces</span>
+          <span class="name">Personal, work, <em>side</em></span>
+          <span class="desc">Vertical tabs grouped into spaces.</span>
+        </button>
+        <button class="gallery-tab" role="tab" aria-selected="false" data-target="3">
+          <span class="num">04 · Palette</span>
+          <span class="name">Ctrl-K to <em>anywhere</em></span>
+          <span class="desc">Jump to a tab, run a setting, fire a script.</span>
+        </button>
+      </div>
+
+      <div class="gallery-controls">
+        <div class="left">
+          <span>SCREENSHOTS · v0.4.2</span>
+          <em id="auto-status">Auto-advancing every 5s — hover to pause.</em>
+        </div>
+        <div class="nav" role="group" aria-label="Slide navigation">
+          <button id="playpause" aria-label="Pause slideshow" aria-pressed="true"><span class="material-symbols-rounded" id="playpause-icon">pause</span></button>
+          <button id="prev" aria-label="Previous"><span class="material-symbols-rounded">arrow_back</span></button>
+          <span class="idx"><b id="idx-cur">01</b>&nbsp;/&nbsp;<span id="idx-tot">04</span></span>
+          <button id="next" aria-label="Next"><span class="material-symbols-rounded">arrow_forward</span></button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ═══ MARQUEE STRIP ════════════════════════════════════════ -->
+<div class="strip" aria-hidden="true">
+  <div class="strip-track">
+    <span>Theme every surface</span><span class="sep">·</span>
+    <span>Remap every key</span><span class="sep">·</span>
+    <span>Vertical tabs &amp; spaces</span><span class="sep">·</span>
+    <span>Command palette</span><span class="sep">·</span>
+    <span>Chrome extensions</span><span class="sep">·</span>
+    <span>Private by default</span><span class="sep">·</span>
+    <span>No telemetry</span><span class="sep">·</span>
+    <span>Free &amp; open source</span><span class="sep">·</span>
+    <span>Theme every surface</span><span class="sep">·</span>
+    <span>Remap every key</span><span class="sep">·</span>
+    <span>Vertical tabs &amp; spaces</span><span class="sep">·</span>
+    <span>Command palette</span><span class="sep">·</span>
+    <span>Chrome extensions</span><span class="sep">·</span>
+    <span>Private by default</span><span class="sep">·</span>
+    <span>No telemetry</span><span class="sep">·</span>
+    <span>Free &amp; open source</span><span class="sep">·</span>
+  </div>
+</div>
+
+<div class="frame">
+
+  <!-- ═══ ABOUT ═══════════════════════════════════════════════ -->
+  <section class="section" id="about">
+    <header class="section-head">
+      <div class="section-num">
+        <span>Chapter</span>
+        <b>01</b>
+        <span>About Orbit</span>
+      </div>
+      <h2 class="section-title">A browser by <em>one person</em>, for people who like to tinker.</h2>
+    </header>
+
+    <div class="about">
+      <blockquote class="pullquote">
+        Most browsers ship with three themes and call that <em>"personalization."</em>
+        Orbit ships with the lid off.
+        <cite>— Jonatan, Maze_Development</cite>
+      </blockquote>
+      <div class="about-body">
+        <p>Orbit started as a side project. I wanted a browser that didn't fight me when I tried to change it &mdash; every panel, every shortcut, every pixel of the chrome should be mine to shape, not something I had to live with.</p>
+        <p>It's <b>Chromium under the hood</b>, so every site you already use just works. The difference is the surface around the page: move panels, remap every shortcut, swap accents, drop in small scripts that change how new tabs behave.</p>
+        <p>Orbit is in <em>open beta</em>. It's free, the source is on GitHub, and bug reports come straight to me.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ FEATURES ═══════════════════════════════════════════ -->
+  <section class="section" id="features">
+    <header class="section-head">
+      <div class="section-num">
+        <span>Chapter</span>
+        <b>02</b>
+        <span>Inside the build</span>
+      </div>
+      <h2 class="section-title">Built to be <em>tweaked</em>, top to bottom.</h2>
+    </header>
+
+    <ul class="feats">
+      <li class="feat">
+        <span class="feat-num">01 / 06</span>
+        <span class="feat-name">Theme <em>everything</em></span>
+        <span class="feat-desc">Accent, sidebar, tab shape, density, fonts — every part of the chrome has a knob, not a checkbox.</span>
+        <span class="feat-arrow" aria-hidden="true"></span>
+      </li>
+      <li class="feat">
+        <span class="feat-num">02 / 06</span>
+        <span class="feat-name">Remap <em>every</em> key</span>
+        <span class="feat-desc">Every shortcut, gesture and chord is reassignable. Bring your muscle memory; we'll get out of the way.</span>
+        <span class="feat-arrow" aria-hidden="true"></span>
+      </li>
+      <li class="feat">
+        <span class="feat-num">03 / 06</span>
+        <span class="feat-name">Vertical tabs &amp; <em>spaces</em></span>
+        <span class="feat-desc">Group tabs into Personal, Work, Side-projects. Switch with a single shortcut, never lose context.</span>
+        <span class="feat-arrow" aria-hidden="true"></span>
+      </li>
+      <li class="feat">
+        <span class="feat-num">04 / 06</span>
+        <span class="feat-name">Command <em>palette</em></span>
+        <span class="feat-desc">Hit Ctrl-K anywhere. Jump to a tab, run a setting, open history, trigger a script — all from the keyboard.</span>
+        <span class="feat-arrow" aria-hidden="true"></span>
+      </li>
+      <li class="feat">
+        <span class="feat-num">05 / 06</span>
+        <span class="feat-name">Chrome <em>extensions</em></span>
+        <span class="feat-desc">Built on Chromium 136 — the entire Chrome Web Store works out of the box, no compatibility shim.</span>
+        <span class="feat-arrow" aria-hidden="true"></span>
+      </li>
+      <li class="feat">
+        <span class="feat-num">06 / 06</span>
+        <span class="feat-name">Private <em>by default</em></span>
+        <span class="feat-desc">No telemetry, no account, no sync server. Your config and history live on your disk — yours to keep.</span>
+        <span class="feat-arrow" aria-hidden="true"></span>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ═══ DOWNLOAD ════════════════════════════════════════════ -->
+  <section class="section" id="download">
+    <header class="section-head">
+      <div class="section-num">
+        <span>Chapter</span>
+        <b>03</b>
+        <span>Get Orbit</span>
+      </div>
+      <h2 class="section-title">Run the installer. <em>That's it.</em></h2>
+    </header>
+
+    <div class="download">
+      <div class="dl-card">
+        <span class="meta">Orbit-Setup-0.4.2.exe · 96 MB</span>
+        <h3>Download for <em>Windows</em>.</h3>
+        <p>One installer. No account, no sign-in, no waitlist. Run it, pick your accent, import your bookmarks, you're done in under a minute.</p>
+        <div class="cta-row">
+          <a href="#" class="btn btn-primary">
+            <span class="material-symbols-rounded">download</span>
+            Download installer
+          </a>
+          <a href="https://github.com/mazijoni/maze_browser/releases" class="btn btn-ghost" target="_blank" rel="noopener">
+            <span class="material-symbols-rounded">history</span>
+            All releases
+          </a>
+        </div>
+        <div class="filerow">
+          <span class="ok"><span class="material-symbols-rounded ms-fill">verified</span>Signed</span>
+          <i></i><span>SHA-256 verified</span>
+          <i></i><span>Free forever</span>
+        </div>
+      </div>
+
+      <ol class="steps">
+        <li class="step">
+          <span class="n">01</span>
+          <span class="l"><b>Run the installer</b><span>Orbit-Setup-0.4.2.exe — about 12 seconds.</span></span>
+          <span class="ic"><span class="material-symbols-rounded">play_arrow</span></span>
+        </li>
+        <li class="step">
+          <span class="n">02</span>
+          <span class="l"><b>Import from your old browser</b><span>Bookmarks, history, passwords, open tabs.</span></span>
+          <span class="ic"><span class="material-symbols-rounded">drive_file_move</span></span>
+        </li>
+        <li class="step">
+          <span class="n">03</span>
+          <span class="l"><b>Pick your accent &amp; layout</b><span>Skippable — defaults are sensible.</span></span>
+          <span class="ic"><span class="material-symbols-rounded">palette</span></span>
+        </li>
+        <li class="step">
+          <span class="n">04</span>
+          <span class="l"><b>Open the web</b><span>Sign in to your sites, get going.</span></span>
+          <span class="ic"><span class="material-symbols-rounded">rocket_launch</span></span>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ═══ CONTACT ═════════════════════════════════════════════ -->
+  <section class="section" id="contact">
+    <header class="section-head">
+      <div class="section-num">
+        <span>Chapter</span>
+        <b>04</b>
+        <span>Reach out</span>
+      </div>
+      <h2 class="section-title">Bugs, ideas, pull requests — <em>all welcome</em>.</h2>
+    </header>
+
+    <div class="contacts">
+      <a class="contact" href="mailto:jonatan@ermesjo.com">
+        <span class="meta">01 · Email</span>
+        <b>Write me</b>
+        <span>jonatan@ermesjo.com</span>
+      </a>
+      <a class="contact" href="https://github.com/mazijoni/maze_browser" target="_blank" rel="noopener">
+        <span class="meta">02 · Source</span>
+        <b>GitHub</b>
+        <span>mazijoni/maze_browser</span>
+      </a>
+      <a class="contact" href="https://www.youtube.com/@maze_joni" target="_blank" rel="noopener">
+        <span class="meta">03 · Devlog</span>
+        <b>YouTube</b>
+        <span>@maze_joni</span>
+      </a>
+      <a class="contact" href="../index.html">
+        <span class="meta">04 · Studio</span>
+        <b>Portfolio</b>
+        <span>Back to Maze_Development</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- ═══ COLOPHON ════════════════════════════════════════════ -->
+  <footer>
+    <div class="colophon">
+      <div class="colophon-brand">
+        <h4>Or<em>bit</em>.</h4>
+        <p>A Chromium-based browser by Maze_Development. Built in the open, by one person, on the side.</p>
+      </div>
+      <div class="colcol">
+        <h5>Project</h5>
+        <ul>
+          <li><a href="#about">About</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#download">Download</a></li>
+          <li><a href="https://github.com/mazijoni/maze_browser/releases" target="_blank" rel="noopener">Changelog</a></li>
+        </ul>
+      </div>
+      <div class="colcol">
+        <h5>Build</h5>
+        <ul>
+          <li><a href="https://github.com/mazijoni/maze_browser" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/mazijoni/maze_browser/issues" target="_blank" rel="noopener">Issues</a></li>
+          <li><a href="#">Settings reference</a></li>
+          <li><a href="#">Keyboard map</a></li>
+        </ul>
+      </div>
+      <div class="colcol">
+        <h5>Elsewhere</h5>
+        <ul>
+          <li><a href="https://www.youtube.com/@maze_joni" target="_blank" rel="noopener">YouTube</a></li>
+          <li><a href="https://maze-dev.itch.io/" target="_blank" rel="noopener">itch.io</a></li>
+          <li><a href="../index.html">Portfolio</a></li>
+          <li><a href="mailto:jonatan@ermesjo.com">Email</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="endbar">
+      <span>© 2026 Maze_Development · <em>no rights reserved</em></span>
+      <span>Set in Instrument Serif &amp; Geist · brewed in Norway</span>
+    </div>
+  </footer>
+</div>
+
+<!-- gallery slideshow -->
+<script>
+(function(){
+  const captions = [
+    { num: "01", text: "Home — your new tab, your way." },
+    { num: "02", text: "Customize — every surface bends." },
+    { num: "03", text: "Spaces — Personal, Work, Side." },
+    { num: "04", text: "Palette — Ctrl-K to anywhere." },
+  ];
+  const gallery   = document.getElementById('gallery');
+  const slides    = Array.from(document.querySelectorAll('.gallery-slide'));
+  const tabs      = Array.from(document.querySelectorAll('.gallery-tab'));
+  const capNum    = document.getElementById('cap-num');
+  const capText   = document.getElementById('cap-text');
+  const idxCur    = document.getElementById('idx-cur');
+  const idxTot    = document.getElementById('idx-tot');
+  const prev      = document.getElementById('prev');
+  const next      = document.getElementById('next');
+  const playpause = document.getElementById('playpause');
+  const ppIcon    = document.getElementById('playpause-icon');
+  const progress  = document.getElementById('progress');
+  const status    = document.getElementById('auto-status');
+
+  const DURATION  = 5000;   // ms per slide
+  const TICK      = 50;     // progress tick in ms
+
+  let cur     = 0;
+  let elapsed = 0;
+  let timer   = null;
+  let playing = true;
+  let hoverPause = false;
+
+  idxTot.textContent = String(slides.length).padStart(2,'0');
+
+  function paintProgress(){
+    const pct = Math.min(100, (elapsed / DURATION) * 100);
+    progress.style.width = pct + '%';
+  }
+  function resetProgress(){ elapsed = 0; paintProgress(); }
+
+  function render(){
+    slides.forEach((s, i) => s.dataset.active = (i === cur ? "true" : "false"));
+    tabs.forEach((t, i)  => t.setAttribute('aria-selected', i === cur ? "true" : "false"));
+    capNum.textContent  = captions[cur].num;
+    capText.textContent = captions[cur].text;
+    idxCur.textContent  = String(cur+1).padStart(2,'0');
+  }
+
+  function go(n, opts){
+    cur = (n + slides.length) % slides.length;
+    render();
+    resetProgress();
+    if (opts && opts.userInitiated && playing) restartTimer();
+  }
+
+  function tick(){
+    if (!playing || hoverPause) return;
+    elapsed += TICK;
+    paintProgress();
+    if (elapsed >= DURATION){
+      cur = (cur + 1) % slides.length;
+      render();
+      resetProgress();
+    }
+  }
+
+  function startTimer(){
+    stopTimer();
+    timer = setInterval(tick, TICK);
+  }
+  function stopTimer(){ if (timer){ clearInterval(timer); timer = null; } }
+  function restartTimer(){ resetProgress(); startTimer(); }
+
+  function setPlaying(p){
+    playing = p;
+    gallery.dataset.paused = (!p || hoverPause) ? "true" : "false";
+    ppIcon.textContent = p ? "pause" : "play_arrow";
+    playpause.setAttribute('aria-label', p ? "Pause slideshow" : "Play slideshow");
+    playpause.setAttribute('aria-pressed', p ? "true" : "false");
+    status.textContent = p
+      ? "Auto-advancing every 5s — hover to pause."
+      : "Paused — press play or use the arrows.";
+    if (p) startTimer(); else stopTimer();
+  }
+
+  // controls
+  tabs.forEach((t, i) => t.addEventListener('click', () => go(i, { userInitiated:true })));
+  prev.addEventListener('click', () => go(cur - 1, { userInitiated:true }));
+  next.addEventListener('click', () => go(cur + 1, { userInitiated:true }));
+  playpause.addEventListener('click', () => setPlaying(!playing));
+
+  // pause on hover over the stage
+  const stage = gallery.querySelector('.gallery-stage');
+  stage.addEventListener('mouseenter', () => { hoverPause = true;  gallery.dataset.paused = "true"; });
+  stage.addEventListener('mouseleave', () => { hoverPause = false; if (playing) gallery.dataset.paused = "false"; });
+
+  // pause when tab is hidden, resume when visible
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stopTimer();
+    else if (playing) startTimer();
+  });
+
+  // arrow-key nav
+  document.addEventListener('keydown', (e) => {
+    if (e.target.matches('input,textarea,[contenteditable]')) return;
+    if (e.key === 'ArrowLeft')  go(cur - 1, { userInitiated:true });
+    if (e.key === 'ArrowRight') go(cur + 1, { userInitiated:true });
+    if (e.key === ' ' && e.target === document.body){
+      e.preventDefault(); setPlaying(!playing);
+    }
+  });
+
+  // initialize
+  render();
+  resetProgress();
+  startTimer();
+})();
+</script>
+
+<!-- ═══ TWEAKS ═══════════════════════════════════════════════ -->
+<div id="tweaks-root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+  const ORBIT_TWEAKS = /*EDITMODE-BEGIN*/{
+    "accent": "#9b7bff",
+    "accentInk": "#0e0b1f"
+  }/*EDITMODE-END*/;
+
+  const ACCENT_OPTIONS = [
+    { value: { accent: "#9b7bff", accentInk: "#0e0b1f" }, label: "Iris"   },
+    { value: { accent: "#ff6a3d", accentInk: "#1a0a05" }, label: "Sunset" },
+    { value: { accent: "#5aa9ff", accentInk: "#0a1220" }, label: "Sky"    },
+    { value: { accent: "#b8e23a", accentInk: "#0c1305" }, label: "Lime"   },
+    { value: { accent: "#ec4899", accentInk: "#1a0510" }, label: "Magenta"},
+    { value: { accent: "#f0eee6", accentInk: "#0c0c0b" }, label: "Bone"   },
+  ];
+
+  function applyAccent(v){
+    const root = document.documentElement;
+    root.style.setProperty('--accent', v.accent);
+    root.style.setProperty('--accent-ink', v.accentInk);
+  }
+
+  function App(){
+    const [t, setTweak] = useTweaks(ORBIT_TWEAKS);
+    React.useEffect(() => { applyAccent(t); }, [t.accent, t.accentInk]);
+
+    return (
+      <TweaksPanel title="Orbit · Tweaks">
+        <TweakSection label="Brand">
+          <TweakColor
+            label="Accent"
+            value={t.accent}
+            options={ACCENT_OPTIONS.map(o => o.value.accent)}
+            onChange={(hex) => {
+              const found = ACCENT_OPTIONS.find(o => o.value.accent.toLowerCase() === String(hex).toLowerCase());
+              if (found) setTweak(found.value);
+              else setTweak({ accent: hex, accentInk: "#0c0c0b" });
+            }}
+          />
+        </TweakSection>
+      </TweaksPanel>
+    );
+  }
+
+  applyAccent(ORBIT_TWEAKS);
+  ReactDOM.createRoot(document.getElementById('tweaks-root')).render(<App />);
+</script>
+
+</body>
+</html>
