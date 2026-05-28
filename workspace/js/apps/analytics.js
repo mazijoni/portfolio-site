@@ -1,7 +1,7 @@
 /**
  * analytics.js — Portfolio site visit analytics viewer.
  * Reads from the `site_analytics` Firestore collection (admin-only read).
- * Tracking is written client-side from index.html.
+ * Tracking is written from index.html (includes browser, os, device, lang).
  */
 
 import {
@@ -27,6 +27,11 @@ export function initAnalytics(db) {
             _loaded = false;
             _fetchAndRender();
         });
+    }
+
+    // Auto-load if the analytics tab is already active on init
+    if (document.getElementById('app-analytics')?.classList.contains('active')) {
+        _fetchAndRender();
     }
 }
 
@@ -54,15 +59,18 @@ function _render(visits) {
     const body = document.getElementById('analytics-body');
     if (!body) return;
 
-    const now    = Date.now();
+    const now        = Date.now();
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    const todayMs  = todayStart.getTime();
-    const week7Ms  = now - 7  * 86_400_000;
-    const month30Ms= now - 30 * 86_400_000;
+    const todayMs    = todayStart.getTime();
+    const week7Ms    = now - 7  * 86_400_000;
+    const month30Ms  = now - 30 * 86_400_000;
 
     let todayCnt = 0, week7Cnt = 0, month30Cnt = 0;
-    const dayBuckets = {};
-    const refCounts  = {};
+    const dayBuckets  = {};
+    const refCounts   = {};
+    const browserCnts = {};
+    const osCnts      = {};
+    const deviceCnts  = { desktop: 0, mobile: 0, tablet: 0 };
 
     visits.forEach(v => {
         const ms = v.ts?.toDate?.()?.getTime() ?? 0;
@@ -70,21 +78,36 @@ function _render(visits) {
         if (ms >= week7Ms)   week7Cnt++;
         if (ms >= month30Ms) month30Cnt++;
 
+        // 7-day bar chart buckets
         if (ms >= week7Ms) {
             const d   = new Date(ms);
             const key = `${d.getFullYear()}-${_p(d.getMonth()+1)}-${_p(d.getDate())}`;
             dayBuckets[key] = (dayBuckets[key] || 0) + 1;
         }
 
+        // Referrers
         const rawRef = (v.ref || '').trim();
         if (rawRef) {
             let host = rawRef;
             try { host = new URL(rawRef).hostname.replace(/^www\./, ''); } catch {}
             refCounts[host] = (refCounts[host] || 0) + 1;
         }
+
+        // Browser breakdown (use stored field, fall back to UA parse)
+        const br = v.browser || _browserFromUA(v.ua || '');
+        browserCnts[br] = (browserCnts[br] || 0) + 1;
+
+        // OS breakdown
+        const os = v.os || _osFromUA(v.ua || '');
+        osCnts[os] = (osCnts[os] || 0) + 1;
+
+        // Device breakdown
+        const dev = v.device || _deviceFromUA(v.ua || '');
+        if (dev in deviceCnts) deviceCnts[dev]++;
+        else deviceCnts.desktop++;
     });
 
-    // Build 7-day bar data
+    // 7-day bar chart
     const days7 = [];
     for (let i = 6; i >= 0; i--) {
         const d   = new Date(now - i * 86_400_000);
@@ -93,9 +116,11 @@ function _render(visits) {
     }
     const maxDay = Math.max(...days7.map(d => d.count), 1);
 
-    const topRefs   = Object.entries(refCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    const recent20  = visits.slice(0, 20);
-    const allCount  = visits.length >= 2000 ? '2000+' : visits.length;
+    const topRefs    = Object.entries(refCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const topBrowsers= Object.entries(browserCnts).sort((a, b) => b[1] - a[1]);
+    const topOS      = Object.entries(osCnts).sort((a, b) => b[1] - a[1]);
+    const recent20   = visits.slice(0, 20);
+    const allCount   = visits.length >= 2000 ? '2000+' : visits.length;
 
     body.innerHTML = `
         <div class="an-stats">
@@ -133,6 +158,46 @@ function _render(visits) {
             </div>
         </div>
 
+        <div class="an-breakdown-row">
+            ${topBrowsers.length ? `
+            <div class="an-section an-breakdown-col">
+                <div class="an-section-label">Browsers</div>
+                <div class="an-pills">
+                    ${topBrowsers.map(([br, cnt]) => `
+                        <div class="an-pill">
+                            <span class="an-pill-name">${_esc(br)}</span>
+                            <span class="an-pill-cnt">${cnt}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>` : ''}
+
+            ${topOS.length ? `
+            <div class="an-section an-breakdown-col">
+                <div class="an-section-label">OS</div>
+                <div class="an-pills">
+                    ${topOS.map(([os, cnt]) => `
+                        <div class="an-pill">
+                            <span class="an-pill-name">${_esc(os)}</span>
+                            <span class="an-pill-cnt">${cnt}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>` : ''}
+
+            <div class="an-section an-breakdown-col">
+                <div class="an-section-label">Devices</div>
+                <div class="an-pills">
+                    ${Object.entries(deviceCnts).filter(([,c]) => c > 0).map(([dev, cnt]) => `
+                        <div class="an-pill">
+                            <span class="an-pill-name">${_esc(dev)}</span>
+                            <span class="an-pill-cnt">${cnt}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+
         ${topRefs.length ? `
         <div class="an-section">
             <div class="an-section-label">Top referrers</div>
@@ -152,15 +217,24 @@ function _render(visits) {
                 ? '<p class="ws-placeholder">No visits recorded yet.</p>'
                 : `<div class="an-recent">
                     <div class="an-recent-hdr">
-                        <span>Time</span><span>Referrer</span><span>Browser</span>
+                        <span>Time</span>
+                        <span>Referrer</span>
+                        <span>Browser</span>
+                        <span>OS</span>
+                        <span>Device</span>
                     </div>
                     ${recent20.map(v => {
-                        const ts  = v.ts?.toDate?.();
-                        const ref = _refHost(v.ref || '');
+                        const ts      = v.ts?.toDate?.();
+                        const ref     = _refHost(v.ref || '');
+                        const browser = v.browser || _browserFromUA(v.ua || '');
+                        const os      = v.os      || _osFromUA(v.ua || '');
+                        const device  = v.device  || _deviceFromUA(v.ua || '');
                         return `<div class="an-recent-row">
                             <span class="an-recent-time">${_esc(ts ? ts.toLocaleString() : '—')}</span>
                             <span class="an-recent-ref">${_esc(ref)}</span>
-                            <span class="an-recent-browser">${_esc(_browser(v.ua || ''))}</span>
+                            <span>${_esc(browser)}</span>
+                            <span>${_esc(os)}</span>
+                            <span class="an-recent-device">${_esc(device)}</span>
                         </div>`;
                     }).join('')}
                 </div>`}
@@ -168,24 +242,38 @@ function _render(visits) {
     `;
 }
 
-/* ── helpers ── */
-function _p(n) { return String(n).padStart(2, '0'); }
+/* ── UA fallbacks (for older visits without stored fields) ── */
+function _browserFromUA(ua) {
+    if (/Edg\//.test(ua))           return 'Edge';
+    if (/OPR\//.test(ua))            return 'Opera';
+    if (/SamsungBrowser/.test(ua))   return 'Samsung';
+    if (/Firefox\//.test(ua))        return 'Firefox';
+    if (/Chrome\//.test(ua))         return 'Chrome';
+    if (/Safari\//.test(ua))         return 'Safari';
+    return 'Other';
+}
+
+function _osFromUA(ua) {
+    if (/Windows/.test(ua))          return 'Windows';
+    if (/Android/.test(ua))          return 'Android';
+    if (/iPhone|iPad|iPod/.test(ua)) return 'iOS';
+    if (/Mac OS X/.test(ua))         return 'macOS';
+    if (/Linux/.test(ua))            return 'Linux';
+    return 'Other';
+}
+
+function _deviceFromUA(ua) {
+    if (/Mobi|Android|iPhone|BlackBerry|IEMobile|Opera Mini/.test(ua)) return 'mobile';
+    if (/iPad|Tablet/.test(ua)) return 'tablet';
+    return 'desktop';
+}
 
 function _refHost(raw) {
     if (!raw.trim()) return 'direct';
     try { return new URL(raw).hostname.replace(/^www\./, '') || raw; } catch { return raw; }
 }
 
-function _browser(ua) {
-    if (/Edg\//.test(ua))                         return 'Edge';
-    if (/OPR\//.test(ua))                          return 'Opera';
-    if (/SamsungBrowser/.test(ua))                 return 'Samsung';
-    if (/Chrome\//.test(ua) && !/Chromium/.test(ua)) return 'Chrome';
-    if (/Firefox\//.test(ua))                      return 'Firefox';
-    if (/Safari\//.test(ua) && !/Chrome/.test(ua)) return 'Safari';
-    if (/Mobile/.test(ua))                         return 'Mobile';
-    return 'Other';
-}
+function _p(n) { return String(n).padStart(2, '0'); }
 
 function _esc(s) {
     return String(s ?? '')

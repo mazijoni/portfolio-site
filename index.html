@@ -1060,6 +1060,38 @@
 
         const BOT_RE = /bot|crawl|spider|slurp|archive|facebookexternalhit|whatsapp|twitterbot|semrush|ahrefs|lighthouse|headless/i;
         if (!BOT_RE.test(navigator.userAgent)) {
+            const ua = navigator.userAgent;
+
+            // Brave can only be detected via its async API
+            let browser;
+            try { browser = (await navigator.brave?.isBrave?.()) ? 'Brave' : _detectBrowser(ua); }
+            catch { browser = _detectBrowser(ua); }
+
+            function _detectBrowser(ua) {
+                if (/Edg\//.test(ua))           return 'Edge';
+                if (/OPR\//.test(ua))            return 'Opera';
+                if (/SamsungBrowser/.test(ua))   return 'Samsung';
+                if (/Firefox\//.test(ua))        return 'Firefox';
+                if (/Chrome\//.test(ua))         return 'Chrome';
+                if (/Safari\//.test(ua))         return 'Safari';
+                return 'Other';
+            }
+
+            function _detectOS(ua) {
+                if (/Windows/.test(ua))          return 'Windows';
+                if (/Android/.test(ua))          return 'Android';
+                if (/iPhone|iPad|iPod/.test(ua)) return 'iOS';
+                if (/Mac OS X/.test(ua))         return 'macOS';
+                if (/Linux/.test(ua))            return 'Linux';
+                return 'Other';
+            }
+
+            function _detectDevice(ua) {
+                if (/Mobi|Android|iPhone|BlackBerry|IEMobile|Opera Mini/.test(ua)) return 'mobile';
+                if (/iPad|Tablet/.test(ua))      return 'tablet';
+                return 'desktop';
+            }
+
             let cfg;
             try { ({ firebaseConfig: cfg } = await import('./firebase.local.js')); }
             catch { ({ firebaseConfig: cfg } = await import('./firebase.js')); }
@@ -1067,10 +1099,14 @@
             const fbApp = getApps().find(a => a.name === 'tracker') ?? initializeApp(cfg, 'tracker');
             const db = getFirestore(fbApp);
             addDoc(collection(db, 'site_analytics'), {
-                page: location.pathname,
-                ref:  (document.referrer || '').slice(0, 200),
-                ts:   serverTimestamp(),
-                ua:   navigator.userAgent.slice(0, 300),
+                page:    location.pathname,
+                ref:     (document.referrer || '').slice(0, 200),
+                ts:      serverTimestamp(),
+                ua:      ua.slice(0, 300),
+                browser,
+                os:      _detectOS(ua),
+                device:  _detectDevice(ua),
+                lang:    navigator.language,
             }).catch(() => {});
         }
     </script>
