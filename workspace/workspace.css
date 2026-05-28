@@ -4058,8 +4058,20 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
     }
     /* larger touch target on cards */
     .db-card-actions { opacity: 1; }
-    /* hide layout labels toggle on mobile � keep just icons */
+    /* hide layout labels toggle on mobile — keep just icons */
     .media-layout-btns { display: flex; }
+}
+
+/* Tighten further on very small phones */
+@media (max-width: 420px) {
+    .media-body { padding: 0.75rem; gap: 1.25rem; }
+    .media-body:not(.layout-list) .db-sites-grid { gap: 0.45rem; }
+    .db-site-body { padding: 0.5rem 0.65rem; }
+    .db-sub-header { margin-bottom: 0.45rem; }
+    /* 1-col creators so avatar + text have room to breathe */
+    .media-body:not(.layout-list) .creators-grid { grid-template-columns: 1fr; }
+    /* bigger touch targets for card action buttons */
+    .db-card-action-btn { padding: 0.4rem 0.5rem; }
 }
 
 /* -- Category block -- */
@@ -4504,6 +4516,32 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
     text-decoration: none;
 }
 .creator-card-link:hover { color: var(--accent); background: var(--bg-secondary); }
+
+/* "View all media" feed button on creator / person cards */
+.creator-card-feed-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    cursor: pointer;
+    padding: 0;
+    font-family: inherit;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.creator-card-feed-btn:hover {
+    color: #fff;
+    background: var(--accent);
+    border-color: var(--accent);
+}
+/* On mobile: always show (touch can't hover to reveal) */
+@media (max-width: 640px) {
+    .creator-card-feed-btn { opacity: 1; }
+}
 
 .creator-avatar {
     width: 48px;
@@ -5139,47 +5177,170 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
 .color-swatch:hover { transform: scale(1.15); }
 .color-swatch.active { border-color: var(--accent); }
 
-/* ==================== LIGHTBOX ==================== */
+/* ==================== LIGHTBOX / FULLSCREEN VIEWER ==================== */
 .ws-lightbox {
     display: none;
     position: fixed;
     inset: 0;
     z-index: 4000;
-    background: rgba(0, 0, 0, 0.88);
+    background: #000;
+    -webkit-tap-highlight-color: transparent;
+}
+.ws-lightbox.open { display: block; }
+body.wslb-active  { overflow: hidden; }
+
+/* Stage: fills viewport above the footer */
+.wslb-stage {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 88px;
+    display: flex;
     align-items: center;
     justify-content: center;
-    padding: 1rem;
-    cursor: zoom-out;
+    overflow: hidden;
 }
-.ws-lightbox.open {
-    display: flex;
-}
-.ws-lightbox-img {
+.wslb-img {
     max-width: 100%;
-    max-height: calc(100vh - 2rem);
+    max-height: 100%;
     object-fit: contain;
-    border-radius: 4px;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.7);
-    cursor: default;
+    display: block;
     user-select: none;
+    -webkit-user-drag: none;
 }
-.ws-lightbox-close {
+.wslb-video-wrap {
+    width: 100%;
+    height: 100%;
+    max-width: min(100vw, calc(100vh * 1.778));
+    position: relative;
+}
+.wslb-video-wrap iframe {
     position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: rgba(20,20,20,0.85);
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+.wslb-thumb-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+.wslb-play-btn {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s;
+    text-decoration: none;
+}
+.wslb-play-btn:hover { transform: translate(-50%, -50%) scale(1.1); }
+.wslb-play-btn svg  { width: 72px; height: 72px; }
+.wslb-link-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    color: rgba(255,255,255,0.65);
+    font-size: 0.9rem;
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 0.15s;
+}
+.wslb-link-placeholder:hover { color: #fff; }
+
+/* Prev / Next */
+.wslb-nav {
+    position: absolute;
+    top: 40%; transform: translateY(-50%);
+    z-index: 5;
+    background: transparent;
+    border: 0; padding: 0;
+    color: rgba(255,255,255,0.3);
+    width: 60px; height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 0.15s;
+    font-family: inherit;
+}
+.wslb-nav:hover { color: rgba(255,255,255,0.88); }
+.wslb-prev { left: 0; }
+.wslb-next { right: 0; }
+
+/* Close */
+.wslb-close {
+    position: absolute;
+    top: 14px; right: 14px; z-index: 10;
+    background: rgba(0,0,0,0.42);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid rgba(255,255,255,0.1);
-    color: #fff;
-    width: 36px;
-    height: 36px;
+    color: rgba(255,255,255,0.7);
+    width: 40px; height: 40px;
     border-radius: 50%;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background var(--transition);
+    transition: background 0.15s, color 0.15s;
+    padding: 0;
+    font-family: inherit;
 }
-.ws-lightbox-close:hover { background: rgba(60,60,60,0.9); }
+.wslb-close:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+/* Footer: dots + caption */
+.wslb-foot {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 88px;
+    background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-bottom: 22px;
+    pointer-events: none;
+}
+.wslb-dots {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+.wslb-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.22);
+    border: 0; padding: 0;
+    cursor: pointer;
+    pointer-events: all;
+    transition: background 0.18s, transform 0.18s;
+    font-family: inherit;
+}
+.wslb-dot.active { background: #fff; transform: scale(1.38); }
+.wslb-cap {
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.4);
+    text-align: center;
+    padding: 0 3rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 600px;
+    pointer-events: none;
+}
+
+@media (max-width: 480px) {
+    .wslb-nav { width: 44px; }
+    .wslb-close { top: 12px; right: 12px; width: 38px; height: 38px; }
+    .wslb-foot { padding-bottom: max(18px, env(safe-area-inset-bottom, 18px)); height: auto; min-height: 80px; }
+}
 
 /* ==================== TOAST ==================== */
 .ws-toast {
@@ -6685,9 +6846,9 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
         padding: 0.45rem 0.75rem;
         gap: 0.4rem;
     }
-    /* Title fills row 1, Add Link sits at its end */
+    /* Title fills row 1, Add Link hidden on mobile (use in-hub + Add button instead) */
     .links-header-title { flex: 1; min-width: 0; font-size: 0.82rem; }
-    #btn-add-link { flex-shrink: 0; }
+    #btn-add-link { display: none; }
     /* Toolbar-right fills all of row 2 */
     .links-toolbar-right {
         width: 100%;
@@ -6910,6 +7071,91 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     align-items: center;
     justify-content: center;
     color: var(--text-muted);
+}
+
+/* ==================== MGH VIEWER (fullscreen multi-item) ==================== */
+/* Reuses wslb-* inner CSS; only needs the outer container */
+.mgh-viewer {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 4500;
+    background: #000;
+    -webkit-tap-highlight-color: transparent;
+}
+.mgh-viewer.open { display: block; }
+body.mgh-viewer-active { overflow: hidden; }
+
+/* ==================== MGH FEED FULLSCREEN (TikTok-style) ==================== */
+.mgh-feed-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 4500;
+    background: #000;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    -webkit-tap-highlight-color: transparent;
+}
+body.mgh-feed-open { overflow: hidden; }
+
+.mgh-feed-fs-close {
+    position: absolute;
+    top: 14px; right: 14px; z-index: 10;
+    background: rgba(0,0,0,0.42);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.7);
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+    padding: 0;
+    font-family: inherit;
+}
+.mgh-feed-fs-close:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+/* Feed grid fills the full overlay, cards snap one-per-screen */
+.mgh-feed-fullscreen .shorts-grid {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 0;
+    padding: 0;
+}
+.mgh-feed-fullscreen .feed-card {
+    max-width: 100%;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    aspect-ratio: unset;
+    border-radius: 0;
+}
+
+/* ==================== LINKS APP — MOBILE IMPROVEMENTS ==================== */
+@media (max-width: 480px) {
+    /* Tighter mgh-body padding */
+    .mgh-body { padding: 0.85rem 1rem; gap: 1.5rem; }
+    /* Compact toolbar on mobile */
+    .mgh-toolbar { padding: 0.55rem 0.85rem; gap: 0.5rem; }
+    .mgh-title { font-size: 0.82rem; }
+    /* Sites/creators grids: 2 cols */
+    .mgh-body .db-sites-grid { grid-template-columns: repeat(2, 1fr); gap: 0.55rem; }
+    .mgh-body .creators-grid { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+    /* Links grid: 1 col so cards have breathing room */
+    .links-grid { grid-template-columns: 1fr; gap: 0.6rem; }
+    /* Bigger tap targets for card action buttons */
+    .link-card-action-btn { padding: 0.42rem 0.55rem; }
+    .db-card-action-btn   { padding: 0.4rem 0.5rem; }
+    /* Banner height shorter on small phones */
+    .link-card-banner { height: 130px; }
 }
 
 /* -- Link type badge colours (optional accent) -- */

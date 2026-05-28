@@ -2140,12 +2140,22 @@
 <!-- ==================== TOAST ==================== -->
 <div id="ws-toast" class="ws-toast"></div>
 
-<!-- ==================== LIGHTBOX ==================== -->
-<div id="ws-lightbox" class="ws-lightbox">
-    <button id="ws-lightbox-close" class="ws-lightbox-close" title="Close">
+<!-- ==================== LIGHTBOX / FULLSCREEN VIEWER ==================== -->
+<div id="ws-lightbox" class="ws-lightbox" role="dialog" aria-modal="true" aria-label="Media viewer" aria-hidden="true">
+    <button id="wslb-close" class="wslb-close" title="Close (Esc)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
-    <img id="ws-lightbox-img" class="ws-lightbox-img" src="" alt="">
+    <div class="wslb-stage" id="wslb-stage"></div>
+    <button class="wslb-nav wslb-prev" id="wslb-prev" aria-label="Previous">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <button class="wslb-nav wslb-next" id="wslb-next" aria-label="Next">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+    </button>
+    <div class="wslb-foot">
+        <div class="wslb-dots" id="wslb-dots"></div>
+        <div class="wslb-cap" id="wslb-cap"></div>
+    </div>
 </div></div>
 
 <!-- Media Hub: Creator side-panel -->

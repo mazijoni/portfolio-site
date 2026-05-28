@@ -445,6 +445,158 @@
     .endbar{flex-direction:column;align-items:flex-start;gap:10px}
     .gallery-bar .b-title{display:none}
   }
+
+  /* ─── GALLERY OVERLAY CONTROLS ─────────────────────────────── */
+  .gallery-stage{cursor:zoom-in}
+
+  .gallery-arrow{
+    position:absolute;top:50%;transform:translateY(-50%);z-index:4;
+    appearance:none;border:0;padding:0;
+    background:rgba(0,0,0,.38);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+    color:var(--ink);cursor:pointer;
+    width:40px;height:72px;
+    display:flex;align-items:center;justify-content:center;
+    opacity:0;transition:opacity .18s,background .15s;
+  }
+  .gallery-stage:hover .gallery-arrow{opacity:1}
+  .gallery-arrow:hover{background:rgba(0,0,0,.6)}
+  .gallery-arrow-l{left:0;border-radius:0 3px 3px 0}
+  .gallery-arrow-r{right:0;border-radius:3px 0 0 3px}
+  .gallery-arrow .material-symbols-rounded{font-size:18px;pointer-events:none}
+
+  .gallery-expand{
+    position:absolute;top:12px;right:12px;z-index:5;
+    appearance:none;border:1px solid rgba(236,230,213,.15);padding:0;
+    background:rgba(14,12,8,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    color:var(--ink-mute);cursor:pointer;
+    width:36px;height:36px;border-radius:3px;
+    display:flex;align-items:center;justify-content:center;
+    opacity:0;transition:opacity .18s,color .15s;
+  }
+  .gallery-stage:hover .gallery-expand{opacity:1}
+  .gallery-expand:hover{color:var(--ink)}
+  .gallery-expand .material-symbols-rounded{font-size:18px}
+
+  .gallery-dots{
+    position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:4;
+    display:none;gap:6px;align-items:center;pointer-events:none;
+  }
+  .gallery-dot{
+    width:6px;height:6px;border-radius:50%;
+    background:rgba(236,230,213,.28);
+    transition:background .2s,transform .2s;display:block;
+  }
+  .gallery-dot[data-active="true"]{background:var(--accent);transform:scale(1.4)}
+
+  /* ─── LIGHTBOX / FULLSCREEN VIEWER ──────────────────────────── */
+  .lb{
+    position:fixed;inset:0;z-index:2000;
+    background:#000;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    opacity:0;pointer-events:none;
+    transition:opacity .22s ease;
+    overflow:hidden;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .lb.lb-open{opacity:1;pointer-events:auto}
+  body.lb-active{overflow:hidden}
+
+  .lb-close{
+    position:absolute;top:16px;right:16px;z-index:10;
+    appearance:none;padding:0;font-family:inherit;
+    border:1px solid rgba(255,255,255,.1);
+    background:rgba(0,0,0,.4);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    color:rgba(255,255,255,.7);width:44px;height:44px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;transition:background .15s,color .15s;
+  }
+  .lb-close:hover{background:rgba(255,255,255,.15);color:#fff}
+  .lb-close .material-symbols-rounded{font-size:20px}
+
+  .lb-stage{
+    position:absolute;
+    top:0;left:0;right:0;bottom:92px;
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+  }
+  .lb-slide{
+    position:absolute;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    opacity:0;transition:opacity .28s ease;
+    pointer-events:none;
+  }
+  .lb-slide[data-active="true"]{opacity:1;pointer-events:auto}
+  .lb-slide img{
+    max-width:100%;max-height:100%;
+    object-fit:contain;display:block;
+    user-select:none;-webkit-user-drag:none;pointer-events:none;
+  }
+
+  .lb-nav{
+    position:absolute;top:40%;transform:translateY(-50%);z-index:5;
+    appearance:none;border:0;padding:0;font-family:inherit;
+    background:transparent;
+    color:rgba(255,255,255,.35);
+    width:64px;height:120px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;transition:color .15s;
+  }
+  .lb-nav:hover{color:rgba(255,255,255,.88)}
+  .lb-nav .material-symbols-rounded{font-size:30px}
+  .lb-prev{left:0}
+  .lb-next{right:0}
+
+  .lb-foot{
+    position:absolute;bottom:0;left:0;right:0;
+    height:92px;
+    background:linear-gradient(to top,rgba(0,0,0,.8) 0%,transparent 100%);
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+    gap:9px;padding-bottom:24px;pointer-events:none;
+  }
+  .lb-foot-dots{display:flex;gap:7px;align-items:center}
+  .lb-foot-dot{
+    width:6px;height:6px;border-radius:50%;
+    background:rgba(255,255,255,.22);
+    transition:background .2s,transform .2s;
+    cursor:pointer;pointer-events:auto;
+    appearance:none;border:0;padding:0;font-family:inherit;
+  }
+  .lb-foot-dot[data-active="true"]{background:#fff;transform:scale(1.4)}
+  .lb-cap{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:rgba(255,255,255,.38);display:flex;align-items:center;gap:10px;
+  }
+  .lb-cap-num{color:var(--accent);opacity:.85}
+
+  /* ─── MOBILE GALLERY OVERRIDES ───────────────────────────────── */
+  @media (max-width:720px){
+    .gallery-dots{display:flex}
+    .gallery-arrow{opacity:.78}
+    .gallery-expand{opacity:1}
+
+    .gallery-tabs{
+      display:flex;overflow-x:auto;
+      scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;
+      scrollbar-width:none;
+      grid-template-columns:unset;
+      border-top:1px solid var(--line);border-bottom:0;
+    }
+    .gallery-tabs::-webkit-scrollbar{display:none}
+    .gallery-tab{
+      flex:0 0 auto;min-width:128px;max-width:168px;
+      scroll-snap-align:start;
+      padding:12px 14px;
+      border-right:1px solid var(--line);border-bottom:1px solid var(--line);
+    }
+    .gallery-tab .desc{display:none}
+    .gallery-tab .name{font-size:17px}
+    .gallery-controls .left em{display:none}
+  }
+  @media (max-width:480px){
+    .lb-nav{width:52px}
+    .lb-close{top:14px;right:14px;width:40px;height:40px}
+    .lb-foot{padding-bottom:max(24px,env(safe-area-inset-bottom,24px))}
+  }
 </style>
 </head>
 <body>
@@ -597,6 +749,21 @@
         </div>
         <div class="gallery-slide">
           <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900'%3E%3Crect width='1600' height='900' fill='%231f1b12'/%3E%3Crect width='1600' height='180' fill='%23c772fe' fill-opacity='0.18'/%3E%3Ctext x='800' y='430' font-family='Geist,ui-sans-serif,sans-serif' font-size='64' fill='%23c772fe' text-anchor='middle'%3EOrbit%20Preview%3C/text%3E%3Ctext x='800' y='520' font-family='Geist,ui-sans-serif,sans-serif' font-size='32' fill='%23c9c3b0' text-anchor='middle'%3EPalette%20—%20Ctrl-K%20to%20anywhere.%3C/text%3E%3C/svg%3E" alt="Orbit placeholder screenshot - Palette">
+        </div>
+        <button class="gallery-expand" id="gallery-expand" aria-label="View fullscreen">
+          <span class="material-symbols-rounded">fullscreen</span>
+        </button>
+        <button class="gallery-arrow gallery-arrow-l" id="stage-prev" aria-label="Previous">
+          <span class="material-symbols-rounded">arrow_back_ios_new</span>
+        </button>
+        <button class="gallery-arrow gallery-arrow-r" id="stage-next" aria-label="Next">
+          <span class="material-symbols-rounded">arrow_forward_ios</span>
+        </button>
+        <div class="gallery-dots" aria-hidden="true" id="gallery-dots">
+          <span class="gallery-dot"></span>
+          <span class="gallery-dot"></span>
+          <span class="gallery-dot"></span>
+          <span class="gallery-dot"></span>
         </div>
         <div class="gallery-progress" aria-hidden="true"><i id="progress"></i></div>
       </div>
@@ -883,43 +1050,55 @@
     { num: "03", text: "Spaces — Personal, Work, Side." },
     { num: "04", text: "Palette — Ctrl-K to anywhere." },
   ];
-  const gallery   = document.getElementById('gallery');
-  const slides    = Array.from(document.querySelectorAll('.gallery-slide'));
-  const tabs      = Array.from(document.querySelectorAll('.gallery-tab'));
-  const capNum    = document.getElementById('cap-num');
-  const capText   = document.getElementById('cap-text');
-  const idxCur    = document.getElementById('idx-cur');
-  const idxTot    = document.getElementById('idx-tot');
-  const prev      = document.getElementById('prev');
-  const next      = document.getElementById('next');
-  const playpause = document.getElementById('playpause');
-  const ppIcon    = document.getElementById('playpause-icon');
-  const progress  = document.getElementById('progress');
-  const status    = document.getElementById('auto-status');
+  const gallery      = document.getElementById('gallery');
+  const slides       = Array.from(document.querySelectorAll('.gallery-slide'));
+  const tabs         = Array.from(document.querySelectorAll('.gallery-tab'));
+  const capNum       = document.getElementById('cap-num');
+  const capText      = document.getElementById('cap-text');
+  const idxCur       = document.getElementById('idx-cur');
+  const idxTot       = document.getElementById('idx-tot');
+  const prev         = document.getElementById('prev');
+  const next         = document.getElementById('next');
+  const stagePrev    = document.getElementById('stage-prev');
+  const stageNext    = document.getElementById('stage-next');
+  const expandBtn    = document.getElementById('gallery-expand');
+  const playpause    = document.getElementById('playpause');
+  const ppIcon       = document.getElementById('playpause-icon');
+  const progress     = document.getElementById('progress');
+  const status       = document.getElementById('auto-status');
+  const stage        = gallery.querySelector('.gallery-stage');
+  const galleryDots  = Array.from(document.querySelectorAll('#gallery-dots .gallery-dot'));
+  const tabsEl       = gallery.querySelector('.gallery-tabs');
 
-  const DURATION  = 5000;   // ms per slide
-  const TICK      = 50;     // progress tick in ms
+  const DURATION = 5000;
+  const TICK     = 50;
 
-  let cur     = 0;
-  let elapsed = 0;
-  let timer   = null;
-  let playing = true;
+  let cur        = 0;
+  let elapsed    = 0;
+  let timer      = null;
+  let playing    = true;
   let hoverPause = false;
 
   idxTot.textContent = String(slides.length).padStart(2,'0');
 
   function paintProgress(){
-    const pct = Math.min(100, (elapsed / DURATION) * 100);
-    progress.style.width = pct + '%';
+    progress.style.width = Math.min(100, (elapsed / DURATION) * 100) + '%';
   }
   function resetProgress(){ elapsed = 0; paintProgress(); }
 
   function render(){
-    slides.forEach((s, i) => s.dataset.active = (i === cur ? "true" : "false"));
-    tabs.forEach((t, i)  => t.setAttribute('aria-selected', i === cur ? "true" : "false"));
+    slides.forEach((s, i) => s.dataset.active = i === cur ? "true" : "false");
+    tabs.forEach((t, i) => {
+      t.setAttribute('aria-selected', i === cur ? "true" : "false");
+    });
+    // scroll active tab into view on mobile
+    if (window.innerWidth <= 720 && tabsEl) {
+      tabsEl.scrollTo({ left: tabs[cur].offsetLeft, behavior: 'smooth' });
+    }
+    galleryDots.forEach((d, i) => d.dataset.active = i === cur ? "true" : "false");
     capNum.textContent  = captions[cur].num;
     capText.textContent = captions[cur].text;
-    idxCur.textContent  = String(cur+1).padStart(2,'0');
+    idxCur.textContent  = String(cur + 1).padStart(2,'0');
   }
 
   function go(n, opts){
@@ -940,10 +1119,7 @@
     }
   }
 
-  function startTimer(){
-    stopTimer();
-    timer = setInterval(tick, TICK);
-  }
+  function startTimer(){ stopTimer(); timer = setInterval(tick, TICK); }
   function stopTimer(){ if (timer){ clearInterval(timer); timer = null; } }
   function restartTimer(){ resetProgress(); startTimer(); }
 
@@ -959,39 +1135,187 @@
     if (p) startTimer(); else stopTimer();
   }
 
-  // controls
-  tabs.forEach((t, i) => t.addEventListener('click', () => go(i, { userInitiated:true })));
-  prev.addEventListener('click', () => go(cur - 1, { userInitiated:true }));
-  next.addEventListener('click', () => go(cur + 1, { userInitiated:true }));
+  // tab / prev / next controls
+  tabs.forEach((t, i) => t.addEventListener('click', () => go(i, { userInitiated: true })));
+  prev.addEventListener('click',      () => go(cur - 1, { userInitiated: true }));
+  next.addEventListener('click',      () => go(cur + 1, { userInitiated: true }));
+  stagePrev.addEventListener('click', () => go(cur - 1, { userInitiated: true }));
+  stageNext.addEventListener('click', () => go(cur + 1, { userInitiated: true }));
   playpause.addEventListener('click', () => setPlaying(!playing));
 
-  // pause on hover over the stage
-  const stage = gallery.querySelector('.gallery-stage');
+  // pause on hover
   stage.addEventListener('mouseenter', () => { hoverPause = true;  gallery.dataset.paused = "true"; });
   stage.addEventListener('mouseleave', () => { hoverPause = false; if (playing) gallery.dataset.paused = "false"; });
 
-  // pause when tab is hidden, resume when visible
+  // open lightbox on click (not on the arrow/expand buttons)
+  let swipeFired = false;
+  stage.addEventListener('click', (e) => {
+    if (swipeFired || e.target.closest('.gallery-arrow,.gallery-expand')) return;
+    if (typeof openLightbox === 'function') openLightbox(cur);
+  });
+  expandBtn.addEventListener('click', () => {
+    if (typeof openLightbox === 'function') openLightbox(cur);
+  });
+
+  // touch swipe on stage
+  let tx0 = 0, ty0 = 0;
+  stage.addEventListener('touchstart', (e) => {
+    tx0 = e.touches[0].clientX;
+    ty0 = e.touches[0].clientY;
+  }, { passive: true });
+  stage.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - tx0;
+    const dy = e.changedTouches[0].clientY - ty0;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 42) {
+      swipeFired = true;
+      go(dx < 0 ? cur + 1 : cur - 1, { userInitiated: true });
+      setTimeout(() => { swipeFired = false; }, 300);
+    }
+  }, { passive: true });
+
+  // pause when tab hidden
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) stopTimer();
     else if (playing) startTimer();
   });
 
-  // arrow-key nav
+  // keyboard nav (only when lightbox is closed)
   document.addEventListener('keydown', (e) => {
+    if (document.getElementById('lb').classList.contains('lb-open')) return;
     if (e.target.matches('input,textarea,[contenteditable]')) return;
-    if (e.key === 'ArrowLeft')  go(cur - 1, { userInitiated:true });
-    if (e.key === 'ArrowRight') go(cur + 1, { userInitiated:true });
-    if (e.key === ' ' && e.target === document.body){
-      e.preventDefault(); setPlaying(!playing);
-    }
+    if (e.key === 'ArrowLeft')  go(cur - 1, { userInitiated: true });
+    if (e.key === 'ArrowRight') go(cur + 1, { userInitiated: true });
+    if (e.key === ' ' && e.target === document.body){ e.preventDefault(); setPlaying(!playing); }
   });
 
-  // initialize
+  // expose for lightbox sync
+  window._galleryCur   = () => cur;
+  window._galleryGoTo  = (n) => go(n);
+
   render();
   resetProgress();
   startTimer();
 })();
 </script>
+
+<!-- lightbox / fullscreen viewer -->
+<script>
+(function(){
+  const captions = [
+    { num: "01", text: "Home — your new tab, your way." },
+    { num: "02", text: "Customize — every surface bends." },
+    { num: "03", text: "Spaces — Personal, Work, Side." },
+    { num: "04", text: "Palette — Ctrl-K to anywhere." },
+  ];
+
+  const lb       = document.getElementById('lb');
+  const lbStage  = document.getElementById('lb-stage');
+  const lbClose  = document.getElementById('lb-close');
+  const lbPrev   = document.getElementById('lb-prev');
+  const lbNext   = document.getElementById('lb-next');
+  const lbDots   = document.getElementById('lb-foot-dots');
+  const lbCapNum = document.getElementById('lb-cap-num');
+  const lbCapTxt = document.getElementById('lb-cap-text');
+
+  // clone images from gallery slides
+  const srcSlides = Array.from(document.querySelectorAll('.gallery-slide'));
+  const lbSlides  = srcSlides.map((s, i) => {
+    const div = document.createElement('div');
+    div.className = 'lb-slide';
+    const img = s.querySelector('img');
+    if (img) div.appendChild(img.cloneNode(true));
+    lbStage.appendChild(div);
+    return div;
+  });
+
+  // build dots
+  lbSlides.forEach((_, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'lb-foot-dot';
+    btn.setAttribute('aria-label', `Image ${i + 1}`);
+    btn.addEventListener('click', () => goLb(i));
+    lbDots.appendChild(btn);
+  });
+
+  let lbCur = 0;
+
+  function renderLb(){
+    lbSlides.forEach((s, i) => s.dataset.active = i === lbCur ? "true" : "false");
+    Array.from(lbDots.children).forEach((d, i) => d.dataset.active = i === lbCur ? "true" : "false");
+    lbCapNum.textContent = captions[lbCur].num;
+    lbCapTxt.textContent = captions[lbCur].text;
+  }
+
+  function goLb(n){ lbCur = (n + lbSlides.length) % lbSlides.length; renderLb(); }
+
+  window.openLightbox = function(idx){
+    lbCur = (idx || 0);
+    renderLb();
+    lb.classList.add('lb-open');
+    lb.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('lb-active');
+    lbClose.focus();
+  };
+
+  function closeLightbox(){
+    lb.classList.remove('lb-open');
+    lb.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('lb-active');
+    // sync gallery to lightbox position
+    if (typeof window._galleryGoTo === 'function') window._galleryGoTo(lbCur);
+  }
+
+  lbClose.addEventListener('click', closeLightbox);
+  lbPrev.addEventListener('click',  () => goLb(lbCur - 1));
+  lbNext.addEventListener('click',  () => goLb(lbCur + 1));
+  // tap backdrop to close
+  lb.addEventListener('click', (e) => { if (e.target === lb) closeLightbox(); });
+
+  // keyboard
+  document.addEventListener('keydown', (e) => {
+    if (!lb.classList.contains('lb-open')) return;
+    if (e.key === 'Escape')      closeLightbox();
+    if (e.key === 'ArrowLeft')   goLb(lbCur - 1);
+    if (e.key === 'ArrowRight')  goLb(lbCur + 1);
+  });
+
+  // touch swipe: horizontal = navigate, downward = close
+  let tx0 = 0, ty0 = 0;
+  lb.addEventListener('touchstart', (e) => {
+    tx0 = e.touches[0].clientX;
+    ty0 = e.touches[0].clientY;
+  }, { passive: true });
+  lb.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - tx0;
+    const dy = e.changedTouches[0].clientY - ty0;
+    if (dy > 85 && Math.abs(dy) > Math.abs(dx)) { closeLightbox(); return; }
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 42) goLb(dx < 0 ? lbCur + 1 : lbCur - 1);
+  }, { passive: true });
+
+  renderLb();
+})();
+</script>
+
+<!-- ═══ LIGHTBOX / FULLSCREEN VIEWER ═══════════════════════════ -->
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Fullscreen image viewer" aria-hidden="true">
+  <button class="lb-close" id="lb-close" aria-label="Close">
+    <span class="material-symbols-rounded">close</span>
+  </button>
+  <div class="lb-stage" id="lb-stage"></div>
+  <button class="lb-nav lb-prev" id="lb-prev" aria-label="Previous image">
+    <span class="material-symbols-rounded">arrow_back_ios_new</span>
+  </button>
+  <button class="lb-nav lb-next" id="lb-next" aria-label="Next image">
+    <span class="material-symbols-rounded">arrow_forward_ios</span>
+  </button>
+  <div class="lb-foot">
+    <div class="lb-foot-dots" id="lb-foot-dots"></div>
+    <div class="lb-cap">
+      <span class="lb-cap-num" id="lb-cap-num">01</span>
+      <span class="lb-cap-text" id="lb-cap-text"></span>
+    </div>
+  </div>
+</div>
 
 <!-- ═══ TWEAKS ═══════════════════════════════════════════════ -->
 <div id="tweaks-root"></div>
