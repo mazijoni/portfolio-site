@@ -2172,7 +2172,9 @@
             </button>
         </div>
         <div class="creator-panel-identity">
-            <img id="mgh-cp-avatar" class="creator-panel-avatar" src="" alt="" style="display:none" onerror="this.style.display='none';document.getElementById('mgh-cp-avatar-fallback').style.display='flex'">
+            <div class="creator-panel-avatar-clip" id="mgh-cp-avatar-clip" style="display:none">
+                <img id="mgh-cp-avatar" class="creator-panel-avatar" src="" alt="" onerror="this.closest('.creator-panel-avatar-clip').style.display='none';document.getElementById('mgh-cp-avatar-fallback').style.display='flex'">
+            </div>
             <div class="creator-panel-avatar creator-panel-avatar--fallback" id="mgh-cp-avatar-fallback" style="display:none">👤</div>
             <div class="creator-panel-info">
                 <div class="creator-panel-name" id="mgh-cp-name"></div>
@@ -2185,6 +2187,36 @@
         </div>
     </div>
     <div class="creator-panel-body" id="mgh-cp-body"></div>
+</div>
+
+<!-- Avatar crop modal -->
+<div id="avatar-crop-modal" class="acm-overlay" style="display:none">
+    <div class="acm-panel">
+        <div class="acm-header">
+            <span>Adjust profile picture</span>
+            <button type="button" class="acm-close" id="acm-close">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="acm-body">
+            <div class="acm-circle" id="acm-circle">
+                <img class="acm-img" id="acm-img" draggable="false" alt="">
+                <div class="acm-ring"></div>
+            </div>
+            <p class="acm-hint">Drag to reposition · scroll or pinch to zoom</p>
+        </div>
+        <div class="acm-zoom-row">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+            <input type="range" id="acm-zoom" class="acm-zoom-slider" min="100" max="400" value="100" step="1">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        </div>
+        <div class="acm-footer">
+            <button type="button" class="ws-btn ws-btn-ghost ws-btn-sm" id="acm-reset">Reset</button>
+            <div style="flex:1"></div>
+            <button type="button" class="ws-btn ws-btn-ghost ws-btn-sm" id="acm-cancel">Cancel</button>
+            <button type="button" class="ws-btn ws-btn-accent ws-btn-sm" id="acm-apply">Apply</button>
+        </div>
+    </div>
 </div>
 
 <!-- Link Gallery: Add / Edit modal -->
@@ -2209,7 +2241,19 @@
             </div>
             <div class="form-group" id="link-thumb-group" style="display:none">
                 <label for="link-thumb-field" id="link-thumb-label">Thumbnail URL</label>
-                <input type="url" id="link-thumb-field" placeholder="https://… (image to show on card)">
+                <div class="link-thumb-row">
+                    <input type="url" id="link-thumb-field" placeholder="https://… (image to show on card)">
+                    <button type="button" id="btn-crop-avatar" class="ws-btn ws-btn-ghost ws-btn-sm link-crop-btn" title="Adjust crop position">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13l15-.13a2 2 0 0 1 2 2v15"/></svg>
+                        Adjust
+                    </button>
+                </div>
+                <div id="link-thumb-preview" class="link-thumb-preview" style="display:none">
+                    <div class="link-thumb-preview-circle" id="link-thumb-preview-circle">
+                        <img id="link-thumb-preview-img" alt="">
+                    </div>
+                    <span class="link-thumb-preview-hint">Preview · click Adjust to reposition</span>
+                </div>
             </div>
             <div class="form-group" id="link-source-group" style="display:none">
                 <label for="link-source-field">Source Page URL</label>
