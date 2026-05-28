@@ -1413,7 +1413,7 @@ function _mghOpenCreatorPanel(creator) {
     body.innerHTML = "";
 
     // Action bar: feed + auto-link buttons
-    const MEDIA_TYPES_CP = ["image", "3d-model", "youtube-video", "youtube-playlist", "video"];
+    const MEDIA_TYPES_CP = ["image", "3d-model", "image-group", "youtube-video", "youtube-playlist", "video"];
     const mediaMatched = matched.filter(l => MEDIA_TYPES_CP.includes(l.type));
     const actionsRow = document.createElement("div");
     actionsRow.className = "cp-actions-row";
@@ -1446,7 +1446,9 @@ function _mghOpenCreatorPanel(creator) {
         const grid = document.createElement("div"); grid.className = "media-grid";
         matched.forEach(l => {
             const VTYPES = ["youtube-video", "youtube-playlist", "video"];
-            grid.appendChild(VTYPES.includes(l.type) ? _mghVideoCard(l) : _mghImageCard(l));
+            if (VTYPES.includes(l.type))        grid.appendChild(_mghVideoCard(l));
+            else if (l.type === "image-group")  grid.appendChild(_mghImageGroupCard(l));
+            else                                grid.appendChild(_mghImageCard(l));
         });
         body.appendChild(grid);
     }
@@ -1604,7 +1606,7 @@ function _mghImageGroupCard(link) {
 
     card.appendChild(grid);
     const body = document.createElement("div"); body.className = "image-card-body";
-    body.innerHTML = `<span class="image-type-badge">GROUP</span><span class="image-card-name">${escHtml(link.title || "")}</span>`;
+    body.innerHTML = `<span class="image-type-badge">GROUP</span><span class="image-card-name">${escHtml(link.title || `Group · ${count} image${count !== 1 ? "s" : ""}`)}</span>`;
     card.appendChild(body);
     card.appendChild(_mghCardActions(link));
     return card;
@@ -1653,7 +1655,7 @@ async function _mghAutoLinkPerson(person) {
     const name = (person.title || "").toLowerCase().trim();
     if (!name) { toast("Person has no name to match against.", "info"); return; }
 
-    const MEDIA_TYPES = ["image", "3d-model", "youtube-video", "youtube-playlist", "video"];
+    const MEDIA_TYPES = ["image", "3d-model", "image-group", "youtube-video", "youtube-playlist", "video"];
     const catMedia = _links.filter(l => l.category === person.category && MEDIA_TYPES.includes(l.type));
 
     const unlinked = catMedia.filter(l => {
@@ -2965,7 +2967,7 @@ function _updateTypeHint(type) {
     if (sourceGroup) sourceGroup.style.display = (isImage || isImageGroup) ? "" : "none";
     if (badgeGroup)  badgeGroup.style.display  = (isCreator) ? "" : "none";
     if (descGroup)   descGroup.style.display   = (isCreator || isPerson) ? "" : "none";
-    if (attrGroup)   attrGroup.style.display   = (isImage || isVideo) ? "" : "none";
+    if (attrGroup)   attrGroup.style.display   = (isImage || isVideo || isImageGroup) ? "" : "none";
     // Batch URL textarea makes no sense for image-group — hide it and show source URL instead
     const batchGroup = document.getElementById("link-batch-group");
     if (batchGroup) {
@@ -3184,12 +3186,18 @@ async function _onFormSubmit(e) {
             if (u && _isSafeUrl(u)) imgs.push({ url: u });
         }
         if (!imgs.length) { toast("Add at least one image URL", "error"); return; }
-        const _igSrc = document.getElementById("link-source-field")?.value.trim();
+        const _igSrc  = document.getElementById("link-source-field")?.value.trim();
+        const _igCVal = document.getElementById("link-creator-field")?.value || null;
+        const _igPSel = document.getElementById("link-person-field");
+        const _igPIds = _igPSel ? Array.from(_igPSel.selectedOptions).map(o => o.value).filter(Boolean) : [];
         const igData = {
             type:      "image-group",
             title:     document.getElementById("link-title-field").value.trim(),
             category:  document.getElementById("link-cat-field").value.trim(),
             images:    imgs,
+            creatorId: _igCVal,
+            personIds: _igPIds,
+            personId:  _igPIds[0] || null,
             updatedAt: serverTimestamp(),
             ...(_igSrc && _isSafeUrl(_igSrc) ? { sourceUrl: _igSrc } : {}),
         };
