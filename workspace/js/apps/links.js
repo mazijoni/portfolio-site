@@ -29,6 +29,7 @@ const TYPES = {
     "youtube-video":      { label: "YT Video",          icon: "play_circle" },
     "streaming-service":  { label: "Streaming Service", icon: "smart_display" },
     "image":              { label: "Image",             icon: "image" },
+    "image-group":        { label: "Image Group",       icon: "grid_on" },
     "3d-model":           { label: "3D Model",          icon: "view_in_ar" },
     "file":               { label: "File",              icon: "attach_file" },
     "video":              { label: "Video",             icon: "videocam" },
@@ -1346,7 +1347,10 @@ function _openMghFeed(allMedia) {
     const shuffled = [...allMedia].sort(() => Math.random() - 0.5);
     const grid = document.createElement("div");
     grid.className = "shorts-grid";
-    shuffled.forEach(l => grid.appendChild(_mghFeedCard(l)));
+    shuffled.forEach(l => {
+        const c = l.type === "image-group" ? _mghImageGroupFeedCard(l) : _mghFeedCard(l);
+        if (c) grid.appendChild(c);
+    });
 
     ol.appendChild(closeBtn);
     ol.appendChild(grid);
@@ -1568,6 +1572,44 @@ function _mghImageCard(link) {
     return card;
 }
 
+/* ── Image group card ── */
+function _mghImageGroupCard(link) {
+    const card = document.createElement("div"); card.className = "image-group-card";
+    const imgs = Array.isArray(link.images) ? link.images.filter(i => i?.url) : [];
+    const count = Math.min(imgs.length, 4);
+    const fallback = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 3'%3E%3Crect fill='%231a1a1a' width='4' height='3'/%3E%3C/svg%3E";
+
+    if (count === 0) {
+        card.innerHTML = `<div style="background:#111;min-height:80px;display:flex;align-items:center;justify-content:center;color:#444;font-size:0.72rem">No images</div><div class="image-card-body"><span class="image-type-badge">GROUP</span><span class="image-card-name">${escHtml(link.title || "")}</span></div>`;
+        card.appendChild(_mghCardActions(link));
+        return card;
+    }
+
+    const grid = document.createElement("div");
+    grid.className = "image-group-grid";
+    grid.dataset.count = count;
+
+    imgs.slice(0, 4).forEach(img => {
+        const item = document.createElement("div"); item.className = "ig-item";
+        const imgEl = document.createElement("img");
+        imgEl.src = img.url; imgEl.alt = img.name || link.title || "";
+        imgEl.loading = "lazy";
+        imgEl.onerror = function() { this.src = fallback; };
+        const vi = _mghViewItems.length;
+        _mghViewItems.push({ type: "image", src: img.url, name: img.name || link.title || "" });
+        imgEl.addEventListener("click", e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], vi); });
+        item.appendChild(imgEl);
+        grid.appendChild(item);
+    });
+
+    card.appendChild(grid);
+    const body = document.createElement("div"); body.className = "image-card-body";
+    body.innerHTML = `<span class="image-type-badge">GROUP</span><span class="image-card-name">${escHtml(link.title || "")}</span>`;
+    card.appendChild(body);
+    card.appendChild(_mghCardActions(link));
+    return card;
+}
+
 /* ── Creator card ── */
 function _mghCreatorCard(link) {
     const card = document.createElement("div"); card.className = "creator-card";
@@ -1694,13 +1736,95 @@ function _mghFeedCard(link) {
     if (isVideo && link.thumbUrl && link.url)
         card.querySelector(".feed-card-play-btn")?.addEventListener("click", e => { e.stopPropagation(); window.open(link.url, "_blank", "noopener"); });
     if (!isVideo && (link.thumbUrl || link.url)) {
-        card.querySelector(".feed-card-media")?.addEventListener("click", e => {
+        const _feedImgEl = card.querySelector(".feed-card-media");
+        const _feedWrap  = card.querySelector(".feed-card-media-wrap");
+        if (_feedImgEl) _feedImgEl.addEventListener("click", e => {
             e.stopPropagation();
-            _mghOpenViewer([{ type: "image", src: link.thumbUrl || link.url || "", name: link.title || "" }], 0);
+            const fitting = _feedImgEl.classList.toggle("feed-card-media--fit");
+            _feedWrap?.classList.toggle("feed-card-media-wrap--fit", fitting);
         });
     }
     card.querySelector(".feed-card-creator")?.addEventListener("click", e => { e.stopPropagation(); _mghOpenCreatorPanel(creator); });
     card.querySelectorAll(".feed-card-person-tag").forEach((el, i) => el.addEventListener("click", e => { e.stopPropagation(); if (persons[i]) _mghOpenCreatorPanel(persons[i]); }));
+    card.appendChild(_mghCardActions(link));
+    return card;
+}
+
+/* ── Image-group feed card (TikTok slideshow) ── */
+function _mghImageGroupFeedCard(link) {
+    const imgs = Array.isArray(link.images) ? link.images.filter(i => i?.url) : [];
+    if (!imgs.length) return null;
+
+    let curIdx = 0;
+    const card = document.createElement("div");
+    card.className = "feed-card feed-card--group";
+    card.dataset.id = link.id;
+
+    const mediaWrap = document.createElement("div");
+    mediaWrap.className = "feed-card-media-wrap";
+
+    const imgEl = document.createElement("img");
+    imgEl.className = "feed-card-media";
+    imgEl.src = imgs[0].url;
+    imgEl.alt = link.title || "";
+    mediaWrap.appendChild(imgEl);
+    card.appendChild(mediaWrap);
+
+    // Slideshow dots
+    const dotsEl = document.createElement("div");
+    dotsEl.className = "feed-card-slideshow-dots";
+    if (imgs.length > 1) {
+        imgs.forEach((_, i) => {
+            const dot = document.createElement("span");
+            dot.className = "feed-card-slideshow-dot" + (i === 0 ? " active" : "");
+            dotsEl.appendChild(dot);
+        });
+        card.appendChild(dotsEl);
+    }
+
+    const goTo = (idx) => {
+        curIdx = (idx + imgs.length) % imgs.length;
+        imgEl.src = imgs[curIdx].url;
+        dotsEl.querySelectorAll(".feed-card-slideshow-dot").forEach((d, i) => d.classList.toggle("active", i === curIdx));
+    };
+
+    // Tap left/right half to navigate
+    if (imgs.length > 1) {
+        const prevHit = document.createElement("div");
+        prevHit.className = "feed-card-slide-prev";
+        prevHit.addEventListener("click", e => { e.stopPropagation(); goTo(curIdx - 1); });
+        const nextHit = document.createElement("div");
+        nextHit.className = "feed-card-slide-next";
+        nextHit.addEventListener("click", e => { e.stopPropagation(); goTo(curIdx + 1); });
+        card.appendChild(prevHit);
+        card.appendChild(nextHit);
+    }
+
+    // Tap image to zoom to fit / back to cover
+    imgEl.addEventListener("click", e => {
+        e.stopPropagation();
+        const fitting = imgEl.classList.toggle("feed-card-media--fit");
+        mediaWrap.classList.toggle("feed-card-media-wrap--fit", fitting);
+    });
+
+    // Swipe left/right to navigate between slides
+    let _sx = 0;
+    card.addEventListener("touchstart", e => { _sx = e.touches[0].clientX; }, { passive: true });
+    card.addEventListener("touchend", e => {
+        const dx = e.changedTouches[0].clientX - _sx;
+        if (Math.abs(dx) > 40) goTo(dx < 0 ? curIdx + 1 : curIdx - 1);
+    }, { passive: true });
+
+    const creator = _mghFindCreatorFor(link);
+    const overlay = document.createElement("div");
+    overlay.className = "feed-card-overlay";
+    overlay.innerHTML = `<div class="feed-card-info">
+        ${link.title ? `<div class="feed-card-title">${escHtml(link.title)}</div>` : ""}
+        ${creator ? `<div class="feed-card-creator"><span class="feed-card-creator-name">${escHtml(creator.title || "")}</span></div>` : ""}
+    </div>`;
+    overlay.querySelector(".feed-card-creator")?.addEventListener("click", e => { e.stopPropagation(); _mghOpenCreatorPanel(creator); });
+    card.appendChild(overlay);
+
     card.appendChild(_mghCardActions(link));
     return card;
 }
@@ -1725,7 +1849,7 @@ function _renderMediaHub(body, cat) {
 
     const CREATOR_TYPES = ["creator", "youtube-channel"];
     const PERSON_TYPES  = ["person"];
-    const IMAGE_TYPES   = ["image", "3d-model"];
+    const IMAGE_TYPES   = ["image", "3d-model", "image-group"];
     const VIDEO_TYPES   = ["youtube-video", "youtube-playlist", "video"];
 
     const hub = document.createElement("div"); hub.className = "media-gallery-hub";
@@ -1847,7 +1971,10 @@ function _renderMediaHub(body, cat) {
             }
             const idMap = Object.fromEntries(allMedia.map(l => [l.id, l]));
             const feedGrid = document.createElement("div"); feedGrid.className = "shorts-grid";
-            _mghFeedIds.map(id => idMap[id]).filter(Boolean).forEach(l => feedGrid.appendChild(_mghFeedCard(l)));
+            _mghFeedIds.map(id => idMap[id]).filter(Boolean).forEach(l => {
+                const c = l.type === "image-group" ? _mghImageGroupFeedCard(l) : _mghFeedCard(l);
+                if (c) feedGrid.appendChild(c);
+            });
             mghBody.appendChild(feedGrid);
             return;
         }
@@ -1855,7 +1982,7 @@ function _renderMediaHub(body, cat) {
         const SECS = {
             creator: { label: "Creators",        items: creators, gridClass: "creators-grid", buildCard: _mghCreatorCard },
             person:  { label: "Persons & Chars",  items: persons,  gridClass: "creators-grid", buildCard: _mghCreatorCard },
-            image:   { label: "Images & 3D",      items: images,   gridClass: "media-grid",    buildCard: _mghImageCard },
+            image:   { label: "Images & 3D",      items: images,   gridClass: "media-grid",    buildCard: l => l.type === "image-group" ? _mghImageGroupCard(l) : _mghImageCard(l) },
             video:   { label: "Videos",           items: videos,   gridClass: "media-grid",    buildCard: _mghVideoCard },
             site:    { label: "Sites & Files",    items: sites,    gridClass: "db-sites-grid", buildCard: _mghSiteCard },
         };
@@ -2658,6 +2785,15 @@ function _openForm(editId) {
         const _blf = document.getElementById("link-badge-label-field"); if (_blf) _blf.value = link.badgeLabel || "";
         const _bcf = document.getElementById("link-badge-color-field"); if (_bcf) _bcf.value = link.badgeColor || "#888888";
         const _sf  = document.getElementById("link-source-field");      if (_sf)  _sf.value  = link.sourceUrl  || "";
+        // Pre-fill image group URL fields
+        for (let i = 1; i <= 4; i++) {
+            const el = document.getElementById(`link-ig-url-${i}`);
+            if (el) el.value = link.images?.[i - 1]?.url || "";
+        }
+        if (link.type === "image-group") {
+            const _sf2 = document.getElementById("link-source-field");
+            if (_sf2) _sf2.value = link.sourceUrl || "";
+        }
         // Attribution
         if (creatorSel && link.creatorId) creatorSel.value = link.creatorId;
         if (personSel) {
@@ -2812,18 +2948,34 @@ function _updateTypeHint(type) {
     const attrGroup   = document.getElementById("link-attr-group");
     const urlLabel    = document.getElementById("link-url-label");
 
-    const isCreator   = type === "creator" || type === "youtube-channel";
-    const isPerson    = type === "person";
-    const isImage     = type === "image" || type === "3d-model";
-    const isVideo     = type === "youtube-video" || type === "youtube-playlist" || type === "video";
+    const isCreator    = type === "creator" || type === "youtube-channel";
+    const isPerson     = type === "person";
+    const isImage      = type === "image" || type === "3d-model";
+    const isVideo      = type === "youtube-video" || type === "youtube-playlist" || type === "video";
+    const isImageGroup = type === "image-group";
+
+    const urlGroup  = document.getElementById("link-url-group");
+    const igSection = document.getElementById("link-image-group-section");
+    if (urlGroup)  urlGroup.style.display  = isImageGroup ? "none" : "";
+    if (igSection) igSection.style.display = isImageGroup ? ""     : "none";
 
     if (urlLabel)    urlLabel.textContent    = isImage ? "Image URL *" : "URL *";
     if (thumbGroup)  thumbGroup.style.display  = (isCreator || isPerson || isVideo || isImage) ? "" : "none";
     if (thumbLabel)  thumbLabel.textContent  = (isCreator || isPerson) ? "Avatar URL" : "Thumbnail URL";
-    if (sourceGroup) sourceGroup.style.display = isImage ? "" : "none";
+    if (sourceGroup) sourceGroup.style.display = (isImage || isImageGroup) ? "" : "none";
     if (badgeGroup)  badgeGroup.style.display  = (isCreator) ? "" : "none";
     if (descGroup)   descGroup.style.display   = (isCreator || isPerson) ? "" : "none";
     if (attrGroup)   attrGroup.style.display   = (isImage || isVideo) ? "" : "none";
+    // Batch URL textarea makes no sense for image-group — hide it and show source URL instead
+    const batchGroup = document.getElementById("link-batch-group");
+    if (batchGroup) {
+        if (isImageGroup) {
+            batchGroup.style.display = "none";
+        } else {
+            const isNew = !document.getElementById("link-id-field")?.value;
+            batchGroup.style.display = isNew ? "" : "none";
+        }
+    }
 }
 
 function _extractTitleFromUrl(url) {
@@ -3020,6 +3172,40 @@ async function _onFormSubmit(e) {
         if (imported) {
             closeModal("modal-link");
             _editId = null;
+        }
+        return;
+    }
+
+    // Handle image-group separately — stores images[] array, no single URL
+    if (selectedType === "image-group") {
+        const imgs = [];
+        for (let i = 1; i <= 4; i++) {
+            const u = document.getElementById(`link-ig-url-${i}`)?.value.trim();
+            if (u && _isSafeUrl(u)) imgs.push({ url: u });
+        }
+        if (!imgs.length) { toast("Add at least one image URL", "error"); return; }
+        const _igSrc = document.getElementById("link-source-field")?.value.trim();
+        const igData = {
+            type:      "image-group",
+            title:     document.getElementById("link-title-field").value.trim(),
+            category:  document.getElementById("link-cat-field").value.trim(),
+            images:    imgs,
+            updatedAt: serverTimestamp(),
+            ...(_igSrc && _isSafeUrl(_igSrc) ? { sourceUrl: _igSrc } : {}),
+        };
+        try {
+            if (editId) {
+                await updateDoc(doc(_db, "users", _user.uid, "gallery-links", editId), igData);
+            } else {
+                igData.createdAt = serverTimestamp();
+                await addDoc(refs.galleryLinks(_db, _user.uid), igData);
+            }
+            closeModal("modal-link");
+            _editId = null;
+            toast(editId ? "Group updated" : "Group added", "success");
+        } catch (err) {
+            console.error(err);
+            toast("Error saving group", "error");
         }
         return;
     }

@@ -1399,6 +1399,7 @@
                         <option value="site">Site</option>
                         <option value="video">Video</option>
                         <option value="image">Image</option>
+                        <option value="image-group">Image Group</option>
                         <option value="creator">Creator</option>
                         <option value="person">Person</option>
                     </select>
@@ -1409,9 +1410,27 @@
                 <input type="text" id="ml-field-name" placeholder="Display name" maxlength="120">
                 <div id="ml-char-hint" class="form-hint" style="margin-top:0.3rem"></div>
             </div>
-            <div class="form-group">
+            <div class="form-group" id="ml-url-group">
                 <label id="ml-url-label" for="ml-field-url">URL</label>
                 <input type="url" id="ml-field-url" placeholder="https://&#8230;">
+            </div>
+            <div id="ml-image-group-section" style="display:none">
+                <div class="form-group">
+                    <label>Image 1 <span class="form-hint">(required)</span></label>
+                    <input type="url" id="ml-ig-url-1" placeholder="https://&#8230;">
+                </div>
+                <div class="form-group">
+                    <label>Image 2</label>
+                    <input type="url" id="ml-ig-url-2" placeholder="https://&#8230;">
+                </div>
+                <div class="form-group">
+                    <label>Image 3</label>
+                    <input type="url" id="ml-ig-url-3" placeholder="https://&#8230;">
+                </div>
+                <div class="form-group">
+                    <label>Image 4</label>
+                    <input type="url" id="ml-ig-url-4" placeholder="https://&#8230;">
+                </div>
             </div>
             <div class="form-group" id="ml-img-group">
                 <label id="ml-img-label" for="ml-field-img">Custom thumbnail URL</label>
@@ -1792,9 +1811,27 @@
         </div>
         <form id="form-add-link" class="ws-modal-form" autocomplete="off">
             <input type="hidden" id="link-id-field">
-            <div class="form-group">
+            <div class="form-group" id="link-url-group">
                 <label for="link-url-field" id="link-url-label">URL *</label>
                 <input type="url" id="link-url-field" placeholder="https://&#8230;" required>
+            </div>
+            <div id="link-image-group-section" style="display:none">
+                <div class="form-group">
+                    <label>Image 1 <span class="form-hint">(required)</span></label>
+                    <input type="url" id="link-ig-url-1" placeholder="https://&#8230;">
+                </div>
+                <div class="form-group">
+                    <label>Image 2</label>
+                    <input type="url" id="link-ig-url-2" placeholder="https://&#8230;">
+                </div>
+                <div class="form-group">
+                    <label>Image 3</label>
+                    <input type="url" id="link-ig-url-3" placeholder="https://&#8230;">
+                </div>
+                <div class="form-group">
+                    <label>Image 4</label>
+                    <input type="url" id="link-ig-url-4" placeholder="https://&#8230;">
+                </div>
             </div>
             <div class="form-group" id="link-thumb-group" style="display:none">
                 <label for="link-thumb-field" id="link-thumb-label">Thumbnail URL</label>
@@ -1818,6 +1855,7 @@
                     <option value="youtube-video">YouTube Video</option>
                     <option value="streaming-service">Streaming Service</option>
                     <option value="image">Image</option>
+                    <option value="image-group">Image Group</option>
                     <option value="3d-model">3D Model</option>
                     <option value="file">File</option>
                     <option value="video">Video</option>

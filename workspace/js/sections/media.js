@@ -184,7 +184,7 @@ function _render() {
 
     const sites    = visible.filter(l => l.type !== "video" && l.type !== "image" && l.type !== "creator" && l.type !== "person");
     const videos   = visible.filter(l => l.type === "video");
-    const images   = visible.filter(l => l.type === "image");
+    const images   = visible.filter(l => l.type === "image" || l.type === "image-group");
     const creators = visible.filter(l => l.type === "creator");
     const persons  = visible.filter(l => l.type === "person");
 
@@ -338,14 +338,16 @@ function _mediaGrid(links, typeStr) {
     const grid = document.createElement("div");
     grid.className = "media-grid";
     links.forEach(link => {
-        if (link.type === "video") grid.appendChild(_buildVideoCard(link));
-        else                       grid.appendChild(_buildImageCard(link));
+        if (link.type === "video")       grid.appendChild(_buildVideoCard(link));
+        else if (link.type === "image-group") grid.appendChild(_buildImageGroupCard(link));
+        else                             grid.appendChild(_buildImageCard(link));
     });
     if (!_search) {
         if (typeStr === "video") {
             grid.appendChild(_addTypeCard("Video", `<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>`, "video"));
         } else {
             grid.appendChild(_addTypeCard("Image", `<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>`, "image"));
+            grid.appendChild(_addTypeCard("Image Group", `<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/>`, "image-group"));
         }
     }
     return grid;
@@ -461,6 +463,53 @@ function _buildImageCard(link) {
     const personDiv  = card.querySelector(".image-card-person");
     if (creatorDiv && _creator) creatorDiv.addEventListener("click", (e) => { e.stopPropagation(); _openCreatorPanel(_creator); });
     if (personDiv  && _persons.length) personDiv.addEventListener("click", (e) => { e.stopPropagation(); _openCreatorPanel(_persons[0]); });
+
+    card.appendChild(_cardActions(link));
+    return card;
+}
+
+function _buildImageGroupCard(link) {
+    const card = document.createElement("div");
+    card.className = "image-group-card";
+
+    const imgs = Array.isArray(link.images) ? link.images.filter(i => i?.url) : [];
+    const count = Math.min(imgs.length, 4);
+
+    if (count === 0) {
+        card.innerHTML = `<div style="background:#111;min-height:80px;display:flex;align-items:center;justify-content:center;color:#444;font-size:0.72rem">No images</div>`;
+        card.innerHTML += `<div class="image-card-body"><span class="image-type-badge">GROUP</span><span class="image-card-name">${escHtml(link.name || "")}</span></div>`;
+        card.appendChild(_cardActions(link));
+        return card;
+    }
+
+    const fallback = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 3'%3E%3Crect fill='%231a1a1a' width='4' height='3'/%3E%3C/svg%3E";
+
+    const grid = document.createElement("div");
+    grid.className = "image-group-grid";
+    grid.dataset.count = count;
+
+    imgs.slice(0, 4).forEach((img) => {
+        const item = document.createElement("div");
+        item.className = "ig-item";
+        const imgEl = document.createElement("img");
+        imgEl.src = img.url;
+        imgEl.alt = img.name || link.name || "";
+        imgEl.onerror = function() { this.src = fallback; };
+
+        const lbIdx = _viewItems.length;
+        _viewItems.push({ type: "image", src: img.url, name: img.name || link.name || "" });
+        imgEl.addEventListener("click", (e) => { e.stopPropagation(); _openLightbox(lbIdx); });
+
+        item.appendChild(imgEl);
+        grid.appendChild(item);
+    });
+
+    card.appendChild(grid);
+
+    const body = document.createElement("div");
+    body.className = "image-card-body";
+    body.innerHTML = `<span class="image-type-badge">GROUP</span><span class="image-card-name">${escHtml(link.name || "")}</span>`;
+    card.appendChild(body);
 
     card.appendChild(_cardActions(link));
     return card;
@@ -871,6 +920,11 @@ function _openLinkModal(link, defaultType = "site") {
     // Populate Source URL field for images
     const sourceField = document.getElementById("ml-field-source");
     if (sourceField) sourceField.value = link?.sourceUrl || "";
+    // Populate image group URL fields
+    for (let i = 1; i <= 4; i++) {
+        const el = document.getElementById(`ml-ig-url-${i}`);
+        if (el) el.value = link?.images?.[i - 1]?.url || "";
+    }
     _updateLinkFields();
     openModal("modal-media-link");
     setTimeout(() => document.getElementById("ml-field-name").focus(), 60);
@@ -885,6 +939,11 @@ function _updateLinkFields() {
     const attrGroup   = document.getElementById("ml-attribution-group");
     const urlLabel    = document.getElementById("ml-url-label");
     const imgLabel    = document.getElementById("ml-img-label");
+    const urlGroup   = document.getElementById("ml-url-group");
+    const igSection  = document.getElementById("ml-image-group-section");
+    const isGroup    = type === "image-group";
+    if (urlGroup)  urlGroup.style.display   = isGroup ? "none" : "";
+    if (igSection) igSection.style.display  = isGroup ? ""     : "none";
     imgGroup.style.display    = ["site", "video", "creator", "person"].includes(type) ? "" : "none";
     if (sourceGroup) sourceGroup.style.display = type === "image" ? "" : "none";
     descGroup.style.display   = ["creator", "person"].includes(type) ? "" : "none";
@@ -910,6 +969,29 @@ async function _onLinkSubmit(e) {
     const img   = document.getElementById("ml-field-img").value.trim();
     const desc  = document.getElementById("ml-field-desc").value.trim();
     const color = document.getElementById("ml-field-color").value;
+    if (type === "image-group") {
+        const imgs = [];
+        for (let i = 1; i <= 4; i++) {
+            const u = document.getElementById(`ml-ig-url-${i}`)?.value.trim();
+            if (u) imgs.push({ url: u });
+        }
+        if (!imgs.length) { toast("Add at least one image URL", "error"); return; }
+        const data = { type, name, images: imgs, categoryId: _catId };
+        try {
+            if (_editLinkId) {
+                await updateDoc(doc(db, "users", _uid, "links", _editLinkId), data);
+            } else {
+                data.createdAt = serverTimestamp();
+                await addDoc(collection(db, "users", _uid, "links"), data);
+            }
+            closeModal("modal-media-link");
+            toast(_editLinkId ? "Group updated" : "Group added", "success");
+        } catch (err) {
+            console.error(err);
+            toast("Error saving group", "error");
+        }
+        return;
+    }
     if (!name && !url) return;
     const data = { type, name, url, categoryId: _catId };
     if      (type === "site")                          { if (img) data.imageUrl  = img; }
