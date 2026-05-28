@@ -305,7 +305,7 @@ export function initLinks(db, user) {
         .addEventListener("change", e => { _sortMode = e.target.value; _render(); });
 
     document.getElementById("links-cat-select")
-        .addEventListener("change", e => { _switchCat(e.target.value); });
+        ?.addEventListener("change", e => { _switchCat(e.target.value); });
 
     document.getElementById("links-cat-bar")
         .addEventListener("click", e => {
