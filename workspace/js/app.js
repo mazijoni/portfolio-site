@@ -30,6 +30,7 @@ import { initLinks }       from "./apps/links.js";
 import { initGmail }       from "./apps/gmail.js";
 import { initEurovision, initEurovisionUser } from "./apps/eurovision.js";
 import { initSharing }     from "./sharing.js";
+import { initAnalytics }   from "./apps/analytics.js";
 
 /* ── Firebase bootstrap ── */
 let firebaseConfig;
@@ -107,4 +108,5 @@ function onUserReady(user) {
     initLinks(db, user);
     initGmail(db, user, googleClientId ?? "");
     initEurovisionUser(db, user.uid, user.displayName || user.email?.split("@")[0] || "", user.photoURL || "");
+    initAnalytics(db);
 }

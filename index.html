@@ -1053,5 +1053,26 @@
             lastScroll = currentScroll;
         });
     </script>
+
+    <script type="module">
+        import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/11.5.0/firebase-app.js';
+        import { getFirestore, addDoc, collection, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js';
+
+        const BOT_RE = /bot|crawl|spider|slurp|archive|facebookexternalhit|whatsapp|twitterbot|semrush|ahrefs|lighthouse|headless/i;
+        if (!BOT_RE.test(navigator.userAgent)) {
+            let cfg;
+            try { ({ firebaseConfig: cfg } = await import('./firebase.local.js')); }
+            catch { ({ firebaseConfig: cfg } = await import('./firebase.js')); }
+
+            const fbApp = getApps().find(a => a.name === 'tracker') ?? initializeApp(cfg, 'tracker');
+            const db = getFirestore(fbApp);
+            addDoc(collection(db, 'site_analytics'), {
+                page: location.pathname,
+                ref:  (document.referrer || '').slice(0, 200),
+                ts:   serverTimestamp(),
+                ua:   navigator.userAgent.slice(0, 300),
+            }).catch(() => {});
+        }
+    </script>
 </body>
 </html>
