@@ -508,7 +508,7 @@ function _buildImageGroupCard(link) {
 
     const body = document.createElement("div");
     body.className = "image-card-body";
-    body.innerHTML = `<span class="image-type-badge">GROUP</span><span class="image-card-name">${escHtml(link.name || "")}</span>`;
+    body.innerHTML = `<span class="image-type-badge">GROUP</span><span class="image-card-name">${escHtml(link.name || `Group · ${count} image${count !== 1 ? "s" : ""}`)}</span>`;
     card.appendChild(body);
 
     card.appendChild(_cardActions(link));
@@ -859,8 +859,9 @@ function _openCreatorPanel(creator) {
         const grid = document.createElement("div");
         grid.className = "media-grid";
         matched.forEach(l => {
-            if (l.type === "video")  grid.appendChild(_buildVideoCard(l));
-            else                     grid.appendChild(_buildImageCard(l));
+            if (l.type === "video")            grid.appendChild(_buildVideoCard(l));
+            else if (l.type === "image-group") grid.appendChild(_buildImageGroupCard(l));
+            else                               grid.appendChild(_buildImageCard(l));
         });
         body.appendChild(grid);
     }
@@ -948,7 +949,7 @@ function _updateLinkFields() {
     if (sourceGroup) sourceGroup.style.display = type === "image" ? "" : "none";
     descGroup.style.display   = ["creator", "person"].includes(type) ? "" : "none";
     if (badgeRow) badgeRow.style.display = ["creator", "person"].includes(type) ? "flex" : "none";
-    if (attrGroup)  attrGroup.style.display  = ["image", "video"].includes(type) ? "" : "none";
+    if (attrGroup)  attrGroup.style.display  = ["image", "video", "image-group"].includes(type) ? "" : "none";
     if (urlLabel) urlLabel.textContent = type === "image" ? "Image URL" : "URL";
     if      (type === "site")                          imgLabel.textContent = "Custom thumbnail URL";
     else if (type === "video")                         imgLabel.textContent = "Thumbnail URL";
@@ -976,7 +977,11 @@ async function _onLinkSubmit(e) {
             if (u) imgs.push({ url: u });
         }
         if (!imgs.length) { toast("Add at least one image URL", "error"); return; }
-        const data = { type, name, images: imgs, categoryId: _catId };
+        const _igCreatorId = document.getElementById("ml-field-creator")?.value || null;
+        const _igPersonSel = document.getElementById("ml-field-person");
+        const _igPersonIds = _igPersonSel ? Array.from(_igPersonSel.selectedOptions).map(o => o.value).filter(Boolean) : [];
+        const data = { type, name, images: imgs, categoryId: _catId,
+            creatorId: _igCreatorId, personIds: _igPersonIds, personId: _igPersonIds[0] || null };
         try {
             if (_editLinkId) {
                 await updateDoc(doc(db, "users", _uid, "links", _editLinkId), data);
