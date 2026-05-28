@@ -4517,6 +4517,28 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
 }
 .creator-card-link:hover { color: var(--accent); background: var(--bg-secondary); }
 
+/* Auto-link button — person/character cards only */
+.creator-card-autotag-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    cursor: pointer;
+    padding: 0;
+    font-family: inherit;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.creator-card-autotag-btn:hover {
+    color: #fff;
+    background: #55ccbb;
+    border-color: #55ccbb;
+}
+
 /* "View all media" feed button on creator / person cards */
 .creator-card-feed-btn {
     display: flex;
@@ -4682,6 +4704,29 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
     padding: 0.9rem 1.25rem 1rem;
 }
 
+/* Panel avatar clip container (enables crop/pan/zoom) */
+.creator-panel-avatar-clip {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+    border: 2px solid var(--border);
+    background: var(--bg-card);
+}
+.creator-panel-avatar-clip .creator-panel-avatar {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;   /* fallback until JS runs */
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    border: none;
+    background: transparent;
+}
+
+/* Standalone (legacy) */
 .creator-panel-avatar {
     width: 64px; height: 64px;
     border-radius: 50%;
@@ -4756,6 +4801,28 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
     font-size: 0.75rem;
     color: var(--text-secondary);
     margin-bottom: 1.25rem;
+}
+
+/* Actions row inside the creator/person panel */
+.cp-actions-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+.cp-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem !important;
+}
+.cp-action-btn--teal {
+    color: #55ccbb !important;
+    border-color: rgba(85,204,187,0.4) !important;
+}
+.cp-action-btn--teal:hover {
+    background: rgba(85,204,187,0.15) !important;
+    border-color: #55ccbb !important;
 }
 
 @media (max-width: 600px) {
@@ -7061,6 +7128,146 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
 }
 /* links-body needs relative positioning for the box to position correctly */
 .links-body { position: relative; }
+
+/* ── Avatar clip container (card-level) ─────────────────────── */
+.creator-avatar-clip {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+}
+.creator-avatar-clip .creator-avatar {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;   /* fallback until JS runs */
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    border: none;
+    background: transparent;
+}
+
+/* ── Thumb preview + crop button in link form ────────────────── */
+.link-thumb-row {
+    display: flex; gap: 0.45rem; align-items: center;
+}
+.link-thumb-row input { flex: 1; min-width: 0; }
+.link-crop-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    white-space: nowrap;
+}
+.link-thumb-preview {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.55rem;
+}
+.link-thumb-preview-circle {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--bg-tertiary);
+    position: relative;
+    border: 1px solid var(--border);
+}
+.link-thumb-preview-circle img {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;   /* fallback until JS runs */
+    max-width: none;
+    max-height: none;
+}
+.link-thumb-preview-hint {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+/* ── Avatar crop modal ───────────────────────────────────────── */
+.acm-overlay {
+    position: fixed; inset: 0; z-index: 5000;
+    background: rgba(0,0,0,0.62);
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+.acm-panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg, 10px);
+    width: min(320px, 92vw);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+}
+.acm-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.88rem; font-weight: 600;
+}
+.acm-close {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-muted); display: flex; align-items: center; padding: 4px;
+    font-family: inherit;
+}
+.acm-close:hover { color: var(--text-primary); }
+.acm-body {
+    padding: 1.25rem;
+    display: flex; flex-direction: column; align-items: center; gap: 0.65rem;
+}
+.acm-circle {
+    width: 220px; height: 220px;
+    border-radius: 50%;
+    overflow: hidden;
+    position: relative;
+    cursor: grab;
+    background: var(--bg-tertiary);
+    user-select: none;
+    touch-action: none;
+    flex-shrink: 0;
+}
+.acm-circle:active { cursor: grabbing; }
+.acm-ring {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    border: 2.5px solid var(--accent);
+    pointer-events: none; z-index: 2;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
+}
+.acm-img {
+    position: absolute; top: 0; left: 0;
+    transform-origin: 0 0;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+    will-change: transform;
+}
+.acm-hint {
+    font-size: 0.7rem; color: var(--text-muted); text-align: center;
+}
+.acm-zoom-row {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0 1.25rem 0.85rem;
+    color: var(--text-muted);
+}
+.acm-zoom-slider {
+    flex: 1;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+.acm-footer {
+    display: flex; align-items: center; gap: 0.4rem;
+    padding: 0.85rem 1rem;
+    border-top: 1px solid var(--border);
+}
 
 /* -- Favicon fallback (material icon) -- */
 .link-card-favicon-fb {

@@ -61,6 +61,12 @@ const _mediaThumbs = {}; // url → imgUrl | null  (undefined = not yet tried)
 let _mghViewItems = [];
 let _mghViewCur   = 0;
 
+// Avatar crop state
+let _acmCx   = 50;   // x-center 0–100
+let _acmCy   = 50;   // y-center 0–100
+let _acmZoom = 1;    // scale 1–4
+let _acmInited = false;
+
 /* ── Bulk select state ── */
 let _selectMode  = false;
 let _selectedIds = new Set();
@@ -366,6 +372,9 @@ export function initLinks(db, user) {
             } catch {}
         });
     }
+
+    // Init avatar crop modal
+    initAvatarCrop();
 }
 
 
@@ -967,6 +976,222 @@ function _mghCardActions(link) {
     return wrap;
 }
 
+/* ══════════ AVATAR CROP MODAL ══════════ */
+
+export function initAvatarCrop() {
+    if (_acmInited) return;
+    _acmInited = true;
+
+    const thumbField  = document.getElementById("link-thumb-field");
+    const cropBtn     = document.getElementById("btn-crop-avatar");
+    const prevDiv     = document.getElementById("link-thumb-preview");
+    const prevCircle  = document.getElementById("link-thumb-preview-circle");
+    const prevImg     = document.getElementById("link-thumb-preview-img");
+    const modal       = document.getElementById("avatar-crop-modal");
+    const acmCircle   = document.getElementById("acm-circle");
+    const acmImg      = document.getElementById("acm-img");
+    const zSlider     = document.getElementById("acm-zoom");
+
+    function _isAvatarType() {
+        const t = document.getElementById("link-type-field")?.value;
+        return t === "creator" || t === "person" || t === "youtube-channel";
+    }
+
+    function _updatePreview() {
+        const url = thumbField?.value.trim();
+        if (url && _isAvatarType()) {
+            if (prevImg) { prevImg.src = url; _acmApplyCSS(prevCircle, _acmCx, _acmCy, _acmZoom); }
+            if (prevDiv) prevDiv.style.display = "";
+        } else {
+            if (prevDiv) prevDiv.style.display = "none";
+        }
+    }
+
+    // Update preview whenever URL changes (also resets crop to default)
+    thumbField?.addEventListener("input", () => {
+        _acmCx = 50; _acmCy = 50; _acmZoom = 1;
+        if (zSlider) zSlider.value = 100;
+        _updatePreview();
+    });
+
+    // Open modal
+    cropBtn?.addEventListener("click", () => {
+        const url = thumbField?.value.trim();
+        if (!url) { toast("Paste an image URL first.", "info"); return; }
+        if (!_isAvatarType()) return;
+        _acmOpen(url);
+    });
+
+    // Modal: close / cancel
+    document.getElementById("acm-close")?.addEventListener("click",  _acmClose);
+    document.getElementById("acm-cancel")?.addEventListener("click", _acmClose);
+    modal?.addEventListener("click", e => { if (e.target === modal) _acmClose(); });
+
+    // Modal: reset
+    document.getElementById("acm-reset")?.addEventListener("click", () => {
+        _acmCx = 50; _acmCy = 50; _acmZoom = 1;
+        if (zSlider) zSlider.value = 100;
+        _acmLayout();
+    });
+
+    // Modal: apply
+    document.getElementById("acm-apply")?.addEventListener("click", () => {
+        _acmApplyCSS(prevCircle, _acmCx, _acmCy, _acmZoom);
+        if (prevDiv) prevDiv.style.display = "";
+        _acmClose();
+    });
+
+    // Zoom slider
+    zSlider?.addEventListener("input", () => {
+        _acmZoom = zSlider.value / 100;
+        _acmClampAndLayout();
+    });
+
+    // Scroll-to-zoom on the circle
+    acmCircle?.addEventListener("wheel", e => {
+        e.preventDefault();
+        _acmZoom = Math.max(1, Math.min(4, _acmZoom - e.deltaY * 0.004));
+        if (zSlider) zSlider.value = Math.round(_acmZoom * 100);
+        _acmClampAndLayout();
+    }, { passive: false });
+
+    // Mouse drag
+    let dragging = false, lastMouseX = 0, lastMouseY = 0;
+    acmCircle?.addEventListener("mousedown", e => {
+        dragging = true; lastMouseX = e.clientX; lastMouseY = e.clientY;
+        e.preventDefault();
+    });
+    document.addEventListener("mousemove", e => {
+        if (!dragging || !acmImg?.naturalWidth) return;
+        _acmPan(e.clientX - lastMouseX, e.clientY - lastMouseY);
+        lastMouseX = e.clientX; lastMouseY = e.clientY;
+    });
+    document.addEventListener("mouseup", () => { dragging = false; });
+
+    // Touch drag + pinch
+    let lastTX = 0, lastTY = 0, lastPinchDist = 0;
+    acmCircle?.addEventListener("touchstart", e => {
+        if (e.touches.length === 1) { lastTX = e.touches[0].clientX; lastTY = e.touches[0].clientY; }
+        if (e.touches.length === 2) {
+            lastPinchDist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+        }
+        e.preventDefault();
+    }, { passive: false });
+    acmCircle?.addEventListener("touchmove", e => {
+        if (e.touches.length === 1 && acmImg?.naturalWidth) {
+            _acmPan(e.touches[0].clientX - lastTX, e.touches[0].clientY - lastTY);
+            lastTX = e.touches[0].clientX; lastTY = e.touches[0].clientY;
+        }
+        if (e.touches.length === 2) {
+            const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            if (lastPinchDist) {
+                _acmZoom = Math.max(1, Math.min(4, _acmZoom * (dist / lastPinchDist)));
+                if (zSlider) zSlider.value = Math.round(_acmZoom * 100);
+                _acmClampAndLayout();
+            }
+            lastPinchDist = dist;
+        }
+        e.preventDefault();
+    }, { passive: false });
+
+    function _acmOpen(url) {
+        if (!acmImg) return;
+        acmImg.onload = () => { _acmClampAndLayout(); };
+        acmImg.src = url;
+        if (zSlider) zSlider.value = Math.round(_acmZoom * 100);
+        if (modal) modal.style.display = "flex";
+    }
+
+    function _acmClose() { if (modal) modal.style.display = "none"; }
+
+    function _acmLayout() {
+        if (!acmImg?.naturalWidth) return;
+        const C = 220;
+        const cs = Math.max(C / acmImg.naturalWidth, C / acmImg.naturalHeight);
+        const rW = acmImg.naturalWidth  * cs * _acmZoom;
+        const rH = acmImg.naturalHeight * cs * _acmZoom;
+        acmImg.style.width  = rW + "px";
+        acmImg.style.height = rH + "px";
+        acmImg.style.left   = (C / 2 - (_acmCx / 100) * rW) + "px";
+        acmImg.style.top    = (C / 2 - (_acmCy / 100) * rH) + "px";
+    }
+
+    function _acmClampAndLayout() {
+        if (!acmImg?.naturalWidth) return;
+        const C = 220;
+        const cs = Math.max(C / acmImg.naturalWidth, C / acmImg.naturalHeight);
+        const rW = acmImg.naturalWidth  * cs * _acmZoom;
+        const rH = acmImg.naturalHeight * cs * _acmZoom;
+        const minX = (C / 2 / rW) * 100, maxX = 100 - minX;
+        const minY = (C / 2 / rH) * 100, maxY = 100 - minY;
+        _acmCx = Math.max(minX, Math.min(maxX, _acmCx));
+        _acmCy = Math.max(minY, Math.min(maxY, _acmCy));
+        _acmLayout();
+    }
+
+    function _acmPan(dx, dy) {
+        if (!acmImg?.naturalWidth) return;
+        const C = 220;
+        const cs = Math.max(C / acmImg.naturalWidth, C / acmImg.naturalHeight);
+        const rW = acmImg.naturalWidth  * cs * _acmZoom;
+        const rH = acmImg.naturalHeight * cs * _acmZoom;
+        _acmCx -= (dx / rW) * 100;
+        _acmCy -= (dy / rH) * 100;
+        _acmClampAndLayout();
+    }
+
+    // expose open for external use
+    window._acmOpen = _acmOpen;
+    window._acmClose = _acmClose;
+}
+
+// Apply crop using the same pixel formula as the modal — works at any container size.
+// containerSize: pixel width/height of the square clip circle (48 for cards, 52 for preview, 64 for panel).
+function _acmApplyToClip(clipEl, cx, cy, zoom, containerSize) {
+    if (!clipEl) return;
+    const imgEl = clipEl.querySelector("img");
+    if (!imgEl) return;
+    const C = containerSize || 48;
+
+    function layout() {
+        const natW = imgEl.naturalWidth;
+        const natH = imgEl.naturalHeight;
+        if (!natW || !natH) return;
+        const cs = Math.max(C / natW, C / natH);
+        const rW = natW * cs * zoom;
+        const rH = natH * cs * zoom;
+        imgEl.style.position  = "absolute";
+        imgEl.style.width     = rW + "px";
+        imgEl.style.height    = rH + "px";
+        imgEl.style.left      = (C / 2 - (cx / 100) * rW) + "px";
+        imgEl.style.top       = (C / 2 - (cy / 100) * rH) + "px";
+        imgEl.style.maxWidth  = "none";
+        imgEl.style.maxHeight = "none";
+        imgEl.style.objectFit = "unset";
+    }
+
+    if (imgEl.complete && imgEl.naturalWidth) {
+        layout();
+    } else {
+        imgEl.addEventListener("load", layout, { once: true });
+    }
+}
+
+// Legacy alias (used in a few places)
+function _acmApplyCSS(containerEl, cx, cy, zoom) {
+    const C = containerEl?.id === "mgh-cp-avatar-clip" ? 64
+            : containerEl?.id === "link-thumb-preview-circle" ? 52 : 48;
+    _acmApplyToClip(containerEl, cx, cy, zoom, C);
+}
+
+/* ══════════ END AVATAR CROP ══════════ */
+
 /* ── Fullscreen viewer (images + thumb videos) ── */
 
 function _mghLightbox(src) {
@@ -1146,8 +1371,17 @@ function _mghOpenCreatorPanel(creator) {
 
     const avatarEl    = document.getElementById("mgh-cp-avatar");
     const fallbackEl  = document.getElementById("mgh-cp-avatar-fallback");
-    if (avatarSrc) { avatarEl.src = avatarSrc; avatarEl.style.display = ""; fallbackEl.style.display = "none"; }
-    else { avatarEl.style.display = "none"; fallbackEl.style.display = "flex"; }
+    const clipEl      = document.getElementById("mgh-cp-avatar-clip");
+    if (avatarSrc) {
+        avatarEl.src = avatarSrc;
+        if (clipEl) clipEl.style.display = "";
+        fallbackEl.style.display = "none";
+    } else {
+        if (clipEl) clipEl.style.display = "none";
+        fallbackEl.style.display = "flex";
+    }
+    // Apply pixel-accurate crop (scaled to 64px panel avatar)
+    _acmApplyToClip(clipEl, creator.thumbCropCx ?? 50, creator.thumbCropCy ?? 50, creator.thumbCropZoom ?? 1, 64);
 
     document.getElementById("mgh-cp-name").textContent = creator.title || "";
 
@@ -1173,11 +1407,34 @@ function _mghOpenCreatorPanel(creator) {
 
     const body = document.getElementById("mgh-cp-body");
     body.innerHTML = "";
+
+    // Action bar: feed + auto-link buttons
+    const MEDIA_TYPES_CP = ["image", "3d-model", "youtube-video", "youtube-playlist", "video"];
+    const mediaMatched = matched.filter(l => MEDIA_TYPES_CP.includes(l.type));
+    const actionsRow = document.createElement("div");
+    actionsRow.className = "cp-actions-row";
+    if (mediaMatched.length) {
+        const feedBtn = document.createElement("button");
+        feedBtn.className = "ws-btn ws-btn-ghost ws-btn-sm cp-action-btn";
+        feedBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> View in feed`;
+        feedBtn.addEventListener("click", () => _openMghFeed(mediaMatched));
+        actionsRow.appendChild(feedBtn);
+    }
+    if (isChar) {
+        const tagBtn = document.createElement("button");
+        tagBtn.className = "ws-btn ws-btn-ghost ws-btn-sm cp-action-btn cp-action-btn--teal";
+        tagBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Auto-link by name`;
+        tagBtn.addEventListener("click", () => _mghAutoLinkPerson(creator));
+        actionsRow.appendChild(tagBtn);
+    }
+    if (actionsRow.children.length) body.appendChild(actionsRow);
+
     if (!matched.length) {
-        body.innerHTML = `<div class="creator-panel-empty">
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" opacity="0.25"><rect x="6" y="10" width="36" height="28" rx="2" stroke="white" stroke-width="2"/><path d="M14 24h20M14 30h12" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
-            <p>No saved items ${isChar ? "tagged with this character" : "linked to this creator"} yet.</p>
-        </div>`;
+        const emptyDiv = document.createElement("div");
+        emptyDiv.className = "creator-panel-empty";
+        emptyDiv.innerHTML = `<svg width="48" height="48" viewBox="0 0 48 48" fill="none" opacity="0.25"><rect x="6" y="10" width="36" height="28" rx="2" stroke="white" stroke-width="2"/><path d="M14 24h20M14 30h12" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
+            <p>No saved items ${isChar ? "tagged with this character" : "linked to this creator"} yet.</p>`;
+        body.appendChild(emptyDiv);
     } else {
         const countEl = document.createElement("p"); countEl.className = "creator-panel-count";
         countEl.textContent = `${matched.length} saved item${matched.length !== 1 ? "s" : ""}`;
@@ -1319,12 +1576,12 @@ function _mghCreatorCard(link) {
     const { cls, label: bdgLabel, color, isCustom } = _mghPlatBadge(link);
     const badgeStyle = (isCustom && color) ? ` style="color:${escHtml(color)};border-color:${escHtml(color)}66"` : "";
     const linkedCount = _mghMatchLinked(link).length;
-    const mediaLinked = _mghMatchLinked(link).filter(l =>
-        ["image", "3d-model", "youtube-video", "youtube-playlist", "video"].includes(l.type)
-    );
+    const _cx = link.thumbCropCx   ?? 50;
+    const _cy = link.thumbCropCy   ?? 50;
+    const _cz = link.thumbCropZoom ?? 1;
     card.innerHTML = `
         ${avatarSrc
-            ? `<img class="creator-avatar" src="${escHtml(avatarSrc)}" alt="${escHtml(link.title || "")}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            ? `<div class="creator-avatar-clip"><img class="creator-avatar" src="${escHtml(avatarSrc)}" alt="${escHtml(link.title || "")}" onerror="this.closest('.creator-avatar-clip').style.display='none';this.closest('.creator-avatar-clip').nextElementSibling.style.display='flex'"></div>
                <div class="creator-avatar-fallback" style="display:none">👤</div>`
             : `<div class="creator-avatar-fallback">👤</div>`}
         <div class="creator-info">
@@ -1337,20 +1594,51 @@ function _mghCreatorCard(link) {
             </div>
             ${(link.description || link.desc) ? `<div class="creator-desc">${escHtml(link.description || link.desc || "")}</div>` : ""}
         </div>
-        ${mediaLinked.length > 0 ? `<button class="creator-card-feed-btn" title="View ${mediaLinked.length} image${mediaLinked.length !== 1 ? "s" : ""}/video${mediaLinked.length !== 1 ? "s" : ""} in feed" onclick="event.stopPropagation()">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        </button>` : ""}
         ${(link.url || link.profileUrl) ? `<a class="creator-card-link" href="${escHtml(link.url || link.profileUrl)}" target="_blank" rel="noopener noreferrer" title="Open profile" onclick="event.stopPropagation()"><svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M5.5 1H9v3.5M9 1L4 6M2 3.5H1v5.5h5.5V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>` : ""}`;
-    card.querySelector(".creator-card-feed-btn")?.addEventListener("click", e => {
-        e.stopPropagation();
-        _openMghFeed(mediaLinked);
-    });
+
+    // Apply pixel-accurate crop (same formula as modal, scaled to 48px)
+    if (avatarSrc) _acmApplyToClip(card.querySelector(".creator-avatar-clip"), _cx, _cy, _cz, 48);
+
     card.addEventListener("click", e => {
-        if (e.target.closest(".db-card-actions") || e.target.closest(".creator-card-link") || e.target.closest(".creator-card-feed-btn")) return;
+        if (e.target.closest(".db-card-actions,.creator-card-link")) return;
         _mghOpenCreatorPanel(link);
     });
     card.appendChild(_mghCardActions(link));
     return card;
+}
+
+async function _mghAutoLinkPerson(person) {
+    const name = (person.title || "").toLowerCase().trim();
+    if (!name) { toast("Person has no name to match against.", "info"); return; }
+
+    const MEDIA_TYPES = ["image", "3d-model", "youtube-video", "youtube-playlist", "video"];
+    const catMedia = _links.filter(l => l.category === person.category && MEDIA_TYPES.includes(l.type));
+
+    const unlinked = catMedia.filter(l => {
+        if (!(l.title || "").toLowerCase().includes(name)) return false;
+        const pIds = l.personIds || (l.personId ? [l.personId] : []);
+        return !pIds.includes(person.id);
+    });
+
+    if (!unlinked.length) {
+        toast(`No unlinked items with "${person.title}" in the title.`, "info");
+        return;
+    }
+
+    try {
+        await Promise.all(unlinked.map(l => {
+            const existing = l.personIds || (l.personId ? [l.personId] : []);
+            const newIds   = [...existing, person.id];
+            return updateDoc(doc(_db, "users", _user.uid, "gallery-links", l.id), {
+                personIds: newIds,
+                personId:  newIds[0],
+            });
+        }));
+        toast(`Linked ${unlinked.length} item${unlinked.length !== 1 ? "s" : ""} to "${person.title}".`, "success");
+    } catch (err) {
+        console.error("[links] auto-link error:", err);
+        toast("Error linking some items.", "error");
+    }
 }
 
 /* ── Feed card (YouTube Shorts style) ── */
@@ -2380,6 +2668,22 @@ function _openForm(editId) {
         document.getElementById("link-batch-field").value = "";
         _updateBatchHint();
         _updateTypeHint(link.type || "website");
+        // Load crop values
+        _acmCx   = link.thumbCropCx   ?? 50;
+        _acmCy   = link.thumbCropCy   ?? 50;
+        _acmZoom = link.thumbCropZoom ?? 1;
+        const _zs = document.getElementById("acm-zoom");
+        if (_zs) _zs.value = Math.round(_acmZoom * 100);
+        // Show preview if avatar type + has thumb
+        const _isAv = ["creator", "person", "youtube-channel"].includes(link.type || "");
+        const _prevDiv = document.getElementById("link-thumb-preview");
+        const _prevCircle = document.getElementById("link-thumb-preview-circle");
+        const _prevImg  = document.getElementById("link-thumb-preview-img");
+        if (_isAv && link.thumbUrl && _prevDiv && _prevImg) {
+            _prevImg.src = link.thumbUrl;
+            _acmApplyCSS(_prevCircle, _acmCx, _acmCy, _acmZoom);
+            _prevDiv.style.display = "";
+        } else if (_prevDiv) { _prevDiv.style.display = "none"; }
     } else {
         setModalTitle("modal-link", "Add Link");
         document.getElementById("btn-link-submit").textContent = "Add Link";
@@ -2390,6 +2694,11 @@ function _openForm(editId) {
         document.getElementById("link-batch-field").value = "";
         _updateBatchHint();
         _updateTypeHint("website");
+        // Reset crop
+        _acmCx = 50; _acmCy = 50; _acmZoom = 1;
+        const _zs2 = document.getElementById("acm-zoom"); if (_zs2) _zs2.value = 100;
+        const _prevDiv2 = document.getElementById("link-thumb-preview");
+        if (_prevDiv2) _prevDiv2.style.display = "none";
     }
 
     openModal("modal-link");
@@ -2737,6 +3046,12 @@ async function _onFormSubmit(e) {
         thumbUrl:    _safeUrl(document.getElementById("link-thumb-field")?.value),
         updatedAt:   serverTimestamp(),
     };
+
+    if (isCreator || isPerson) {
+        data.thumbCropCx   = _acmCx;
+        data.thumbCropCy   = _acmCy;
+        data.thumbCropZoom = _acmZoom;
+    }
 
     if (isCreator) {
         data.badgeLabel = document.getElementById("link-badge-label-field")?.value.trim() || "";
