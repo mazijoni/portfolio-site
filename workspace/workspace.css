@@ -12210,3 +12210,221 @@ body[data-hub-app="sheet"] .ws-fab { display: none !important; }
     padding: 6px 0;
     width: 100%;
 }
+
+/* -----------------------------------------------------------
+   ANALYTICS  (admin.html — site visit stats)
+   ----------------------------------------------------------- */
+
+#app-analytics {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.an-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.an-header-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+}
+
+.an-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* ── stat boxes ── */
+.an-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+@media (max-width: 600px) {
+    .an-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+.an-stat {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    text-align: center;
+}
+
+.an-stat--accent {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+}
+
+.an-stat-num {
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+    margin-bottom: 4px;
+}
+
+.an-stat--accent .an-stat-num { color: var(--accent); }
+
+.an-stat-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* ── section wrapper ── */
+.an-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.an-section-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+
+/* ── 7-day bar chart ── */
+.an-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 100px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 12px 0;
+}
+
+.an-bar-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    gap: 4px;
+}
+
+.an-bar-wrap {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+}
+
+.an-bar {
+    width: 100%;
+    min-height: 2px;
+    background: var(--accent);
+    border-radius: 2px 2px 0 0;
+    opacity: 0.75;
+    transition: opacity 0.15s;
+}
+
+.an-bar:hover { opacity: 1; }
+
+.an-bar-count {
+    font-size: 0.62rem;
+    color: var(--text-muted);
+    min-height: 14px;
+    text-align: center;
+}
+
+.an-bar-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    padding-bottom: 8px;
+    text-align: center;
+}
+
+/* ── top referrers ── */
+.an-refs {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.an-ref-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 0.8rem;
+}
+
+.an-ref-host {
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.an-ref-cnt {
+    font-weight: 600;
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-left: 12px;
+}
+
+/* ── recent visits ── */
+.an-recent {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    font-size: 0.78rem;
+}
+
+.an-recent-hdr,
+.an-recent-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 80px;
+    gap: 8px;
+    padding: 7px 12px;
+}
+
+.an-recent-hdr {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+.an-recent-row {
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
+}
+
+.an-recent-row:last-child { border-bottom: none; }
+
+.an-recent-time { color: var(--text-muted); font-size: 0.72rem; }
+.an-recent-ref  { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.an-recent-browser { color: var(--text-muted); text-align: right; }
