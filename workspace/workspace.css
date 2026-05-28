@@ -12434,9 +12434,10 @@ body[data-hub-app="sheet"] .ws-fab { display: none !important; }
 .an-recent-hdr,
 .an-recent-row {
     display: grid;
-    grid-template-columns: 1.4fr 1fr 80px 80px 70px;
+    grid-template-columns: 1.4fr 1fr 80px 80px 70px 24px;
     gap: 8px;
     padding: 7px 12px;
+    align-items: center;
 }
 
 .an-recent-hdr {
@@ -12459,3 +12460,17 @@ body[data-hub-app="sheet"] .ws-fab { display: none !important; }
 .an-recent-time   { color: var(--text-muted); font-size: 0.72rem; }
 .an-recent-ref    { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .an-recent-device { color: var(--text-muted); text-transform: capitalize; }
+
+.an-del-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 2px 4px;
+    border-radius: 3px;
+    line-height: 1;
+    transition: color var(--transition), background var(--transition);
+}
+.an-del-btn:hover { color: var(--danger); background: rgba(224,85,85,0.12); }
+.an-del-btn:disabled { opacity: 0.3; cursor: default; }

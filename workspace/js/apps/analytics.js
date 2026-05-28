@@ -6,6 +6,7 @@
 
 import {
     collection, getDocs, query, orderBy, limit,
+    deleteDoc, doc,
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
 let _db;
@@ -222,6 +223,7 @@ function _render(visits) {
                         <span>Browser</span>
                         <span>OS</span>
                         <span>Device</span>
+                        <span></span>
                     </div>
                     ${recent20.map(v => {
                         const ts      = v.ts?.toDate?.();
@@ -229,17 +231,34 @@ function _render(visits) {
                         const browser = v.browser || _browserFromUA(v.ua || '');
                         const os      = v.os      || _osFromUA(v.ua || '');
                         const device  = v.device  || _deviceFromUA(v.ua || '');
-                        return `<div class="an-recent-row">
+                        return `<div class="an-recent-row" data-id="${_esc(v.id)}">
                             <span class="an-recent-time">${_esc(ts ? ts.toLocaleString() : '—')}</span>
                             <span class="an-recent-ref">${_esc(ref)}</span>
                             <span>${_esc(browser)}</span>
                             <span>${_esc(os)}</span>
                             <span class="an-recent-device">${_esc(device)}</span>
+                            <button class="an-del-btn" title="Delete">&#x2715;</button>
                         </div>`;
                     }).join('')}
                 </div>`}
         </div>
     `;
+
+    body.querySelectorAll('.an-del-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const row = btn.closest('.an-recent-row');
+            const id  = row?.dataset.id;
+            if (!id) return;
+            btn.disabled = true;
+            try {
+                await deleteDoc(doc(_db, 'site_analytics', id));
+                row.remove();
+            } catch (err) {
+                console.error(err);
+                btn.disabled = false;
+            }
+        });
+    });
 }
 
 /* ── UA fallbacks (for older visits without stored fields) ── */
