@@ -980,8 +980,27 @@ async function _onLinkSubmit(e) {
         const _igCreatorId = document.getElementById("ml-field-creator")?.value || null;
         const _igPersonSel = document.getElementById("ml-field-person");
         const _igPersonIds = _igPersonSel ? Array.from(_igPersonSel.selectedOptions).map(o => o.value).filter(Boolean) : [];
+        const _igSourceUrl = document.getElementById("ml-field-source")?.value.trim() || "";
         const data = { type, name, images: imgs, categoryId: _catId,
-            creatorId: _igCreatorId, personIds: _igPersonIds, personId: _igPersonIds[0] || null };
+            creatorId: _igCreatorId, personIds: _igPersonIds, personId: _igPersonIds[0] || null,
+            ...(_igSourceUrl ? { sourceUrl: _igSourceUrl } : {}) };
+        // Auto-detect creator from source URL (same logic as regular images)
+        if (!data.creatorId && _igSourceUrl) {
+            const _igParsed = _parseCreatorUrl(_igSourceUrl);
+            if (_igParsed && _igParsed.platform !== "other" && _igParsed.username) {
+                const _igExisting = _links.find(l => l.type === "creator" && l.platform === _igParsed.platform && l.username.toLowerCase() === _igParsed.username.toLowerCase());
+                if (_igExisting) {
+                    data.creatorId = _igExisting.id;
+                } else {
+                    const _igProfileUrls = { twitter: `https://x.com/${_igParsed.username}`, youtube: `https://www.youtube.com/@${_igParsed.username}`, instagram: `https://www.instagram.com/${_igParsed.username}`, tiktok: `https://www.tiktok.com/@${_igParsed.username}`, twitch: `https://www.twitch.tv/${_igParsed.username}` };
+                    const _igAvatarUrl = _getCreatorAvatar(_igParsed.platform, _igParsed.username);
+                    const _igCData = { name: _igParsed.username, url: _igProfileUrls[_igParsed.platform] || "", avatarUrl: _igAvatarUrl, description: "", platform: _igParsed.platform, username: _igParsed.username, type: "creator", categoryId: _catId, createdAt: serverTimestamp() };
+                    const _igDocRef = await addDoc(collection(db, "users", _uid, "links"), _igCData);
+                    data.creatorId = _igDocRef.id;
+                    toast(`Creator @${_igParsed.username} auto-added.`);
+                }
+            }
+        }
         try {
             if (_editLinkId) {
                 await updateDoc(doc(db, "users", _uid, "links", _editLinkId), data);
