@@ -57,6 +57,10 @@ let _dragId         = null;
 let _settingsLoaded = false;   // true after first Firestore settings snapshot
 const _mediaThumbs = {}; // url → imgUrl | null  (undefined = not yet tried)
 
+// Fullscreen viewer state
+let _mghViewItems = [];
+let _mghViewCur   = 0;
+
 /* ── Bulk select state ── */
 let _selectMode  = false;
 let _selectedIds = new Set();
@@ -963,18 +967,171 @@ function _mghCardActions(link) {
     return wrap;
 }
 
-/* ── Lightbox ── */
-let _mghLbInited = false;
+/* ── Fullscreen viewer (images + thumb videos) ── */
+
 function _mghLightbox(src) {
-    const lb = document.getElementById("ws-lightbox"); const img = document.getElementById("ws-lightbox-img");
-    if (!lb || !img) return;
-    img.src = src; lb.classList.add("open");
-    if (!_mghLbInited) {
-        _mghLbInited = true;
-        document.getElementById("ws-lightbox-close")?.addEventListener("click", () => { lb.classList.remove("open"); img.src = ""; });
-        lb.addEventListener("click", e => { if (e.target === lb) { lb.classList.remove("open"); img.src = ""; } });
-        document.addEventListener("keydown", e => { if (e.key === "Escape" && lb.classList.contains("open")) { lb.classList.remove("open"); img.src = ""; } });
+    _mghOpenViewer([{ type: "image", src, name: "" }], 0);
+}
+
+function _mghOpenViewer(items, idx) {
+    if (!items.length) return;
+    _mghViewItems = items;
+    _mghViewCur   = ((idx ?? 0) + items.length) % items.length;
+
+    let el = document.getElementById("mgh-viewer");
+    if (!el) {
+        el = document.createElement("div");
+        el.id        = "mgh-viewer";
+        el.className = "mgh-viewer";
+        el.setAttribute("role", "dialog");
+        el.setAttribute("aria-modal", "true");
+        el.innerHTML = `
+            <button class="wslb-close" id="mgh-viewer-close" title="Close (Esc)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            <div class="wslb-stage" id="mgh-viewer-stage"></div>
+            <button class="wslb-nav wslb-prev" id="mgh-viewer-prev" aria-label="Previous">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <button class="wslb-nav wslb-next" id="mgh-viewer-next" aria-label="Next">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+            </button>
+            <div class="wslb-foot">
+                <div class="wslb-dots" id="mgh-viewer-dots"></div>
+                <div class="wslb-cap"  id="mgh-viewer-cap"></div>
+            </div>`;
+        document.body.appendChild(el);
+
+        document.getElementById("mgh-viewer-close").addEventListener("click", _mghCloseViewer);
+        el.addEventListener("click", e => { if (e.target === el) _mghCloseViewer(); });
+
+        document.getElementById("mgh-viewer-prev").addEventListener("click", () => {
+            _mghViewCur = (_mghViewCur - 1 + _mghViewItems.length) % _mghViewItems.length;
+            _mghRenderViewer();
+        });
+        document.getElementById("mgh-viewer-next").addEventListener("click", () => {
+            _mghViewCur = (_mghViewCur + 1) % _mghViewItems.length;
+            _mghRenderViewer();
+        });
+        document.getElementById("mgh-viewer-dots").addEventListener("click", e => {
+            const d = e.target.closest("[data-vi]");
+            if (d) { _mghViewCur = Number(d.dataset.vi); _mghRenderViewer(); }
+        });
+
+        document.addEventListener("keydown", e => {
+            if (!document.getElementById("mgh-viewer")?.classList.contains("open")) return;
+            if (e.key === "Escape")     _mghCloseViewer();
+            if (e.key === "ArrowLeft")  { _mghViewCur = (_mghViewCur - 1 + _mghViewItems.length) % _mghViewItems.length; _mghRenderViewer(); }
+            if (e.key === "ArrowRight") { _mghViewCur = (_mghViewCur + 1) % _mghViewItems.length; _mghRenderViewer(); }
+        });
+
+        let _tx0 = 0, _ty0 = 0;
+        el.addEventListener("touchstart", e => { _tx0 = e.touches[0].clientX; _ty0 = e.touches[0].clientY; }, { passive: true });
+        el.addEventListener("touchend", e => {
+            const dx = e.changedTouches[0].clientX - _tx0;
+            const dy = e.changedTouches[0].clientY - _ty0;
+            if (dy > 88 && Math.abs(dy) > Math.abs(dx)) { _mghCloseViewer(); return; }
+            if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 42) {
+                _mghViewCur = (dx < 0 ? _mghViewCur + 1 : _mghViewCur - 1 + _mghViewItems.length) % _mghViewItems.length;
+                _mghRenderViewer();
+            }
+        }, { passive: true });
     }
+
+    el.classList.add("open");
+    document.body.classList.add("mgh-viewer-active");
+    _mghRenderViewer();
+}
+
+function _mghRenderViewer() {
+    const el    = document.getElementById("mgh-viewer");
+    const stage = document.getElementById("mgh-viewer-stage");
+    const dots  = document.getElementById("mgh-viewer-dots");
+    const cap   = document.getElementById("mgh-viewer-cap");
+    if (!el || !stage) return;
+
+    const item = _mghViewItems[_mghViewCur];
+    if (!item) { _mghCloseViewer(); return; }
+
+    const hasMult = _mghViewItems.length > 1;
+    document.getElementById("mgh-viewer-prev").style.display = hasMult ? "" : "none";
+    document.getElementById("mgh-viewer-next").style.display = hasMult ? "" : "none";
+
+    if (item.type === "image") {
+        stage.innerHTML = `<img class="wslb-img" src="${escHtml(item.src)}" alt="${escHtml(item.name)}">`;
+    } else if (item.type === "thumb-video") {
+        stage.innerHTML = `
+            <div class="wslb-thumb-wrap">
+                <img class="wslb-img" src="${escHtml(item.src)}" alt="${escHtml(item.name)}">
+                ${item.url ? `<a class="wslb-play-btn" href="${escHtml(item.url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()"><svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" fill="rgba(0,0,0,0.55)" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/><path d="M13 10.5l10 5.5-10 5.5V10.5z" fill="white"/></svg></a>` : ""}
+            </div>`;
+    } else {
+        stage.innerHTML = item.url
+            ? `<a class="wslb-link-placeholder" href="${escHtml(item.url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">
+                 <svg viewBox="0 0 32 32" width="72" height="72" fill="none"><circle cx="16" cy="16" r="15" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/><path d="M13 10.5l10 5.5-10 5.5V10.5z" fill="rgba(255,255,255,0.85)"/></svg>
+                 <span>${escHtml(item.name || "Open")}</span>
+               </a>`
+            : `<span style="color:rgba(255,255,255,0.3)">No media</span>`;
+    }
+
+    if (cap) { cap.textContent = item.name || ""; cap.style.display = item.name ? "" : "none"; }
+
+    if (dots) {
+        dots.innerHTML = "";
+        const total = _mghViewItems.length;
+        if (total > 1 && total <= 12) {
+            _mghViewItems.forEach((_, i) => {
+                const d = document.createElement("button");
+                d.className = "wslb-dot" + (i === _mghViewCur ? " active" : "");
+                d.dataset.vi = i;
+                d.setAttribute("aria-label", `Item ${i + 1}`);
+                dots.appendChild(d);
+            });
+        }
+    }
+}
+
+function _mghCloseViewer() {
+    const el    = document.getElementById("mgh-viewer");
+    const stage = document.getElementById("mgh-viewer-stage");
+    el?.classList.remove("open");
+    document.body.classList.remove("mgh-viewer-active");
+    if (stage) stage.innerHTML = "";
+}
+
+/* ── Fullscreen feed (TikTok-style) ── */
+
+function _openMghFeed(allMedia) {
+    document.getElementById("mgh-feed-fullscreen")?.remove();
+
+    const ol = document.createElement("div");
+    ol.id        = "mgh-feed-fullscreen";
+    ol.className = "mgh-feed-fullscreen";
+    ol.setAttribute("role", "dialog");
+    ol.setAttribute("aria-modal", "true");
+    ol.setAttribute("aria-label", "Feed viewer");
+
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "mgh-feed-fs-close";
+    closeBtn.setAttribute("aria-label", "Close feed");
+    closeBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+    const _close = () => { ol.remove(); document.body.classList.remove("mgh-feed-open"); };
+    closeBtn.addEventListener("click", _close);
+
+    const shuffled = [...allMedia].sort(() => Math.random() - 0.5);
+    const grid = document.createElement("div");
+    grid.className = "shorts-grid";
+    shuffled.forEach(l => grid.appendChild(_mghFeedCard(l)));
+
+    ol.appendChild(closeBtn);
+    ol.appendChild(grid);
+    document.body.appendChild(ol);
+    document.body.classList.add("mgh-feed-open");
+
+    const escH = e => {
+        if (e.key === "Escape") { _close(); document.removeEventListener("keydown", escH); }
+    };
+    document.addEventListener("keydown", escH);
 }
 
 /* ── Creator panel ── */
@@ -1105,11 +1262,17 @@ function _mghVideoCard(link) {
         </div>
         ${creator ? `<div class="image-card-creator" title="Creator: ${escHtml(creator.title || "")}"><svg width="10" height="10" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2.761 2.686-5 6-5s6 2.239 6 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg><span>${escHtml(creator.title || "")}</span></div>` : ""}
         ${persons.length ? `<div class="image-card-person"><svg width="10" height="10" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="2.5" stroke="#55ccbb" stroke-width="1.3"/><path d="M1 13c0-2.761 2.686-5 6-5s6 2.239 6 5" stroke="#55ccbb" stroke-width="1.3" stroke-linecap="round"/></svg><span class="image-card-person-name">${escHtml(persons.map(p => p.title).join(", "))}</span></div>` : ""}`;
-    if ((isThumb || isLink) && link.url) {
-        const openLink = () => window.open(link.url, "_blank", "noopener,noreferrer");
-        card.querySelector(".video-thumb-play-overlay")?.addEventListener("click", openLink);
-        card.querySelector(".video-link-placeholder")?.addEventListener("click", openLink);
-        card.querySelector(".video-iframe-wrap img")?.addEventListener("click", openLink);
+    if (isThumb && link.url) {
+        const _vi = _mghViewItems.length;
+        _mghViewItems.push({ type: "thumb-video", src: link.thumbUrl || "", name: link.title || "", url: link.url });
+        const openLb = e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], _vi); };
+        card.querySelector(".video-thumb-play-overlay")?.addEventListener("click", openLb);
+        card.querySelector(".video-iframe-wrap img")?.addEventListener("click", openLb);
+    }
+    if (isLink && link.url) {
+        const _vi = _mghViewItems.length;
+        _mghViewItems.push({ type: "link-video", src: "", name: link.title || "", url: link.url });
+        card.querySelector(".video-link-placeholder")?.addEventListener("click", e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], _vi); });
     }
     card.querySelector(".image-card-creator")?.addEventListener("click", e => { e.stopPropagation(); _mghOpenCreatorPanel(creator); });
     card.querySelector(".image-card-person")?.addEventListener("click", e => { e.stopPropagation(); if (persons[0]) _mghOpenCreatorPanel(persons[0]); });
@@ -1137,7 +1300,11 @@ function _mghImageCard(link) {
         ${creator ? `<div class="image-card-creator" title="Creator: ${escHtml(creator.title || "")}"><svg width="10" height="10" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2.761 2.686-5 6-5s6 2.239 6 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg><span>${escHtml(creator.title || "")}</span></div>` : ""}
         ${persons.length ? `<div class="image-card-person"><svg width="10" height="10" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="2.5" stroke="#55ccbb" stroke-width="1.3"/><path d="M1 13c0-2.761 2.686-5 6-5s6 2.239 6 5" stroke="#55ccbb" stroke-width="1.3" stroke-linecap="round"/></svg><span class="image-card-person-name">${escHtml(persons.map(p => p.title).join(", "))}</span></div>` : ""}`;
     const imgEl = card.querySelector(".image-card-img");
-    if (imgEl && src) imgEl.addEventListener("click", e => { e.stopPropagation(); _mghLightbox(src); });
+    if (imgEl && src) {
+        const _vi = _mghViewItems.length;
+        _mghViewItems.push({ type: "image", src, name: link.title || "" });
+        imgEl.addEventListener("click", e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], _vi); });
+    }
     card.querySelector(".image-card-creator")?.addEventListener("click", e => { e.stopPropagation(); _mghOpenCreatorPanel(creator); });
     card.querySelector(".image-card-person")?.addEventListener("click", e => { e.stopPropagation(); if (persons[0]) _mghOpenCreatorPanel(persons[0]); });
     card.appendChild(_mghCardActions(link));
@@ -1152,6 +1319,9 @@ function _mghCreatorCard(link) {
     const { cls, label: bdgLabel, color, isCustom } = _mghPlatBadge(link);
     const badgeStyle = (isCustom && color) ? ` style="color:${escHtml(color)};border-color:${escHtml(color)}66"` : "";
     const linkedCount = _mghMatchLinked(link).length;
+    const mediaLinked = _mghMatchLinked(link).filter(l =>
+        ["image", "3d-model", "youtube-video", "youtube-playlist", "video"].includes(l.type)
+    );
     card.innerHTML = `
         ${avatarSrc
             ? `<img class="creator-avatar" src="${escHtml(avatarSrc)}" alt="${escHtml(link.title || "")}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
@@ -1167,9 +1337,16 @@ function _mghCreatorCard(link) {
             </div>
             ${(link.description || link.desc) ? `<div class="creator-desc">${escHtml(link.description || link.desc || "")}</div>` : ""}
         </div>
+        ${mediaLinked.length > 0 ? `<button class="creator-card-feed-btn" title="View ${mediaLinked.length} image${mediaLinked.length !== 1 ? "s" : ""}/video${mediaLinked.length !== 1 ? "s" : ""} in feed" onclick="event.stopPropagation()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </button>` : ""}
         ${(link.url || link.profileUrl) ? `<a class="creator-card-link" href="${escHtml(link.url || link.profileUrl)}" target="_blank" rel="noopener noreferrer" title="Open profile" onclick="event.stopPropagation()"><svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M5.5 1H9v3.5M9 1L4 6M2 3.5H1v5.5h5.5V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>` : ""}`;
+    card.querySelector(".creator-card-feed-btn")?.addEventListener("click", e => {
+        e.stopPropagation();
+        _openMghFeed(mediaLinked);
+    });
     card.addEventListener("click", e => {
-        if (e.target.closest(".db-card-actions") || e.target.closest(".creator-card-link")) return;
+        if (e.target.closest(".db-card-actions") || e.target.closest(".creator-card-link") || e.target.closest(".creator-card-feed-btn")) return;
         _mghOpenCreatorPanel(link);
     });
     card.appendChild(_mghCardActions(link));
@@ -1228,8 +1405,12 @@ function _mghFeedCard(link) {
 
     if (isVideo && link.thumbUrl && link.url)
         card.querySelector(".feed-card-play-btn")?.addEventListener("click", e => { e.stopPropagation(); window.open(link.url, "_blank", "noopener"); });
-    if (!isVideo && (link.thumbUrl || link.url))
-        card.querySelector(".feed-card-media")?.addEventListener("click", e => { e.stopPropagation(); _mghLightbox(link.thumbUrl || link.url); });
+    if (!isVideo && (link.thumbUrl || link.url)) {
+        card.querySelector(".feed-card-media")?.addEventListener("click", e => {
+            e.stopPropagation();
+            _mghOpenViewer([{ type: "image", src: link.thumbUrl || link.url || "", name: link.title || "" }], 0);
+        });
+    }
     card.querySelector(".feed-card-creator")?.addEventListener("click", e => { e.stopPropagation(); _mghOpenCreatorPanel(creator); });
     card.querySelectorAll(".feed-card-person-tag").forEach((el, i) => el.addEventListener("click", e => { e.stopPropagation(); if (persons[i]) _mghOpenCreatorPanel(persons[i]); }));
     card.appendChild(_mghCardActions(link));
@@ -1305,10 +1486,19 @@ function _renderMediaHub(body, cat) {
 
     // Layout toggle
     toolbar.querySelectorAll(".mgh-layout-btn").forEach(btn => btn.addEventListener("click", () => {
+        if (btn.dataset.layout === "feed") {
+            const visible = _mghSearch
+                ? catLinks.filter(l => (l.title||"").toLowerCase().includes(_mghSearch) || (l.url||"").toLowerCase().includes(_mghSearch))
+                : catLinks;
+            const allMedia = visible.filter(l => [...IMAGE_TYPES, ...VIDEO_TYPES].includes(l.type));
+            if (!allMedia.length) { toast("No images or videos to show in feed.", "info"); return; }
+            _openMghFeed(allMedia);
+            return;
+        }
         _mghLayout = btn.dataset.layout;
         localStorage.setItem(`mghLayout_${cat.id}`, _mghLayout);
         mghBody.classList.toggle("layout-list", _mghLayout === "list");
-        mghBody.classList.toggle("layout-feed", _mghLayout === "feed");
+        mghBody.classList.toggle("layout-feed", false);
         toolbar.querySelectorAll(".mgh-layout-btn").forEach(b => b.classList.toggle("active", b === btn));
         _renderSections();
     }));
@@ -1340,6 +1530,7 @@ function _renderMediaHub(body, cat) {
 
     function _renderSections() {
         mghBody.innerHTML = "";
+        _mghViewItems = [];
         const search = _mghSearch;
         const visible = search
             ? catLinks.filter(l => (l.title || "").toLowerCase().includes(search) || (l.url || "").toLowerCase().includes(search) || (l.description || "").toLowerCase().includes(search))

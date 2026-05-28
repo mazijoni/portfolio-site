@@ -36,6 +36,10 @@ let _layout     = localStorage.getItem("mediaLayout") || "grid";
 // Link modal state
 let _editLinkId = null;
 
+// Fullscreen viewer state
+let _viewItems = [];   // { type, src, name, url }
+let _viewCur   = 0;
+
 export function init() {
     if (_init) return;
     _init = true;
@@ -184,6 +188,7 @@ function _render() {
     const creators = visible.filter(l => l.type === "creator");
     const persons  = visible.filter(l => l.type === "person");
 
+    _viewItems = [];   // reset before building cards
     const sectionsData = {
         site:    { label: "Sites",                gridHtml: _sitesGrid(sites),                count: sites.length },
         video:   { label: "Video",                gridHtml: _mediaGrid(videos, "video"),      count: videos.length },
@@ -405,15 +410,17 @@ function _buildVideoCard(link) {
     if (isThumbOnly) {
         const overlay  = card.querySelector(".video-thumb-play-overlay");
         const thumbImg = card.querySelector(".video-iframe-wrap img");
-        const openLink = link.url
-            ? () => window.open(link.url, "_blank", "noopener,noreferrer")
-            : () => {};
-        if (overlay)  { overlay.style.cursor = "pointer"; overlay.addEventListener("click", openLink); }
-        if (thumbImg) { thumbImg.style.cursor = "pointer"; thumbImg.addEventListener("click", openLink); }
+        const _lbIdx = _viewItems.length;
+        _viewItems.push({ type: "thumb-video", src: link.thumbUrl || "", name: link.name || "", url: link.url || "" });
+        const openLb = (e) => { e.stopPropagation(); _openLightbox(_lbIdx); };
+        if (overlay)  { overlay.style.cursor = "pointer"; overlay.addEventListener("click", openLb); }
+        if (thumbImg) { thumbImg.style.cursor = "pointer"; thumbImg.addEventListener("click", openLb); }
     }
     if (isLinkOnly) {
         const ph = card.querySelector(".video-link-placeholder");
-        if (ph) ph.addEventListener("click", () => window.open(link.url, "_blank", "noopener,noreferrer"));
+        const _lbIdx = _viewItems.length;
+        _viewItems.push({ type: "link-video", src: "", name: link.name || "", url: link.url || "" });
+        if (ph) ph.addEventListener("click", (e) => { e.stopPropagation(); _openLightbox(_lbIdx); });
     }
 
     card.appendChild(_cardActions(link));
@@ -444,10 +451,11 @@ function _buildImageCard(link) {
         ${_persons.length ? `<div class="image-card-person" title="Click to view: ${escHtml(_persons.map(p => p.name).join(", "))}"><svg width="10" height="10" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="2.5" stroke="#55ccbb" stroke-width="1.3"/><path d="M1 13c0-2.761 2.686-5 6-5s6 2.239 6 5" stroke="#55ccbb" stroke-width="1.3" stroke-linecap="round"/></svg><span class="image-card-person-name">${escHtml(_persons.map(p => p.name).join(", "))}</span></div>` : ""}`;
 
     const imgEl = card.querySelector(".image-card-img");
-    if (imgEl && src) imgEl.addEventListener("click", (e) => {
-        e.stopPropagation();
-        _openLightbox(src);
-    });
+    if (imgEl && src) {
+        const _lbIdx = _viewItems.length;
+        _viewItems.push({ type: "image", src, name: link.name || "" });
+        imgEl.addEventListener("click", (e) => { e.stopPropagation(); _openLightbox(_lbIdx); });
+    }
 
     const creatorDiv = card.querySelector(".image-card-creator");
     const personDiv  = card.querySelector(".image-card-person");
@@ -564,31 +572,130 @@ function _getPlatformBadge(link) {
     return { cls, label: lbl || defaultLabel, color: col, isCustom: !!lbl };
 }
 
-/* ── Lightbox ───────────────────────────────────────────────────────────── */
+/* ── Lightbox / Fullscreen viewer ──────────────────────────────────────── */
 
-let _lightboxInited = false;
+let _lbInited = false;
 
-function _openLightbox(src) {
-    const lb    = document.getElementById("ws-lightbox");
-    const img   = document.getElementById("ws-lightbox-img");
-    if (!lb || !img) return;
+function _openLightbox(idx) {
+    if (!_viewItems.length) return;
+    _viewCur = ((idx ?? 0) + _viewItems.length) % _viewItems.length;
+    _renderLbFrame();
 
-    img.src = src;
+    const lb = document.getElementById("ws-lightbox");
+    lb.setAttribute("aria-hidden", "false");
     lb.classList.add("open");
+    document.body.classList.add("wslb-active");
 
-    if (!_lightboxInited) {
-        _lightboxInited = true;
-        document.getElementById("ws-lightbox-close").addEventListener("click", _closeLightbox);
+    if (!_lbInited) {
+        _lbInited = true;
+
+        document.getElementById("wslb-close").addEventListener("click", _closeLightbox);
         lb.addEventListener("click", (e) => { if (e.target === lb) _closeLightbox(); });
-        document.addEventListener("keydown", (e) => { if (e.key === "Escape") _closeLightbox(); });
+
+        document.getElementById("wslb-prev").addEventListener("click", () => {
+            _viewCur = (_viewCur - 1 + _viewItems.length) % _viewItems.length;
+            _renderLbFrame();
+        });
+        document.getElementById("wslb-next").addEventListener("click", () => {
+            _viewCur = (_viewCur + 1) % _viewItems.length;
+            _renderLbFrame();
+        });
+        document.getElementById("wslb-dots").addEventListener("click", (e) => {
+            const dot = e.target.closest("[data-lbi]");
+            if (dot) { _viewCur = Number(dot.dataset.lbi); _renderLbFrame(); }
+        });
+
+        document.addEventListener("keydown", (e) => {
+            if (!lb.classList.contains("open")) return;
+            if (e.key === "Escape")     _closeLightbox();
+            if (e.key === "ArrowLeft")  { _viewCur = (_viewCur - 1 + _viewItems.length) % _viewItems.length; _renderLbFrame(); }
+            if (e.key === "ArrowRight") { _viewCur = (_viewCur + 1) % _viewItems.length; _renderLbFrame(); }
+        });
+
+        // swipe: left/right = navigate, down = close
+        let _tx0 = 0, _ty0 = 0;
+        lb.addEventListener("touchstart", (e) => {
+            _tx0 = e.touches[0].clientX; _ty0 = e.touches[0].clientY;
+        }, { passive: true });
+        lb.addEventListener("touchend", (e) => {
+            const dx = e.changedTouches[0].clientX - _tx0;
+            const dy = e.changedTouches[0].clientY - _ty0;
+            if (dy > 88 && Math.abs(dy) > Math.abs(dx)) { _closeLightbox(); return; }
+            if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 42) {
+                _viewCur = (dx < 0 ? _viewCur + 1 : _viewCur - 1 + _viewItems.length) % _viewItems.length;
+                _renderLbFrame();
+            }
+        }, { passive: true });
+    }
+}
+
+function _renderLbFrame() {
+    const stage  = document.getElementById("wslb-stage");
+    const dotsEl = document.getElementById("wslb-dots");
+    const capEl  = document.getElementById("wslb-cap");
+    if (!stage) return;
+
+    const item = _viewItems[_viewCur];
+    if (!item) { _closeLightbox(); return; }
+
+    // Show/hide nav depending on item count
+    const hasMult = _viewItems.length > 1;
+    const prevBtn = document.getElementById("wslb-prev");
+    const nextBtn = document.getElementById("wslb-next");
+    if (prevBtn) prevBtn.style.display = hasMult ? "" : "none";
+    if (nextBtn) nextBtn.style.display = hasMult ? "" : "none";
+
+    // Stage content
+    if (item.type === "image") {
+        stage.innerHTML = `<img class="wslb-img" src="${escHtml(item.src)}" alt="${escHtml(item.name)}">`;
+    } else if (item.type === "thumb-video") {
+        stage.innerHTML = `
+            <div class="wslb-thumb-wrap">
+                <img class="wslb-img" src="${escHtml(item.src)}" alt="${escHtml(item.name)}">
+                ${item.url
+                    ? `<a class="wslb-play-btn" href="${escHtml(item.url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">
+                         <svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" fill="rgba(0,0,0,0.55)" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/><path d="M13 10.5l10 5.5-10 5.5V10.5z" fill="white"/></svg>
+                       </a>`
+                    : ""}
+            </div>`;
+    } else {
+        stage.innerHTML = item.url
+            ? `<a class="wslb-link-placeholder" href="${escHtml(item.url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">
+                 <svg viewBox="0 0 32 32" width="72" height="72" fill="none"><circle cx="16" cy="16" r="15" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/><path d="M13 10.5l10 5.5-10 5.5V10.5z" fill="rgba(255,255,255,0.85)"/></svg>
+                 <span>${escHtml(item.name || "Open video")}</span>
+               </a>`
+            : `<span style="color:rgba(255,255,255,0.3)">No media</span>`;
+    }
+
+    // Caption
+    if (capEl) {
+        capEl.textContent = item.name || "";
+        capEl.style.display = item.name ? "" : "none";
+    }
+
+    // Dots (only show if multiple items, up to 12)
+    if (dotsEl) {
+        dotsEl.innerHTML = "";
+        const total = _viewItems.length;
+        if (total > 1 && total <= 12) {
+            _viewItems.forEach((_, i) => {
+                const d = document.createElement("button");
+                d.className = "wslb-dot" + (i === _viewCur ? " active" : "");
+                d.dataset.lbi = i;
+                d.setAttribute("aria-label", `Item ${i + 1}`);
+                dotsEl.appendChild(d);
+            });
+        }
     }
 }
 
 function _closeLightbox() {
-    const lb  = document.getElementById("ws-lightbox");
-    const img = document.getElementById("ws-lightbox-img");
-    if (lb)  lb.classList.remove("open");
-    if (img) img.src = "";
+    const lb    = document.getElementById("ws-lightbox");
+    const stage = document.getElementById("wslb-stage");
+    lb.classList.remove("open");
+    lb.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("wslb-active");
+    if (stage) stage.innerHTML = "";  // stops any playing video
 }
 
 /* ── Creator attribution helpers ────────────────────────────────────────── */
