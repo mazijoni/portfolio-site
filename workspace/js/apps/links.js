@@ -3201,6 +3201,38 @@ async function _onFormSubmit(e) {
             updatedAt: serverTimestamp(),
             ...(_igSrc && _isSafeUrl(_igSrc) ? { sourceUrl: _igSrc } : {}),
         };
+        // Auto-detect creator from source URL (same logic as regular images)
+        if (!igData.creatorId && _igSrc) {
+            const _igParsed = _mghParseCreatorUrl(_igSrc);
+            if (_igParsed && _igParsed.platform !== "other" && _igParsed.username) {
+                const _igExisting = _links.find(l =>
+                    (l.type === "creator" || l.type === "youtube-channel") &&
+                    (l.username || "").toLowerCase() === _igParsed.username.toLowerCase() &&
+                    (l.platform || _mghParseCreatorUrl(l.url || "")?.platform) === _igParsed.platform
+                );
+                if (_igExisting) {
+                    igData.creatorId = _igExisting.id;
+                } else {
+                    const _igProfileUrls = {
+                        youtube: `https://www.youtube.com/@${_igParsed.username}`,
+                        twitter: `https://x.com/${_igParsed.username}`,
+                        instagram: `https://www.instagram.com/${_igParsed.username}`,
+                        tiktok: `https://www.tiktok.com/@${_igParsed.username}`,
+                        twitch: `https://www.twitch.tv/${_igParsed.username}`,
+                    };
+                    const _igCData = {
+                        title: _igParsed.username, url: _igProfileUrls[_igParsed.platform] || _igSrc,
+                        type: "creator", category: igData.category,
+                        username: _igParsed.username, platform: _igParsed.platform,
+                        thumbUrl: _mghCreatorAvatar(_igParsed.platform, _igParsed.username),
+                        badgeLabel: "", badgeColor: "", createdAt: serverTimestamp(),
+                    };
+                    const _igDocRef = await addDoc(refs.galleryLinks(_db, _user.uid), _igCData);
+                    igData.creatorId = _igDocRef.id;
+                    toast(`Creator @${_igParsed.username} auto-added.`);
+                }
+            }
+        }
         try {
             if (editId) {
                 await updateDoc(doc(_db, "users", _user.uid, "gallery-links", editId), igData);
