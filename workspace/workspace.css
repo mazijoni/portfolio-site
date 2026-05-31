@@ -7,19 +7,19 @@
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-    --bg-dark:          #0d0d0d;
-    --bg-secondary:     #191919;
-    --bg-card:          #1f1f1f;
-    --bg-card-hover:    #262626;
-    --bg-input:         #171717;
-    --text-primary:     #ffffff;
-    --text-secondary:   #b2b2b2;
-    --text-muted:       #727272;
+    --bg-dark:          #0d0b09;
+    --bg-secondary:     #161310;
+    --bg-card:          #1e1a15;
+    --bg-card-hover:    #252019;
+    --bg-input:         #141210;
+    --text-primary:     #ece8df;
+    --text-secondary:   #c8c2b3;
+    --text-muted:       #88826f;
     --accent:           #c772fe;
     --accent-dim:       rgba(199, 114, 254, 0.10);
     --accent-dim2:      rgba(199, 114, 254, 0.18);
-    --border:           #333333;
-    --border-hover:     #444444;
+    --border:           rgba(236, 232, 223, 0.12);
+    --border-hover:     rgba(236, 232, 223, 0.24);
     --danger:           #e05555;
     --success:          #55c87a;
     --warn:             #e0aa44;
@@ -35,7 +35,7 @@
 html, body { height: 100%; }
 
 body {
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     background: var(--bg-dark);
     color: var(--text-primary);
     height: 100vh;
@@ -115,7 +115,7 @@ body {
     background: none;
     border: 1px solid var(--border);
     color: var(--text-secondary);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.78rem;
     padding: 0.35rem 0.85rem;
     cursor: pointer;
@@ -151,7 +151,7 @@ body {
     background: none;
     border: none;
     color: var(--danger);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.82rem;
     padding: 0.4rem 0.65rem;
     cursor: pointer;
@@ -166,7 +166,7 @@ body {
     background: none;
     border: none;
     color: var(--text-primary);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.82rem;
     padding: 0.4rem 0.65rem;
     cursor: pointer;
@@ -215,7 +215,7 @@ body {
     background: none;
     border: none;
     color: var(--text-secondary);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.82rem;
     padding: 0.45rem 0.7rem;
     cursor: pointer;
@@ -341,7 +341,7 @@ body[data-hub-app="gmail"] .ws-fab { display: none !important; }
     border-left: 2px solid transparent;
     width: 100%;
     text-align: left;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     transition: background var(--transition), color var(--transition), border-color var(--transition);
     user-select: none;
     white-space: nowrap;
@@ -386,7 +386,7 @@ body[data-hub-app="gmail"] .ws-fab { display: none !important; }
     background: none;
     border: 1px dashed var(--border-hover);
     color: var(--text-muted);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.78rem;
     cursor: pointer;
     border-radius: var(--radius);
@@ -497,7 +497,7 @@ body[data-hub-app="gmail"] .ws-fab { display: none !important; }
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.78rem;
     font-weight: 500;
     padding: 0.38rem 0.9rem;
@@ -565,7 +565,7 @@ body[data-hub-app="gmail"] .ws-fab { display: none !important; }
     border: none;
     border-bottom: 2px solid transparent;
     color: var(--text-muted);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.8rem;
     font-weight: 500;
     cursor: pointer;
@@ -1562,7 +1562,7 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
 
     transition: background 0.15s, color 0.15s;
 
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
 
 }
 
@@ -1879,7 +1879,7 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
 
     color: var(--text-primary);
 
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
 
     font-size: 0.84rem;
 
@@ -2267,7 +2267,7 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
 
     color: var(--text-primary);
 
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
 
     font-size: 0.8rem;
 
@@ -2393,7 +2393,7 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
 
     background: transparent;
 
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
 
     cursor: text;
 
@@ -2721,7 +2721,7 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
 
     border-radius: 6px;
 
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
 
     font-size: 0.78rem;
 
@@ -3179,7 +3179,7 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
     background: none;
     border: none;
     outline: none;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.72rem;
     font-weight: 500;
     color: var(--text-primary);
@@ -3206,7 +3206,7 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
     border: 1px solid var(--border);
     border-radius: var(--radius);
     color: var(--text-primary);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.82rem;
     padding: 7px 12px;
     outline: none;
@@ -3228,7 +3228,7 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
     border: 1px solid transparent;
     border-radius: var(--radius);
     color: var(--text-muted);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.75rem;
     font-weight: 500;
     padding: 4px 12px;
@@ -3715,7 +3715,7 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
     background: var(--bg-card);
     border: 1px solid var(--border);
     color: var(--text-primary);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.78rem;
     padding: 0.35rem 0.75rem;
     width: 0;
@@ -4283,7 +4283,7 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
     border-radius: var(--radius);
     gap: 0.4rem;
     color: var(--text-secondary);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.8rem;
     transition: border-color var(--transition), color var(--transition);
     padding: 0.5rem;
@@ -4746,7 +4746,7 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
     background: none;
     border: 1px solid var(--border);
     color: var(--text-secondary);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.78rem;
     padding: 0.3rem 0.75rem;
     cursor: pointer;
@@ -4832,7 +4832,7 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
     background: none;
     border: 1px solid var(--border);
     color: var(--text-secondary);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.75rem;
     padding: 0.25rem 0.65rem;
     cursor: pointer;
@@ -5098,7 +5098,7 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
     border: none;
     border-radius: 6px;
     color: var(--text-muted);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.78rem;
     cursor: pointer;
     transition: color 0.15s, background 0.15s;
@@ -5270,7 +5270,7 @@ a.ft-name:hover { color: var(--accent); text-decoration: underline; }
     background: var(--bg-input);
     border: 1px solid var(--border);
     color: var(--text-primary);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.85rem;
     padding: 0.55rem 0.8rem;
     outline: none;
@@ -5479,7 +5479,7 @@ body.wslb-active  { overflow: hidden; }
     background: var(--bg-card);
     border: 1px solid var(--border-hover);
     color: var(--text-primary);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.82rem;
     padding: 0.7rem 1.2rem;
     border-radius: var(--radius);
@@ -5806,7 +5806,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     padding: 4px 10px;
     border-radius: var(--radius);
     font-size: 0.72rem;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     white-space: nowrap;
     pointer-events: none;
     opacity: 0;
@@ -5992,7 +5992,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     background: var(--bg-input);
     border: 1px solid var(--border);
     color: var(--text-primary);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.8rem;
     padding: 0.35rem 0.75rem;
     border-radius: var(--radius);
@@ -6022,7 +6022,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     background: none;
     border: 1px solid var(--border);
     color: var(--text-secondary);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.72rem;
     padding: 0.22rem 0.75rem;
     border-radius: 20px;
@@ -6043,7 +6043,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     border: 1px dashed var(--border);
     border-radius: 20px;
     color: var(--text-muted);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.72rem;
     padding: 0.22rem 0.75rem;
     cursor: pointer;
@@ -7003,7 +7003,7 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
         border: 1px solid var(--border);
         background: var(--bg-secondary);
         color: var(--text-secondary);
-        font-family: 'Poppins', sans-serif;
+        font-family: 'Geist', system-ui, -apple-system, sans-serif;
         font-size: 0.8rem;
         cursor: pointer;
         margin-bottom: 0.25rem;
@@ -8120,7 +8120,7 @@ body.mgh-feed-open { overflow: hidden; }
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.78rem;
     font-weight: 500;
     padding: 0.35rem 0.85rem;
@@ -8153,7 +8153,7 @@ body.mgh-feed-open { overflow: hidden; }
     background: var(--bg-input);
     border: 1px solid var(--border);
     color: var(--text-primary);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.8rem;
     padding: 0.36rem 0.7rem;
     border-radius: var(--radius);
@@ -8167,7 +8167,7 @@ body.mgh-feed-open { overflow: hidden; }
     background: var(--accent);
     border: 1px solid var(--accent);
     color: #000;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.78rem;
     font-weight: 600;
     padding: 0.36rem 0.9rem;
@@ -8221,7 +8221,7 @@ body.mgh-feed-open { overflow: hidden; }
     border-right: 1px solid var(--border);
     background: none;
     color: var(--text-muted);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.75rem;
     cursor: pointer;
     white-space: nowrap;
@@ -8277,7 +8277,7 @@ body.mgh-feed-open { overflow: hidden; }
     border: 1px solid transparent;
     border-bottom: none;
     color: var(--text-muted);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.72rem;
     padding: 0.25rem 0.75rem;
     border-radius: var(--radius) var(--radius) 0 0;
@@ -8327,7 +8327,7 @@ body.mgh-feed-open { overflow: hidden; }
     background: none;
     border: none;
     color: var(--accent);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.8rem;
     cursor: pointer;
     padding: 0;
@@ -8355,7 +8355,7 @@ body.mgh-feed-open { overflow: hidden; }
 .sv-table {
     border-collapse: collapse;
     font-size: 0.8rem;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     min-width: 100%;
     table-layout: auto;
 }
@@ -9165,7 +9165,7 @@ body.mgh-feed-open { overflow: hidden; }
     border: none;
     border-radius: 0;
     color: var(--text-secondary);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.8rem;
     cursor: pointer;
     text-align: left;
@@ -9743,7 +9743,7 @@ body.mgh-feed-open { overflow: hidden; }
     border: 1px solid var(--border);
     border-radius: var(--radius);
     color: var(--text-primary);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.75rem;
     padding: 0.25rem 0.55rem;
     cursor: pointer;
@@ -9767,7 +9767,7 @@ body.mgh-feed-open { overflow: hidden; }
     border: 1px solid var(--border);
     border-radius: var(--radius);
     color: var(--text-primary);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.8rem;
     padding: 0.38rem 0.7rem;
 }
@@ -9855,7 +9855,7 @@ body.adm-page {
     margin: 0;
     background: var(--bg-dark, #0f0f11);
     color: var(--text, #e0e0e0);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     display: flex;
     flex-direction: column;
     height: 100vh;
@@ -10757,7 +10757,7 @@ body.adm-page {
     height: 100%;
     overflow: hidden;
     background: var(--bg-dark);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
 }
 
 @media (max-width: 600px) {
@@ -10836,7 +10836,7 @@ body.adm-page {
     background: var(--bg-input);
     border: 1px solid var(--border);
     color: var(--text-primary);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.82rem;
     padding: 0.38rem 0.75rem;
     border-radius: var(--radius);
@@ -10851,7 +10851,7 @@ body.adm-page {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.78rem;
     font-weight: 500;
     padding: 0.38rem 0.9rem;
@@ -11104,7 +11104,7 @@ body.adm-page {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     color: var(--text-muted);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.7rem;
     font-weight: 600;
     border-radius: var(--radius);
@@ -11366,7 +11366,7 @@ body.adm-page {
     background: var(--bg-card);
     border: 1px solid var(--border);
     color: var(--text-secondary);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.78rem;
     padding: 0.45rem 1.1rem;
     border-radius: 20px;
@@ -11414,7 +11414,7 @@ body.adm-page {
     border: none;
     border-bottom: 2px solid transparent;
     color: var(--text-muted);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     font-size: 0.8rem;
     font-weight: 500;
     cursor: pointer;

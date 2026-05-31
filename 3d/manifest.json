@@ -1,0 +1,10 @@
+{
+  "models": [
+    "Sphere.glb",
+    "cube.glb",
+    "ico.glb",
+    "mball.glb",
+    "suzanne.glb",
+    "torus.glb"
+  ]
+}
