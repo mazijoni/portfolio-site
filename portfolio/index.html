@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jonatan Lund Ermesjø — Portfolio</title>
+  <link rel="icon" href="../img/logo.svg" type="image/svg"/>
+  <link rel="icon" href="../img/logo_black.svg" type="image/svg" media="(prefers-color-scheme: light)"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper:     #0d0b09;
+      --paper-2:   #161310;
+      --paper-3:   #1e1a15;
+      --ink:       #ece8df;
+      --ink-2:     #c8c2b3;
+      --ink-mute:  #88826f;
+      --ink-dim:   #57534a;
+      --line:      rgba(236,232,223,.10);
+      --line-2:    rgba(236,232,223,.22);
+      --accent:    #c772fe;
+      --serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+      --sans:  'Geist', system-ui, -apple-system, sans-serif;
+      --mono:  'Geist Mono', ui-monospace, monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--paper);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      line-height: 1.55;
+    }
+
+    body::before {
+      content: "";
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 0;
+      background-image: radial-gradient(rgba(236,232,223,.022) 1px, transparent 1px);
+      background-size: 3px 3px;
+      opacity: .65;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    ::selection { background: var(--accent); color: #0a0008; }
+    em { font-style: italic; }
+
+    .meta {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--paper); }
+    ::-webkit-scrollbar-thumb { background: var(--ink-dim); }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+    /* ── MASTHEAD ─────────────────────────────────────────── */
+    .masthead {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      border-bottom: 1px solid var(--line);
+      background: color-mix(in oklab, var(--paper) 85%, transparent);
+      backdrop-filter: blur(12px);
+    }
+
+    .mast-inner {
+      max-width: 1320px; margin: 0 auto;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0 32px; height: 56px; gap: 24px;
+    }
+
+    .mast-logo {
+      font-family: var(--mono); font-size: 11.5px;
+      letter-spacing: .16em; text-transform: uppercase;
+      color: var(--ink-2);
+    }
+
+    .mast-logo span { color: var(--accent); }
+
+    .mast-nav {
+      display: flex; align-items: center; gap: 28px;
+      list-style: none;
+    }
+
+    .mast-nav a {
+      font-size: 12.5px; color: var(--ink-mute);
+      letter-spacing: .04em; transition: color .15s;
+    }
+
+    .mast-nav a:hover { color: var(--ink); }
+
+    .mast-nav .divider { width: 1px; height: 16px; background: var(--line-2); }
+
+    .mast-nav .pill {
+      display: inline-flex; align-items: center;
+      height: 30px; padding: 0 12px;
+      border: 1px solid var(--line-2);
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: .14em; text-transform: uppercase;
+      color: var(--ink-2);
+      transition: background .15s, border-color .15s, color .15s;
+    }
+
+    .mast-nav .pill:hover {
+      background: var(--ink); color: var(--paper); border-color: var(--ink);
+    }
+
+    #mob-toggle { display: none; }
+    .mob-btn {
+      display: none; flex-direction: column; gap: 5px;
+      cursor: pointer; padding: 4px; background: none; border: none;
+    }
+    .mob-btn span {
+      display: block; width: 22px; height: 1.5px; background: var(--ink-2);
+      transition: transform .25s, opacity .25s;
+    }
+    #mob-toggle:checked ~ .masthead .mob-btn span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+    #mob-toggle:checked ~ .masthead .mob-btn span:nth-child(2) { opacity: 0; }
+    #mob-toggle:checked ~ .masthead .mob-btn span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+
+    .mob-menu {
+      display: none;
+      position: fixed; top: 56px; left: 0; right: 0; bottom: 0; z-index: 99;
+      background: var(--paper-2); border-top: 1px solid var(--line);
+      padding: 40px 32px; flex-direction: column; gap: 28px;
+    }
+    #mob-toggle:checked ~ .mob-menu { display: flex; }
+    .mob-menu a { font-size: 22px; font-weight: 500; color: var(--ink-2); transition: color .15s; }
+    .mob-menu a:hover { color: var(--ink); }
+    .mob-menu .mob-divider { height: 1px; background: var(--line); }
+
+    /* ── HERO — EDITORIAL SPLIT ───────────────────────────── */
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      padding-top: 56px;
+      display: flex; align-items: stretch;
+      overflow: hidden;
+    }
+
+    #three-canvas {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      pointer-events: none; z-index: 0;
+    }
+
+    .hero-inner {
+      position: relative; z-index: 1;
+      max-width: 1320px; margin: 0 auto;
+      padding: 0 32px;
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      width: 100%;
+      align-items: stretch;
+    }
+
+    /* left column */
+    .hero-left {
+      padding: 72px 64px 72px 0;
+      border-right: 1px solid var(--line-2);
+      display: flex; flex-direction: column; justify-content: space-between;
+    }
+
+    .hero-kicker {
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 40px;
+    }
+
+    .hero-kicker span {
+      font-family: var(--mono); font-size: 10.5px;
+      letter-spacing: .22em; text-transform: uppercase;
+      color: var(--ink-mute);
+    }
+
+    .hero-kicker::before {
+      content: '';
+      display: block; width: 32px; height: 1px;
+      background: var(--ink-dim);
+    }
+
+    .hero-name {
+      font-family: var(--serif);
+      font-size: clamp(56px, 9vw, 130px);
+      line-height: .9;
+      font-weight: 400;
+      letter-spacing: -.025em;
+      color: var(--ink);
+    }
+
+    .hero-name .given { display: block; }
+    .hero-name .family {
+      display: block;
+      color: var(--accent);
+      font-style: italic;
+    }
+
+    .hero-bottom {
+      margin-top: 48px;
+      display: flex; flex-direction: column; gap: 24px;
+    }
+
+    .hero-tagline {
+      font-size: 16px; color: var(--ink-2);
+      line-height: 1.65; max-width: 46ch;
+    }
+
+    .cta-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      height: 44px; padding: 0 20px;
+      font-family: var(--sans); font-size: 13px;
+      font-weight: 500; letter-spacing: .03em;
+      border: 1px solid transparent;
+      cursor: pointer; transition: transform .12s, background .15s, color .15s, border-color .15s;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+    .btn-primary:hover { background: var(--accent); border-color: var(--accent); color: #0a0008; }
+    .btn-ghost { background: transparent; color: var(--ink-2); border-color: var(--line-2); }
+    .btn-ghost:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+    /* right column */
+    .hero-right {
+      padding: 72px 0 72px 40px;
+      display: flex; flex-direction: column; gap: 0;
+    }
+
+    .sidebar-block {
+      padding: 20px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .sidebar-block:last-child { border-bottom: none; }
+
+    .sidebar-label {
+      font-family: var(--mono); font-size: 9.5px;
+      letter-spacing: .22em; text-transform: uppercase;
+      color: var(--ink-dim); margin-bottom: 6px;
+    }
+
+    .sidebar-val {
+      font-size: 14px; color: var(--ink-2); line-height: 1.5;
+    }
+
+    .sidebar-val a { transition: color .15s; }
+    .sidebar-val a:hover { color: var(--accent); }
+
+    /* ── SECTIONS ─────────────────────────────────────────── */
+    .frame { max-width: 1320px; margin: 0 auto; padding: 0 32px; }
+
+    .section { padding: 112px 0; position: relative; z-index: 1; }
+    .section-alt { background: var(--paper-2); }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 48px; align-items: end;
+      padding-bottom: 56px;
+      border-bottom: 1px solid var(--ink-dim);
+      margin-bottom: 64px;
+    }
+
+    .section-num {
+      font-family: var(--mono); font-size: 11px;
+      letter-spacing: .18em; text-transform: uppercase;
+      color: var(--ink-mute);
+      display: flex; flex-direction: column; gap: 6px;
+    }
+
+    .section-num b {
+      font-family: var(--serif); font-style: italic;
+      font-size: 36px; color: var(--ink); font-weight: 400;
+      letter-spacing: -.01em; display: block;
+    }
+
+    .section-title {
+      font-family: var(--serif);
+      font-size: clamp(40px, 5.5vw, 76px);
+      line-height: .98; font-weight: 400;
+      letter-spacing: -.018em; color: var(--ink);
+      max-width: 18ch; text-wrap: balance;
+    }
+
+    .section-title em { font-style: italic; color: var(--accent); }
+
+    .reveal {
+      opacity: 0; transform: translateY(24px);
+      transition: opacity .75s ease, transform .75s ease;
+    }
+    .reveal.visible { opacity: 1; transform: none; }
+
+    /* ── ABOUT ────────────────────────────────────────────── */
+    .about-layout {
+      display: grid;
+      grid-template-columns: 1fr 1.4fr;
+      gap: 72px; align-items: start;
+    }
+
+    .pullquote {
+      font-family: var(--serif); font-style: italic;
+      font-size: clamp(22px, 2.5vw, 32px);
+      line-height: 1.3; color: var(--ink);
+      letter-spacing: -.01em;
+      padding-left: 24px;
+      border-left: 2px solid var(--accent);
+      text-wrap: balance;
+    }
+
+    .pullquote em { color: var(--accent); }
+
+    .pullquote cite {
+      display: block; margin-top: 20px;
+      font-style: normal; font-family: var(--mono);
+      font-size: 10px; letter-spacing: .18em;
+      text-transform: uppercase; color: var(--ink-mute);
+    }
+
+    .about-body {
+      columns: 2; column-gap: 40px;
+      column-rule: 1px solid var(--line);
+      font-size: 15px; line-height: 1.75;
+      color: var(--ink-2);
+    }
+
+    .about-body p {
+      break-inside: avoid; margin-bottom: 1.1em; text-wrap: pretty;
+    }
+
+    .about-body p:first-child::first-letter {
+      font-family: var(--serif); font-style: italic;
+      font-size: 4.5em; line-height: .85;
+      float: left; margin: 4px 8px -4px 0;
+      color: var(--accent);
+    }
+
+    .about-links {
+      display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px;
+    }
+
+    /* ── SKILLS ───────────────────────────────────────────── */
+    .skills-table { display: flex; flex-direction: column; }
+
+    .skill-row {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 32px; align-items: start;
+      padding: 24px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .skill-row:first-child { border-top: 1px solid var(--line); }
+
+    .skill-cat {
+      font-family: var(--mono); font-size: 10.5px;
+      letter-spacing: .16em; text-transform: uppercase;
+      color: var(--ink-mute); padding-top: 3px;
+    }
+
+    .skill-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .skill-tag {
+      font-family: var(--mono); font-size: 10.5px;
+      letter-spacing: .08em;
+      border: 1px solid var(--line-2);
+      padding: 5px 10px; color: var(--ink-2);
+      transition: border-color .15s, color .15s;
+    }
+
+    .skill-tag:hover { border-color: var(--accent); color: var(--ink); }
+
+    /* ── PROJECTS ─────────────────────────────────────────── */
+    .project-list { display: flex; flex-direction: column; }
+
+    .project-item {
+      display: grid;
+      grid-template-columns: 52px 1fr auto;
+      gap: 24px 32px; align-items: center;
+      padding: 24px 0;
+      border-bottom: 1px solid var(--line);
+      transition: background .2s;
+    }
+
+    .project-item:first-child { border-top: 1px solid var(--line); }
+    .project-item:hover { background: color-mix(in oklab, var(--accent) 4%, transparent); }
+    .project-item:hover .proj-num { color: var(--accent); }
+
+    .proj-num {
+      font-family: var(--mono); font-size: 20px;
+      color: var(--line-2); font-weight: 500;
+      text-align: right; line-height: 1;
+      transition: color .2s;
+    }
+
+    .proj-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+
+    .proj-row { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+
+    .proj-name {
+      font-size: 17px; font-weight: 500;
+      color: var(--ink); letter-spacing: -.01em;
+    }
+
+    .proj-type {
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: .15em; text-transform: uppercase; color: var(--accent);
+    }
+
+    .proj-desc { font-size: 13.5px; color: var(--ink-mute); }
+
+    .proj-links { display: flex; gap: 8px; flex-shrink: 0; }
+
+    .proj-link {
+      display: inline-flex; align-items: center;
+      height: 32px; padding: 0 14px;
+      border: 1px solid var(--line-2);
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: .12em; text-transform: uppercase;
+      color: var(--ink-mute);
+      transition: color .15s, border-color .15s;
+    }
+
+    .proj-link:hover { color: var(--ink); border-color: var(--ink-2); }
+
+    /* ── CONTACT ──────────────────────────────────────────── */
+    .contact-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border-left: 1px solid var(--line);
+    }
+
+    .contact-card {
+      padding: 32px 36px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .contact-card:nth-child(n+4) { border-bottom: none; }
+
+    .contact-label {
+      font-family: var(--mono); font-size: 9.5px;
+      letter-spacing: .22em; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 10px;
+    }
+
+    .contact-val {
+      font-size: 15px; color: var(--ink-2);
+      font-weight: 400; line-height: 1.4;
+      transition: color .15s;
+      display: block; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    .contact-val:hover { color: var(--ink); }
+
+    /* ── FOOTER ───────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--ink-dim);
+      padding: 36px 0; background: var(--paper-2);
+      position: relative; z-index: 1;
+    }
+
+    .footer-inner {
+      max-width: 1320px; margin: 0 auto;
+      padding: 0 32px;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 16px;
+    }
+
+    .footer-name {
+      font-family: var(--serif); font-style: italic;
+      font-size: 18px; color: var(--ink-2);
+      letter-spacing: -.01em;
+    }
+
+    .footer-name b { font-style: normal; color: var(--accent); font-weight: 400; }
+
+    .footer-links { display: flex; gap: 24px; }
+
+    .footer-links a {
+      font-size: 12px; color: var(--ink-dim);
+      transition: color .15s; letter-spacing: .02em;
+    }
+
+    .footer-links a:hover { color: var(--ink); }
+
+    /* ── RESPONSIVE ───────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .mast-nav { display: none; }
+      .mob-btn { display: flex; }
+
+      .hero-inner { grid-template-columns: 1fr; }
+      .hero-left { border-right: none; border-bottom: 1px solid var(--line-2); padding: 56px 0 40px; }
+      .hero-right { padding: 32px 0; display: grid; grid-template-columns: 1fr 1fr; }
+      .sidebar-block { padding: 12px 0; }
+
+      .section-head { grid-template-columns: 1fr; gap: 16px; }
+      .section-title { font-size: clamp(32px, 6vw, 56px); }
+
+      .about-layout { grid-template-columns: 1fr; gap: 40px; }
+      .about-body { columns: 1; }
+
+      .skill-row { grid-template-columns: 1fr; gap: 10px; }
+
+      .project-item { grid-template-columns: 40px 1fr; row-gap: 10px; }
+      .proj-links { grid-column: 2; flex-wrap: wrap; }
+
+      .contact-grid { grid-template-columns: 1fr 1fr; }
+
+      .footer-inner { flex-direction: column; align-items: flex-start; }
+    }
+
+    @media (max-width: 600px) {
+      .mast-inner { padding: 0 20px; }
+      .frame { padding: 0 20px; }
+      .section { padding: 72px 0; }
+      .hero-inner { padding: 0 20px; }
+      .hero-right { grid-template-columns: 1fr; }
+      .contact-grid { grid-template-columns: 1fr; }
+      .contact-card:nth-child(n+4) { border-bottom: 1px solid var(--line); }
+      .contact-card:last-child { border-bottom: none; }
+    }
+  </style>
+</head>
+<body>
+
+<input type="checkbox" id="mob-toggle" style="display:none">
+
+<!-- MASTHEAD -->
+<header class="masthead">
+  <div class="mast-inner">
+    <div class="mast-logo">JLE <span>/</span> Portfolio</div>
+    <ul class="mast-nav">
+      <li><a href="#about">About</a></li>
+      <li><a href="#skills">Skills</a></li>
+      <li><a href="#projects">Projects</a></li>
+      <li><a href="#contact">Contact</a></li>
+      <li class="divider"></li>
+      <li><a href="../" class="pill">Maze Dev</a></li>
+      <li><a href="../login.html">Workspace</a></li>
+      <li><a href="../Jonatan Lund Ermesjo CV.pdf" target="_blank">CV</a></li>
+    </ul>
+    <label for="mob-toggle" class="mob-btn" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </label>
+  </div>
+</header>
+
+<!-- MOBILE MENU -->
+<nav class="mob-menu">
+  <a href="#about" onclick="document.getElementById('mob-toggle').checked=false">About</a>
+  <a href="#skills" onclick="document.getElementById('mob-toggle').checked=false">Skills</a>
+  <a href="#projects" onclick="document.getElementById('mob-toggle').checked=false">Projects</a>
+  <a href="#contact" onclick="document.getElementById('mob-toggle').checked=false">Contact</a>
+  <span class="mob-divider"></span>
+  <a href="../">Maze Dev</a>
+  <a href="../login.html">Workspace</a>
+  <a href="../Jonatan Lund Ermesjo CV.pdf" target="_blank">CV</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="home">
+  <canvas id="three-canvas"></canvas>
+  <div class="hero-inner">
+    <!-- LEFT: name + intro -->
+    <div class="hero-left">
+      <div>
+        <div class="hero-kicker">
+          <span>IT Student &amp; Developer — Norway</span>
+        </div>
+        <h1 class="hero-name">
+          <span class="given">Jonatan Lund</span>
+          <span class="family">Ermesjø</span>
+        </h1>
+      </div>
+      <div class="hero-bottom">
+        <p class="hero-tagline">
+          Developer, creator, and digital storyteller. I build 3D games, web platforms, and custom tools — mostly under the name <em>Maze Development</em>.
+        </p>
+        <div class="cta-row">
+          <a href="#projects" class="btn btn-primary">View projects</a>
+          <a href="../Jonatan Lund Ermesjo CV.pdf" target="_blank" class="btn btn-ghost">Download CV</a>
+        </div>
+      </div>
+    </div>
+    <!-- RIGHT: sidebar info -->
+    <aside class="hero-right">
+      <div class="sidebar-block">
+        <div class="sidebar-label">Location</div>
+        <div class="sidebar-val">Norway</div>
+      </div>
+      <div class="sidebar-block">
+        <div class="sidebar-label">Status</div>
+        <div class="sidebar-val">IT Student</div>
+      </div>
+      <div class="sidebar-block">
+        <div class="sidebar-label">Email</div>
+        <div class="sidebar-val"><a href="mailto:jonatan@ermesjo.com">jonatan@ermesjo.com</a></div>
+      </div>
+      <div class="sidebar-block">
+        <div class="sidebar-label">GitHub</div>
+        <div class="sidebar-val"><a href="https://github.com/mazijoni" target="_blank">mazijoni</a></div>
+      </div>
+      <div class="sidebar-block">
+        <div class="sidebar-label">Games</div>
+        <div class="sidebar-val"><a href="https://maze-dev.itch.io/" target="_blank">maze-dev.itch.io</a></div>
+      </div>
+      <div class="sidebar-block">
+        <div class="sidebar-label">Studio</div>
+        <div class="sidebar-val"><a href="../">Maze Development →</a></div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- 01 ABOUT -->
+<section class="section reveal" id="about">
+  <div class="frame">
+    <div class="section-head">
+      <div class="section-num">
+        <span class="meta">01</span>
+        <b>Me</b>
+      </div>
+      <h2 class="section-title">About <em>me</em></h2>
+    </div>
+    <div class="about-layout">
+      <blockquote class="pullquote">
+        "Building games,<br>apps, and tools —<br><em>one commit at a time.</em>"
+        <cite>— Jonatan Lund Ermesjø</cite>
+      </blockquote>
+      <div>
+        <div class="about-body">
+          <p>
+            Hey — I'm Jonatan, a creative developer who loves turning ideas into interactive experiences. I specialize in 3D game development using Godot, with a particular passion for crafting horror games that keep players on the edge of their seats.
+          </p>
+          <p>
+            When I'm not building immersive worlds, you'll find me exploring web-based projects, experimenting with new tech, or diving into games myself — because playing is just as important as making.
+          </p>
+          <p>
+            I blend creativity and technical skill to deliver experiences that are fun, engaging, and a little bit spooky. I operate under the name Maze Development — my personal studio where I ship everything from Godot games to custom browsers.
+          </p>
+        </div>
+        <div class="about-links">
+          <a href="../Jonatan Lund Ermesjo CV.pdf" target="_blank" class="btn btn-primary">Download CV</a>
+          <a href="../" class="btn btn-ghost">Maze Development →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 02 SKILLS -->
+<section class="section section-alt reveal" id="skills">
+  <div class="frame">
+    <div class="section-head">
+      <div class="section-num">
+        <span class="meta">02</span>
+        <b>Skills</b>
+      </div>
+      <h2 class="section-title">What I <em>work with</em></h2>
+    </div>
+    <div class="skills-table">
+      <div class="skill-row">
+        <span class="skill-cat">Frontend</span>
+        <div class="skill-tags">
+          <span class="skill-tag">HTML5</span>
+          <span class="skill-tag">CSS3</span>
+          <span class="skill-tag">JavaScript</span>
+          <span class="skill-tag">TypeScript</span>
+          <span class="skill-tag">React</span>
+          <span class="skill-tag">Electron</span>
+          <span class="skill-tag">Three.js</span>
+          <span class="skill-tag">Babylon.js</span>
+          <span class="skill-tag">Responsive Design</span>
+        </div>
+      </div>
+      <div class="skill-row">
+        <span class="skill-cat">Backend</span>
+        <div class="skill-tags">
+          <span class="skill-tag">Node.js</span>
+          <span class="skill-tag">Python</span>
+          <span class="skill-tag">Rust</span>
+          <span class="skill-tag">Firebase</span>
+          <span class="skill-tag">Firestore</span>
+          <span class="skill-tag">Database Management</span>
+        </div>
+      </div>
+      <div class="skill-row">
+        <span class="skill-cat">Tools</span>
+        <div class="skill-tags">
+          <span class="skill-tag">Git / GitHub</span>
+          <span class="skill-tag">VS Code</span>
+          <span class="skill-tag">IntelliJ</span>
+          <span class="skill-tag">Google Drive</span>
+          <span class="skill-tag">AI Tools</span>
+        </div>
+      </div>
+      <div class="skill-row">
+        <span class="skill-cat">Game Dev</span>
+        <div class="skill-tags">
+          <span class="skill-tag">Godot</span>
+          <span class="skill-tag">Unreal Engine</span>
+          <span class="skill-tag">GDScript</span>
+          <span class="skill-tag">3D Modeling</span>
+          <span class="skill-tag">Animation</span>
+          <span class="skill-tag">Horror Design</span>
+        </div>
+      </div>
+      <div class="skill-row">
+        <span class="skill-cat">Soft Skills</span>
+        <div class="skill-tags">
+          <span class="skill-tag">Fast Learner</span>
+          <span class="skill-tag">Problem Solving</span>
+          <span class="skill-tag">Team Collaboration</span>
+          <span class="skill-tag">Creative Thinking</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 03 PROJECTS -->
+<section class="section reveal" id="projects">
+  <div class="frame">
+    <div class="section-head">
+      <div class="section-num">
+        <span class="meta">03</span>
+        <b>Work</b>
+      </div>
+      <h2 class="section-title">Selected <em>projects</em></h2>
+    </div>
+    <div class="project-list">
+      <div class="project-item">
+        <span class="proj-num">01</span>
+        <div class="proj-body">
+          <div class="proj-row">
+            <span class="proj-name">Tower Defense</span>
+            <span class="proj-type">Game</span>
+          </div>
+          <span class="proj-desc">Browser strategy game — build towers and hold the line against waves of enemies.</span>
+        </div>
+        <div class="proj-links">
+          <a href="https://mazijoni.github.io/fordypning/index.html" class="proj-link">Play</a>
+          <a href="https://github.com/mazijoni/fordypning" class="proj-link">GitHub</a>
+        </div>
+      </div>
+      <div class="project-item">
+        <span class="proj-num">02</span>
+        <div class="proj-body">
+          <div class="proj-row">
+            <span class="proj-name">Escape Room</span>
+            <span class="proj-type">Game</span>
+          </div>
+          <span class="proj-desc">Puzzle game — solve clues and escape before the clock runs out.</span>
+        </div>
+        <div class="proj-links">
+          <a href="https://mazijoni.github.io/escape_room/index.html" class="proj-link">Play</a>
+          <a href="https://github.com/mazijoni/escape_room" class="proj-link">GitHub</a>
+        </div>
+      </div>
+      <div class="project-item">
+        <span class="proj-num">03</span>
+        <div class="proj-body">
+          <div class="proj-row">
+            <span class="proj-name">Orbit Browser</span>
+            <span class="proj-type">App — Active</span>
+          </div>
+          <span class="proj-desc">Custom Chromium-based browser with a redesigned interface and developer tweaks.</span>
+        </div>
+        <div class="proj-links">
+          <a href="../orbit/" class="proj-link">Page</a>
+          <a href="https://github.com/mazijoni/orbit_browser" class="proj-link">GitHub</a>
+        </div>
+      </div>
+      <div class="project-item">
+        <span class="proj-num">04</span>
+        <div class="proj-body">
+          <div class="proj-row">
+            <span class="proj-name">School Finder</span>
+            <span class="proj-type">Web App</span>
+          </div>
+          <span class="proj-desc">Enter a city name to find nearby schools with directions. Web and .exe builds.</span>
+        </div>
+        <div class="proj-links">
+          <a href="https://mazijoni.github.io/schools-web/index.html" class="proj-link">Demo</a>
+          <a href="../Projects/school-finder.exe" class="proj-link" download>.EXE</a>
+        </div>
+      </div>
+      <div class="project-item">
+        <span class="proj-num">05</span>
+        <div class="proj-body">
+          <div class="proj-row">
+            <span class="proj-name">NorgeVarer AS</span>
+            <span class="proj-type">Web App</span>
+          </div>
+          <span class="proj-desc">E-commerce simulation with catalog, cart, and server backend. School project.</span>
+        </div>
+        <div class="proj-links">
+          <a href="../norgevarer.html" class="proj-link">View</a>
+          <a href="https://github.com/mazijoni/norgevarer" class="proj-link">GitHub</a>
+        </div>
+      </div>
+      <div class="project-item">
+        <span class="proj-num">++</span>
+        <div class="proj-body">
+          <div class="proj-row">
+            <span class="proj-name">More on GitHub</span>
+            <span class="proj-type">Open Source</span>
+          </div>
+          <span class="proj-desc">All experiments and open-source repos live on GitHub.</span>
+        </div>
+        <div class="proj-links">
+          <a href="https://github.com/mazijoni" class="proj-link">GitHub →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 04 CONTACT -->
+<section class="section section-alt reveal" id="contact">
+  <div class="frame">
+    <div class="section-head">
+      <div class="section-num">
+        <span class="meta">04</span>
+        <b>Contact</b>
+      </div>
+      <h2 class="section-title">Get in <em>touch</em></h2>
+    </div>
+    <div class="contact-grid">
+      <div class="contact-card">
+        <div class="contact-label">Email</div>
+        <a href="mailto:jonatan@ermesjo.com" class="contact-val">jonatan@ermesjo.com</a>
+      </div>
+      <div class="contact-card">
+        <div class="contact-label">GitHub</div>
+        <a href="https://github.com/mazijoni" target="_blank" class="contact-val">github.com/mazijoni</a>
+      </div>
+      <div class="contact-card">
+        <div class="contact-label">LinkedIn</div>
+        <a href="https://www.linkedin.com/in/jonatan-lund-ermesjo-b8b332353/" target="_blank" class="contact-val">jonatan-lund-ermesjo</a>
+      </div>
+      <div class="contact-card">
+        <div class="contact-label">Itch.io</div>
+        <a href="https://maze-dev.itch.io/" target="_blank" class="contact-val">maze-dev.itch.io</a>
+      </div>
+      <div class="contact-card">
+        <div class="contact-label">YouTube</div>
+        <a href="https://www.youtube.com/@maze_joni" target="_blank" class="contact-val">@maze_joni</a>
+      </div>
+      <div class="contact-card">
+        <div class="contact-label">Modrinth</div>
+        <a href="https://modrinth.com/user/Maze_dev" target="_blank" class="contact-val">Maze_dev</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <span class="footer-name">Jonatan Lund <b>Ermesjø</b></span>
+    <div class="footer-links">
+      <a href="../">Maze Development</a>
+      <a href="https://github.com/mazijoni" target="_blank">GitHub</a>
+      <a href="mailto:jonatan@ermesjo.com">Email</a>
+      <a href="../Jonatan Lund Ermesjo CV.pdf" target="_blank">CV</a>
+    </div>
+  </div>
+</footer>
+
+<!-- THREE.JS -->
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.165.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.165.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
+
+const canvas = document.getElementById('three-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 50);
+camera.position.set(0, 0, 6);
+
+function resize() {
+  const w = canvas.parentElement.clientWidth;
+  const h = canvas.parentElement.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+resize();
+window.addEventListener('resize', resize);
+
+const TARGET_RADIUS = 2.2;
+const WIRE_COLOR    = 0x6b2098;
+
+const lineMat = new THREE.LineBasicMaterial({ color: WIRE_COLOR, transparent: true, opacity: 0.35 });
+const ptsMat  = new THREE.PointsMaterial({ color: WIRE_COLOR, size: 2, sizeAttenuation: false, transparent: true, opacity: 0.35 });
+
+const group = new THREE.Group();
+group.position.y = 0.2;
+scene.add(group);
+
+function snapToLeftEdge() {
+  const vFovRad = camera.fov * Math.PI / 180;
+  const halfW   = Math.tan(vFovRad / 2) * camera.position.z * camera.aspect;
+  group.position.x = -halfW;
+  const s = window.innerWidth < 768 ? 0.5 : 1.0;
+  group.scale.setScalar(s);
+}
+snapToLeftEdge();
+window.addEventListener('resize', snapToLeftEdge);
+
+function setModel(srcGeo) {
+  const g = srcGeo.clone();
+  g.computeBoundingSphere();
+  const r = g.boundingSphere?.radius;
+  const c = g.boundingSphere?.center;
+  if (r > 0 && isFinite(r) && c) {
+    g.translate(-c.x, -c.y, -c.z);
+    g.scale(TARGET_RADIUS / r, TARGET_RADIUS / r, TARGET_RADIUS / r);
+  }
+  const posOnly = new THREE.BufferGeometry();
+  posOnly.setAttribute('position', g.attributes.position.clone());
+  if (g.index) posOnly.setIndex(g.index.clone());
+  g.dispose();
+  const welded = BufferGeometryUtils.mergeVertices(posOnly, 1e-4);
+  posOnly.dispose();
+  const edgesGeo = new THREE.EdgesGeometry(welded, 1);
+  welded.dispose();
+  group.clear();
+  group.add(new THREE.LineSegments(edgesGeo, lineMat));
+  group.add(new THREE.Points(edgesGeo, ptsMat));
+}
+
+setModel(new THREE.IcosahedronGeometry(TARGET_RADIUS, 1));
+
+(async () => {
+  try {
+    const res = await fetch('../3d/manifest.json');
+    if (!res.ok) return;
+    const { models } = await res.json();
+    if (!models?.length) return;
+    const filename = models[Math.floor(Math.random() * models.length)];
+    new GLTFLoader().load(`../3d/${filename}`, gltf => {
+      const geos = [];
+      gltf.scene.updateMatrixWorld(true);
+      gltf.scene.traverse(child => {
+        if (child.isMesh && child.geometry) {
+          const g = child.geometry.clone();
+          g.applyMatrix4(child.matrixWorld);
+          geos.push(g);
+        }
+      });
+      if (!geos.length) return;
+      const merged = geos.length > 1
+        ? BufferGeometryUtils.mergeGeometries(geos, true) : geos[0];
+      if (!merged) return;
+      setModel(merged);
+      geos.forEach(g => g.dispose());
+      merged.dispose();
+    });
+  } catch {}
+})();
+
+(function tick() {
+  requestAnimationFrame(tick);
+  group.rotation.x += 0.0014;
+  group.rotation.y += 0.0026;
+  renderer.render(scene, camera);
+})();
+</script>
+
+<!-- SCROLL REVEAL -->
+<script>
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+
+<!-- ANALYTICS -->
+<script type="module">
+import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/11.5.0/firebase-app.js';
+import { getFirestore, addDoc, collection, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js';
+const BOT_RE = /bot|crawl|spider|slurp|archive|facebookexternalhit|whatsapp|twitterbot|semrush|ahrefs|lighthouse|headless/i;
+if (!BOT_RE.test(navigator.userAgent)) {
+  const ua = navigator.userAgent;
+  let browser;
+  try { browser = (await navigator.brave?.isBrave?.()) ? 'Brave' : _b(ua); } catch { browser = _b(ua); }
+  function _b(u) {
+    if (/Edg\//.test(u)) return 'Edge'; if (/OPR\//.test(u)) return 'Opera';
+    if (/SamsungBrowser/.test(u)) return 'Samsung'; if (/Firefox\//.test(u)) return 'Firefox';
+    if (/Chrome\//.test(u)) return 'Chrome'; if (/Safari\//.test(u)) return 'Safari'; return 'Other';
+  }
+  function _os(u) {
+    if (/Windows/.test(u)) return 'Windows'; if (/Android/.test(u)) return 'Android';
+    if (/iPhone|iPad/.test(u)) return 'iOS'; if (/Mac OS X/.test(u)) return 'macOS';
+    if (/Linux/.test(u)) return 'Linux'; return 'Other';
+  }
+  function _dv(u) {
+    if (/Mobi|Android|iPhone/.test(u)) return 'mobile'; if (/iPad|Tablet/.test(u)) return 'tablet'; return 'desktop';
+  }
+  let cfg;
+  try { ({ firebaseConfig: cfg } = await import('../firebase.local.js')); }
+  catch { ({ firebaseConfig: cfg } = await import('../firebase.js')); }
+  const app = getApps().find(a => a.name === 'tracker') ?? initializeApp(cfg, 'tracker');
+  addDoc(collection(getFirestore(app), 'site_analytics'), {
+    page: location.pathname, ref: (document.referrer||'').slice(0,200),
+    ts: serverTimestamp(), ua: ua.slice(0,300), browser, os: _os(ua), device: _dv(ua), lang: navigator.language
+  }).catch(() => {});
+}
+</script>
+</body>
+</html>

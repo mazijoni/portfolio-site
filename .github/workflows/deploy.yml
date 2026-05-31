@@ -38,6 +38,19 @@ jobs:
           done
           if [ $FAIL -eq 1 ]; then exit 1; fi
 
+      - name: Generate 3D model manifest
+        run: |
+          python3 - <<'EOF'
+          import os, json
+          folder = '3d'
+          exts   = ('.glb', '.gltf', '.obj')
+          models = sorted([f for f in os.listdir(folder) if f.lower().endswith(exts)]) if os.path.isdir(folder) else []
+          os.makedirs(folder, exist_ok=True)
+          with open(os.path.join(folder, 'manifest.json'), 'w') as f:
+              json.dump({'models': models}, f, indent=2)
+          print(f'3D manifest: {len(models)} model(s) → {models}')
+          EOF
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
