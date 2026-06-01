@@ -308,6 +308,8 @@ export function initLinks(db, user) {
     _user = user;
     // Restore the last active category from the previous session
     try { const _sc = sessionStorage.getItem("links_active_cat"); if (_sc) _activeCat = _sc; } catch {}
+    // Clear all saved section orderings so the new default applies
+    try { Object.keys(localStorage).filter(k => k.startsWith("mghOrder_")).forEach(k => localStorage.removeItem(k)); } catch {}
     _loadCats();
 
     _startSubscriptions();
@@ -2674,7 +2676,7 @@ function _renderMediaHub(body, cat) {
         return;
     }
 
-    const DEFAULT_ORDER = ["creator", "person", "image", "video", "site"];
+    const DEFAULT_ORDER = ["site", "image", "video", "person", "creator"];
     let _order = _mghSectionOrder || DEFAULT_ORDER;
     _order = [...new Set([..._order, ...DEFAULT_ORDER])]; // ensure all keys present
 
