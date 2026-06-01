@@ -33,20 +33,16 @@
         <button class="hub-app-btn" data-app="gmail" title="Gmail">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>
         </button>
-        <button class="hub-app-btn" data-app="bluemap" id="hub-btn-bluemap" title="BlueMap">
+        <button class="hub-app-btn" data-app="bluemap" id="hub-btn-bluemap" title="ServerMap">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
         </button>
     </div>
     <div class="hub-nav-footer">
-        <button class="hub-app-btn" data-app="settings" title="Help &amp; Settings" id="hub-btn-settings">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="19" r="1.5" fill="currentColor"/></svg>
-        </button>
         <div class="user-avatar-wrap">
             <div class="user-avatar" id="user-avatar" role="button" tabindex="0" title="Account">?</div>
             <div class="avatar-popup" id="avatar-popup">
+                <!-- built dynamically by auth.js -->
                 <div class="avatar-popup-name" id="user-name">Loading&#8230;</div>
-                <button class="avatar-popup-settings" id="avatar-popup-settings">Settings</button>
-                <button class="avatar-popup-signout" id="avatar-popup-signout">Sign out</button>
             </div>
         </div>
         <!-- hidden, kept for auth.js compat -->
@@ -746,6 +742,9 @@
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 <span class="btn-label">Select</span>
             </button>
+            <button id="btn-links-settings" class="ws-btn ws-btn-ghost ws-btn-icon" title="Gallery settings">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
         </div>
     </div>
     <div id="links-cat-bar" class="links-cats">
@@ -781,7 +780,7 @@
 <div id="app-bluemap" class="hub-app">
     <div class="bluemap-bar">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;opacity:.6"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
-        <input id="bluemap-url" class="bluemap-input bluemap-input--url" type="url" value="https://server.tail8d3368.ts.net/" placeholder="https://… or http://…" aria-label="BlueMap URL" spellcheck="false">
+        <input id="bluemap-url" class="bluemap-input bluemap-input--url" type="url" value="https://server.tail8d3368.ts.net/" placeholder="https://… or http://…" aria-label="ServerMap URL" spellcheck="false">
         <button id="bluemap-go" class="ws-btn ws-btn-accent ws-btn-sm">Go</button>
     </div>
     <div id="bluemap-content" class="bluemap-content"></div>
@@ -880,7 +879,7 @@
                     </div>
                     <div class="hub-tab-row">
                         <div class="hub-tab-row-info">
-                            <div class="hub-tab-row-label">BlueMap</div>
+                            <div class="hub-tab-row-label">ServerMap</div>
                             <div class="hub-tab-row-sub">Minecraft world map viewer</div>
                         </div>
                         <label class="hub-toggle-switch">
@@ -925,7 +924,7 @@
                         <div class="tut-step-num">3</div>
                         <div class="tut-step-body">
                             <strong>Use the hub apps</strong>
-                            <p>Switch between apps using the icon bar on the far left: <span class="tut-ui">Workspace</span>, <span class="tut-ui">Link Gallery</span>, <span class="tut-ui">Gmail</span>, and <span class="tut-ui">BlueMap</span>.</p>
+                            <p>Switch between apps using the icon bar on the far left: <span class="tut-ui">Workspace</span>, <span class="tut-ui">Link Gallery</span>, <span class="tut-ui">Gmail</span>, and <span class="tut-ui">ServerMap</span>.</p>
                         </div>
                     </div>
                     <div class="tut-step">
@@ -2239,6 +2238,22 @@
 </div>
 
 <!-- Link Gallery: Add / Edit modal -->
+<div id="modal-links-settings" class="ws-modal-overlay hidden">
+    <div class="ws-modal" style="max-width:480px">
+        <div class="ws-modal-header">
+            <h2>Gallery Settings</h2>
+            <button class="ws-modal-close" data-modal="modal-links-settings"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="ws-modal-body" style="padding:1.2rem">
+            <div class="form-group">
+                <label style="font-size:0.82rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em">Avatar placeholder style</label>
+                <p style="font-size:0.75rem;color:var(--text-muted);margin:4px 0 12px">Used when a creator has no profile image set.</p>
+                <div id="links-dicebear-grid" class="links-dicebear-grid"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="modal-link" class="ws-modal-overlay hidden">
     <div class="ws-modal">
         <div class="ws-modal-header">
@@ -2255,20 +2270,12 @@
             </div>
             <div id="link-image-group-section" style="display:none">
                 <div class="form-group">
-                    <label>Image 1 <span class="form-hint">(required)</span></label>
-                    <input type="url" id="link-ig-url-1" placeholder="https://&#8230;">
-                </div>
-                <div class="form-group">
-                    <label>Image 2</label>
-                    <input type="url" id="link-ig-url-2" placeholder="https://&#8230;">
-                </div>
-                <div class="form-group">
-                    <label>Image 3</label>
-                    <input type="url" id="link-ig-url-3" placeholder="https://&#8230;">
-                </div>
-                <div class="form-group">
-                    <label>Image 4</label>
-                    <input type="url" id="link-ig-url-4" placeholder="https://&#8230;">
+                    <label>Images <span class="form-hint">(add as many as you want)</span></label>
+                    <div id="link-ig-list" class="link-vg-list"></div>
+                    <button type="button" id="btn-add-ig-image" class="ws-btn ws-btn-ghost ws-btn-sm" style="margin-top:6px">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Add image
+                    </button>
                 </div>
             </div>
             <div class="form-group" id="link-batch-group">

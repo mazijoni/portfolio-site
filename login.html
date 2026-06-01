@@ -512,6 +512,30 @@
       }
     });
 
+    /* Account switcher: ?google_hint=email → auto-open Google sign-in for that account */
+    const _googleHint = new URLSearchParams(window.location.search).get('google_hint');
+    if (_googleHint) {
+      const hintProvider = new GoogleAuthProvider();
+      hintProvider.setCustomParameters({ login_hint: _googleHint });
+      /* Small delay so the page renders before the popup opens */
+      setTimeout(() => {
+        signInWithPopup(auth, hintProvider).catch((e) => {
+          const msg = friendlyError(e.code);
+          if (msg) showMessage('signin-message', msg, 'error');
+        });
+      }, 300);
+    }
+
+    /* Account switcher: ?email=xxx → pre-fill email for password accounts */
+    const _switchEmail = new URLSearchParams(window.location.search).get('email');
+    if (_switchEmail && !_googleHint) {
+      const emailInput = document.getElementById('signin-email');
+      if (emailInput) {
+        emailInput.value = _switchEmail;
+        setTimeout(() => document.getElementById('signin-password')?.focus(), 80);
+      }
+    }
+
     function setLoading(btnId, loading) {
       const btn = document.getElementById(btnId);
       if (loading) {

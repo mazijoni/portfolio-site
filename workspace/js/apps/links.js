@@ -11,7 +11,7 @@
 import {
     onSnapshot, addDoc, updateDoc, deleteDoc, deleteField,
     doc, getDoc, query, orderBy, where, serverTimestamp,
-    collection, getDocs, setDoc
+    collection, getDocs, setDoc, writeBatch
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
 import { refs }                from "../db.js";
@@ -33,6 +33,7 @@ const TYPES = {
     "3d-model":           { label: "3D Model",          icon: "view_in_ar" },
     "file":               { label: "File",              icon: "attach_file" },
     "video":              { label: "Video",             icon: "videocam" },
+    "video-group":        { label: "Video Group",       icon: "video_library" },
     "creator":            { label: "Creator / Channel", icon: "person" },
     "person":             { label: "Person / Character",icon: "face" },
     "other":              { label: "Other",             icon: "link" },
@@ -48,6 +49,11 @@ const MGH_PERSON_ALIASES = {
 /* ══════════ STATE ══════════ */
 
 let _db, _user, _unsub;
+let _settingsUnsub  = null;
+let _adminOwnerUid  = null;  // when set, all reads/writes target this uid (admin browse mode)
+
+/** Returns the effective uid for all Firestore operations. */
+function _uid() { return _adminOwnerUid || _user?.uid; }
 let _links          = [];
 let _search         = "";
 let _activeCat      = "all";   // "all" | category name | "_uncat"
@@ -56,6 +62,29 @@ let _editId         = null;
 let _editCatId      = null;
 let _dragId         = null;
 let _settingsLoaded = false;   // true after first Firestore settings snapshot
+
+/* ── Drag auto-scroll state ── */
+let _asRaf   = null;   // requestAnimationFrame handle
+let _asSpeed = 0;      // px per frame (negative = up, positive = down)
+let _asEl    = null;   // scrollable container being watched
+
+function _asStart(scrollEl) { _asEl = scrollEl; }
+function _asStop()  { _asEl = null; _asSpeed = 0; if (_asRaf) { cancelAnimationFrame(_asRaf); _asRaf = null; } }
+function _asMove(clientY) {
+    if (!_asEl) return;
+    const r = _asEl.getBoundingClientRect(), zone = 80;
+    const rel = clientY - r.top;
+    if      (rel < zone)           _asSpeed = -(1 - rel / zone) * 18;
+    else if (rel > r.height - zone) _asSpeed =  (1 - (r.height - rel) / zone) * 18;
+    else                            _asSpeed = 0;
+    if (_asSpeed && !_asRaf) _asRaf = requestAnimationFrame(_asFrame);
+}
+function _asFrame() {
+    _asRaf = null;
+    if (!_asEl || !_asSpeed) return;
+    _asEl.scrollTop += _asSpeed;
+    _asRaf = requestAnimationFrame(_asFrame);
+}
 const _mediaThumbs = {}; // url → imgUrl | null  (undefined = not yet tried)
 
 // Fullscreen viewer state
@@ -78,7 +107,7 @@ let _boxStartX = 0, _boxStartY = 0;
 let _boxEl = null;
 
 let _cats = [];   // [{ id, name, icon }]
-const _CATS_KEY = () => `linksCats_${_user?.uid}`;
+const _CATS_KEY = () => `linksCats_${_uid()}`;
 function _loadCats() {
     try { _cats = JSON.parse(localStorage.getItem(_CATS_KEY()) || "[]"); }
     catch { _cats = []; }
@@ -101,8 +130,8 @@ function _saveCats() {
     try { localStorage.setItem(_CATS_KEY(), JSON.stringify(_cats)); } catch {}
     // Also persist to Firestore so categories survive across devices and domains.
     // Guard with _settingsLoaded to avoid overwriting Firestore before we've read it.
-    if (_settingsLoaded && _db && _user?.uid) {
-        setDoc(refs.linkSettings(_db, _user.uid), { categories: _cats }, { merge: true })
+    if (_settingsLoaded && _db && _user?.uid && !_adminOwnerUid) {
+        setDoc(refs.linkSettings(_db, _uid()), { categories: _cats }, { merge: true })
             .catch(err => console.error("[links] _saveCats Firestore error:", err));
     }
 }
@@ -205,7 +234,7 @@ async function _bulkDelete() {
     if (!ok) return;
     try {
         await Promise.all(ids.map(id =>
-            deleteDoc(doc(_db, "users", _user.uid, "gallery-links", id))
+            deleteDoc(doc(_db, "users", _uid(), "gallery-links", id))
         ));
         toast(`Deleted ${ids.length} link${ids.length !== 1 ? "s" : ""}`, "success");
         _exitSelectMode();
@@ -277,30 +306,11 @@ function _initBoxSelect(body) {
 export function initLinks(db, user) {
     _db   = db;
     _user = user;
+    // Restore the last active category from the previous session
+    try { const _sc = sessionStorage.getItem("links_active_cat"); if (_sc) _activeCat = _sc; } catch {}
     _loadCats();
 
-    // Subscribe to Firestore settings — source of truth for categories across devices/domains.
-    // The guard flag _settingsLoaded prevents _saveCats from overwriting Firestore
-    // before we've received the initial snapshot.
-    onSnapshot(refs.linkSettings(_db, _user.uid), snap => {
-        if (snap.exists()) {
-            const remoteCats = snap.data()?.categories;
-            if (Array.isArray(remoteCats) && remoteCats.length > 0) {
-                _cats = remoteCats;
-                try { localStorage.setItem(_CATS_KEY(), JSON.stringify(_cats)); } catch {}
-            } else if (!_settingsLoaded && _cats.length > 0) {
-                // Remote doc exists but has no categories yet — push local cats up once
-                setDoc(refs.linkSettings(_db, _user.uid), { categories: _cats }, { merge: true })
-                    .catch(console.error);
-            }
-        } else if (!_settingsLoaded && _cats.length > 0) {
-            // No settings doc yet — migrate localStorage cats to Firestore
-            setDoc(refs.linkSettings(_db, _user.uid), { categories: _cats }, { merge: true })
-                .catch(console.error);
-        }
-        _settingsLoaded = true;
-        _render();
-    }, err => console.error("[links] settings snapshot error:", err));
+    _startSubscriptions();
 
     document.getElementById("btn-links-select-mode")
         ?.addEventListener("click", () => _selectMode ? _exitSelectMode() : _enterSelectMode());
@@ -310,6 +320,8 @@ export function initLinks(db, user) {
 
     document.getElementById("btn-add-link")
         .addEventListener("click", () => _openForm(null));
+    document.getElementById("btn-links-settings")
+        ?.addEventListener("click", () => _openLinksSettings());
     document.getElementById("links-search")
         .addEventListener("input", e => { _search = e.target.value.toLowerCase(); _render(); });
     document.getElementById("links-sort-select")
@@ -354,11 +366,6 @@ export function initLinks(db, user) {
     document.getElementById("link-title-field")
         .addEventListener("input", _mghOnNameInput);
 
-    const q = query(refs.galleryLinks(_db, _user.uid), orderBy("createdAt", "desc"));
-    _unsub = onSnapshot(q, snap => {
-        _links = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        _render();
-    });
     if (!window._sdVisChangeSet) {
         window._sdVisChangeSet = true;
         document.addEventListener("visibilitychange", () => {
@@ -376,12 +383,95 @@ export function initLinks(db, user) {
 
     // Init avatar crop modal
     initAvatarCrop();
+
+    // Inject video-group type option and form section
+    _initImageGroupForm();
+    _initVideoGroupForm();
+
+    // Admin: restore own links when called from admin panel
+    window.addEventListener("ws:restoreOwnLinks", () => setLinksAdminOwner(null));
+}
+
+/* ── Admin: switch the Link Gallery to show any user's links ── */
+
+function _startSubscriptions() {
+    if (_settingsUnsub) { _settingsUnsub(); _settingsUnsub = null; }
+    if (_unsub)         { _unsub();         _unsub         = null; }
+
+    _settingsUnsub = onSnapshot(refs.linkSettings(_db, _uid()), snap => {
+        if (snap.exists()) {
+            const d = snap.data();
+            if (d?.dicebearStyle && DICEBEAR_STYLES.some(s => s.id === d.dicebearStyle)) {
+                _dicebearStyle = d.dicebearStyle;
+                try { localStorage.setItem("links_dicebear_style", _dicebearStyle); } catch {}
+            }
+            const remoteCats = d?.categories;
+            if (Array.isArray(remoteCats) && remoteCats.length > 0) {
+                _cats = remoteCats;
+                try { localStorage.setItem(_CATS_KEY(), JSON.stringify(_cats)); } catch {}
+            } else if (!_settingsLoaded && _cats.length > 0 && !_adminOwnerUid) {
+                setDoc(refs.linkSettings(_db, _uid()), { categories: _cats }, { merge: true })
+                    .catch(console.error);
+            }
+        } else if (!_settingsLoaded && _cats.length > 0 && !_adminOwnerUid) {
+            setDoc(refs.linkSettings(_db, _uid()), { categories: _cats }, { merge: true })
+                .catch(console.error);
+        }
+        _settingsLoaded = true;
+        _render();
+    }, err => console.error("[links] settings snapshot error:", err));
+
+    const q = query(refs.galleryLinks(_db, _uid()), orderBy("createdAt", "desc"));
+    _unsub = onSnapshot(q, snap => {
+        _links = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        _render();
+    });
+}
+
+/**
+ * Switch the Link Gallery to show another user's links (admin browse mode).
+ * Pass null to restore the signed-in user's own links.
+ */
+export function setLinksAdminOwner(uid) {
+    _adminOwnerUid = uid || null;
+    _links         = [];
+    _cats          = [];
+    _settingsLoaded = false;
+    _activeCat     = "all";
+    _search        = "";
+    _editId        = null;
+    if (_selectMode) _exitSelectMode?.();
+    _selectedIds?.clear?.();
+    /* Reset search input */
+    const searchEl = document.getElementById("links-search");
+    if (searchEl) searchEl.value = "";
+    _loadCats();
+    _startSubscriptions();
 }
 
 
 
 
 /* ══════════ RENDER ══════════ */
+
+/* Default display order when sort mode is "manual":
+   websites → images → videos → other → characters → creators */
+const TYPE_ORDER = {
+    "website":           0,
+    "youtube-channel":   1,
+    "youtube-playlist":  1,
+    "youtube-video":     1,
+    "streaming-service": 2,
+    "image":             3,
+    "image-group":       3,
+    "3d-model":          4,
+    "video":             5,
+    "video-group":       5,
+    "file":              6,
+    "other":             7,
+    "person":            8,
+    "creator":           9,
+};
 
 function _sorted(list) {
     const arr = [...list];
@@ -392,8 +482,13 @@ function _sorted(list) {
         case "oldest": return arr.sort((a, b) => ((a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)));
         default:
             return arr.sort((a, b) => {
-                const ap = a.pinned ? -1e9 : (a.sortOrder ?? a.createdAt?.seconds ?? 0);
-                const bp = b.pinned ? -1e9 : (b.sortOrder ?? b.createdAt?.seconds ?? 0);
+                if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+                const ta = TYPE_ORDER[a.type] ?? 7;
+                const tb = TYPE_ORDER[b.type] ?? 7;
+                if (ta !== tb) return ta - tb;
+                /* Same type group: use manual sortOrder or creation time */
+                const ap = a.sortOrder ?? a.createdAt?.seconds ?? 0;
+                const bp = b.sortOrder ?? b.createdAt?.seconds ?? 0;
                 return ap - bp;
             });
     }
@@ -445,6 +540,7 @@ function _switchCat(name) {
         return;
     }
     _activeCat = name;
+    try { sessionStorage.setItem("links_active_cat", name); } catch {}
     _render();
 }
 
@@ -454,7 +550,7 @@ const _unlockedCats = new Set(); // in-memory; cleared on page reload
 async function _showConfirmScreen(cat) {
     const body = document.getElementById("links-body");
     if (!body) return;
-    const _doOpen = () => { _unlockedCats.add(cat.id); _activeCat = cat.name; _render(); };
+    const _doOpen = () => { _unlockedCats.add(cat.id); _activeCat = cat.name; try { sessionStorage.setItem("links_active_cat", cat.name); } catch {} _render(); };
     body.innerHTML = `
         <div class="link-lockscreen">
             <div class="link-ls-folder-icon">
@@ -553,6 +649,11 @@ function _renderCatsGrid(body) {
 function _domain(url) {
     try { return new URL(url).hostname.replace(/^www\./, ""); }
     catch { return ""; }
+}
+
+/* Canonical play-button SVG — used everywhere so they all look identical */
+function _playSvg(size = 44) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" fill="rgba(0,0,0,0.55)"/><path d="M13.5 10l9 6-9 6V10z" fill="white"/></svg>`;
 }
 
 function _shortUrl(url) {
@@ -689,7 +790,7 @@ async function _renderStreamingHub(body, cat) {
             try {
                 const itemSnap = await getDocs(_streamRef(linkId));
                 await Promise.all(itemSnap.docs.map(d => deleteDoc(d.ref)));
-                await deleteDoc(doc(_db, "users", _user.uid, "gallery-links", linkId));
+                await deleteDoc(doc(_db, "users", _uid(), "gallery-links", linkId));
                 delete _streamCache[linkId];
             } catch (err) { console.error(err); toast("Error removing service", "error"); }
             return;
@@ -819,7 +920,7 @@ function _renderHubContent(container, allItems) {
                 wb.title = item.watched ? "Mark unwatched" : "Mark watched";
             }
             try {
-                await updateDoc(doc(_db, "users", _user.uid, "gallery-links", svcId, "streaming-items", itemId), { watched: item.watched });
+                await updateDoc(doc(_db, "users", _uid(), "gallery-links", svcId, "streaming-items", itemId), { watched: item.watched });
             } catch (err) { console.error(err); item.watched = !item.watched; }
         }
     };
@@ -891,9 +992,9 @@ function _mghPlatBadge(link) {
 
 /* ── Creator ↔ media attribution ── */
 function _mghFindCreatorFor(link) {
-    if (!link || (link.type !== "image" && link.type !== "3d-model" &&
-                  link.type !== "youtube-video" && link.type !== "youtube-playlist" &&
-                  link.type !== "video")) return null;
+    if (!link || (link.type !== "image" && link.type !== "image-group" &&
+                  link.type !== "3d-model" && link.type !== "youtube-video" &&
+                  link.type !== "youtube-playlist" && link.type !== "video")) return null;
     if (link.creatorId) return _links.find(l => l.id === link.creatorId) ?? null;
     if (!link.url) return null;
     for (const c of _links.filter(l => l.type === "creator" || l.type === "youtube-channel")) {
@@ -933,10 +1034,109 @@ function _mghParseCreatorUrl(url) {
         return { platform: "other", username: "" };
     } catch { return null; }
 }
-function _mghCreatorAvatar(platform, username) {
-    if (!username) return "";
-    const map = { youtube: "youtube", twitter: "twitter", instagram: "instagram", tiktok: "tiktok", twitch: "twitch" };
-    return map[platform] ? `https://unavatar.io/${map[platform]}/${encodeURIComponent(username)}` : "";
+/* ── DiceBear glyph fallback — deterministic per username seed ── */
+let _dicebearStyle = localStorage.getItem("links_dicebear_style") || "glyphs";
+const DICEBEAR_STYLES = [
+    { id: "glyphs",     label: "Glyphs"      },
+    { id: "bottts",     label: "Robots"      },
+    { id: "pixel-art",  label: "Pixel Art"   },
+    { id: "fun-emoji",  label: "Emoji"       },
+    { id: "lorelei",    label: "Lorelei"     },
+    { id: "micah",      label: "Micah"       },
+    { id: "thumbs",     label: "Thumbs"      },
+    { id: "identicon",  label: "Identicon"   },
+    { id: "shapes",     label: "Shapes"      },
+];
+function _mghDiceBearUrl(seed) {
+    return `https://api.dicebear.com/10.x/${_dicebearStyle}/svg?seed=${encodeURIComponent(seed || "anon")}`;
+}
+
+/* Session-level in-memory cache — avoids re-fetching the same creator within one page load */
+const _mghProfileCache   = new Map(); // key → thumbUrl
+const _mghDicebearCleaned = new Set(); // link IDs whose DiceBear thumbUrl has been cleared this session
+
+function _mghProfileKey(platform, username) {
+    return `${platform || "other"}_${(username || "anon").toLowerCase().replace(/[^a-z0-9._-]/g, "_")}`;
+}
+
+/**
+ * Fetch a creator's avatar. Results are cached in memory for the session only — nothing
+ * is written to the database.
+ *
+ * Priority: YouTube oEmbed → GitHub → Twitch DecAPI → og:image via proxy → DiceBear glyph
+ */
+async function _mghCreatorAvatar(platform, username, fullUrl = "") {
+    const key = _mghProfileKey(platform, username || fullUrl);
+
+    /* Session cache — free re-use within the same page load */
+    if (_mghProfileCache.has(key)) return _mghProfileCache.get(key);
+
+    let thumbUrl = "";
+    try {
+        if (platform === "youtube") {
+            const chUrl = fullUrl || `https://www.youtube.com/@${encodeURIComponent(username)}`;
+            const resp = await Promise.race([
+                fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(chUrl)}&format=json`),
+                new Promise((_, rj) => setTimeout(rj, 4000)),
+            ]);
+            if (resp.ok) { const d = await resp.json(); if (d.thumbnail_url) thumbUrl = d.thumbnail_url; }
+        }
+        if (!thumbUrl && platform === "github") {
+            thumbUrl = `https://github.com/${encodeURIComponent(username)}.png?size=100`;
+        }
+        if (!thumbUrl && platform === "twitch") {
+            const resp = await Promise.race([
+                fetch(`https://decapi.me/twitch/avatar/${encodeURIComponent(username)}`),
+                new Promise((_, rj) => setTimeout(rj, 4000)),
+            ]);
+            if (resp.ok) { const t = (await resp.text()).trim(); if (t.startsWith("http")) thumbUrl = t; }
+        }
+        if (!thumbUrl && fullUrl) {
+            const html = await _fetchHtmlThroughProxy(fullUrl, 5000);
+            if (html) {
+                const m =
+                    html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+                    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i) ||
+                    html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i) ||
+                    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i);
+                if (m?.[1]?.startsWith("http")) thumbUrl = m[1];
+            }
+        }
+    } catch {}
+
+    // Don't store DiceBear in cache or Firestore — it's display-only
+    _mghProfileCache.set(key, thumbUrl);
+    return thumbUrl;
+}
+
+/** Background-refresh a creator card rendered with a stale/broken avatar.
+ *  Fetches the avatar (or returns from session cache) and patches the card in place. */
+async function _mghRefreshAvatarBackground(link, cardEl, parsed) {
+    const realThumb = await _mghCreatorAvatar(
+        parsed.platform, parsed.username, link.url || link.profileUrl || ""
+    );
+    if (!cardEl.isConnected) return;
+
+    // Display: real URL if found, otherwise DiceBear as display-only fallback
+    const displaySrc = realThumb || _mghDiceBearUrl(link.title || link.username || link.id || "anon");
+
+    const clip  = cardEl.querySelector(".creator-avatar-clip");
+    const fb    = cardEl.querySelector(".creator-avatar-fallback");
+    const imgEl = clip?.querySelector(".creator-avatar");
+    if (clip && imgEl) {
+        imgEl.src = displaySrc; clip.style.display = "";
+        if (fb) fb.style.display = "none";
+    } else {
+        const newClip = document.createElement("div"); newClip.className = "creator-avatar-clip";
+        newClip.innerHTML = `<img class="creator-avatar" src="${escHtml(displaySrc)}" alt="">`;
+        if (fb) { cardEl.insertBefore(newClip, fb); fb.style.display = "none"; }
+    }
+
+    // Only persist to Firestore if we found a real URL — never store DiceBear
+    if (realThumb && _db && _uid?.() && !_adminOwnerUid && link.id) {
+        updateDoc(doc(_db, "users", _uid(), "gallery-links", link.id), { thumbUrl: realThumb })
+            .catch(() => {});
+    }
 }
 function _mghDetectPersonId(text) {
     if (!text) return "";
@@ -1289,14 +1489,41 @@ function _mghRenderViewer() {
         stage.innerHTML = `
             <div class="wslb-thumb-wrap">
                 <img class="wslb-img" src="${escHtml(item.src)}" alt="${escHtml(item.name)}">
-                ${item.url ? `<a class="wslb-play-btn" href="${escHtml(item.url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()"><svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" fill="rgba(0,0,0,0.55)" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/><path d="M13 10.5l10 5.5-10 5.5V10.5z" fill="white"/></svg></a>` : ""}
+                ${item.url ? `<a class="wslb-play-btn" href="${escHtml(item.url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${_playSvg(52)}</a>` : ""}
             </div>`;
+    } else if (item.type === "video") {
+        stage.innerHTML = "";
+        const embed = _mghEmbed(item.url);
+        const _showThumbFallback = () => {
+            stage.innerHTML = "";
+            const wrap = document.createElement("div"); wrap.className = "wslb-thumb-wrap";
+            if (item.thumb) { const img = document.createElement("img"); img.className = "wslb-img"; img.src = item.thumb; img.alt = item.name || ""; wrap.appendChild(img); }
+            if (item.url) {
+                const a = document.createElement("a"); a.className = "wslb-play-btn"; a.href = item.url; a.target = "_blank"; a.rel = "noopener noreferrer";
+                a.addEventListener("click", e => e.stopPropagation());
+                a.innerHTML = _playSvg(52);
+                wrap.appendChild(a);
+            }
+            stage.appendChild(wrap);
+        };
+        if (embed?.type === "direct") {
+            const vid = document.createElement("video");
+            vid.src = embed.src; vid.controls = true; vid.autoplay = true; vid.playsInline = true;
+            vid.style.cssText = "max-width:100%;max-height:100%;";
+            vid.addEventListener("error", _showThumbFallback, { once: true });
+            stage.appendChild(vid);
+        } else if (embed) {
+            const wrap = document.createElement("div"); wrap.className = "wslb-video-wrap";
+            const iframe = document.createElement("iframe");
+            iframe.src = embed.src + (embed.src.includes("?") ? "&" : "?") + "autoplay=1";
+            iframe.allowFullscreen = true; iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+            wrap.appendChild(iframe); stage.appendChild(wrap);
+        } else {
+            _showThumbFallback();
+        }
     } else {
         stage.innerHTML = item.url
-            ? `<a class="wslb-link-placeholder" href="${escHtml(item.url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">
-                 <svg viewBox="0 0 32 32" width="72" height="72" fill="none"><circle cx="16" cy="16" r="15" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/><path d="M13 10.5l10 5.5-10 5.5V10.5z" fill="rgba(255,255,255,0.85)"/></svg>
-                 <span>${escHtml(item.name || "Open")}</span>
-               </a>`
+            ? `<a class="wslb-link-placeholder" href="${escHtml(item.url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${_playSvg(72)}<span>${escHtml(item.name || "Open")}</span></a>`
             : `<span style="color:rgba(255,255,255,0.3)">No media</span>`;
     }
 
@@ -1348,7 +1575,7 @@ function _openMghFeed(allMedia) {
     const grid = document.createElement("div");
     grid.className = "shorts-grid";
     shuffled.forEach(l => {
-        const c = l.type === "image-group" ? _mghImageGroupFeedCard(l) : _mghFeedCard(l);
+        const c = l.type === "image-group" ? _mghImageGroupFeedCard(l) : (l.type === "video-group" ? _mghVideoGroupFeedCard(l) : _mghFeedCard(l));
         if (c) grid.appendChild(c);
     });
 
@@ -1371,19 +1598,17 @@ function _mghOpenCreatorPanel(creator) {
     if (!panel) return;
     const isChar = creator.type === "person";
     const matched = _mghMatchLinked(creator);
-    const avatarSrc = creator.thumbUrl || "";
+    const _rawThumb  = creator.thumbUrl || "";
+    const _isBroken  = _rawThumb.includes("unavatar.io") || _rawThumb.includes("ui-avatars.com") || _rawThumb.includes("dicebear.com");
+    const avatarSrc  = (_rawThumb && !_isBroken) ? _rawThumb
+                     : _mghDiceBearUrl(creator.title || creator.username || creator.id || "anon");
 
     const avatarEl    = document.getElementById("mgh-cp-avatar");
     const fallbackEl  = document.getElementById("mgh-cp-avatar-fallback");
     const clipEl      = document.getElementById("mgh-cp-avatar-clip");
-    if (avatarSrc) {
-        avatarEl.src = avatarSrc;
-        if (clipEl) clipEl.style.display = "";
-        fallbackEl.style.display = "none";
-    } else {
-        if (clipEl) clipEl.style.display = "none";
-        fallbackEl.style.display = "flex";
-    }
+    avatarEl.src = avatarSrc;
+    if (clipEl) clipEl.style.display = "";
+    fallbackEl.style.display = "none";
     // Apply pixel-accurate crop (scaled to 64px panel avatar)
     _acmApplyToClip(clipEl, creator.thumbCropCx ?? 50, creator.thumbCropCy ?? 50, creator.thumbCropZoom ?? 1, 64);
 
@@ -1413,7 +1638,7 @@ function _mghOpenCreatorPanel(creator) {
     body.innerHTML = "";
 
     // Action bar: feed + auto-link buttons
-    const MEDIA_TYPES_CP = ["image", "3d-model", "image-group", "youtube-video", "youtube-playlist", "video"];
+    const MEDIA_TYPES_CP = ["image", "3d-model", "image-group", "youtube-video", "youtube-playlist", "video", "video-group"];
     const mediaMatched = matched.filter(l => MEDIA_TYPES_CP.includes(l.type));
     const actionsRow = document.createElement("div");
     actionsRow.className = "cp-actions-row";
@@ -1445,8 +1670,9 @@ function _mghOpenCreatorPanel(creator) {
         body.appendChild(countEl);
         const grid = document.createElement("div"); grid.className = "media-grid";
         matched.forEach(l => {
-            const VTYPES = ["youtube-video", "youtube-playlist", "video"];
-            if (VTYPES.includes(l.type))        grid.appendChild(_mghVideoCard(l));
+            const VTYPES = ["youtube-video", "youtube-playlist", "video", "video-group"];
+            if (l.type === "video-group")       grid.appendChild(_mghVideoGroupCard(l));
+            else if (VTYPES.includes(l.type))   grid.appendChild(_mghVideoCard(l));
             else if (l.type === "image-group")  grid.appendChild(_mghImageGroupCard(l));
             else                                grid.appendChild(_mghImageCard(l));
         });
@@ -1464,17 +1690,28 @@ function _mghOpenCreatorPanel(creator) {
 /* ── Site card ── */
 function _mghSiteCard(link) {
     const card = document.createElement("div"); card.className = "db-site-card";
-    const fav = _mghFav(link.url); const thumb = link.thumbUrl || _mghThumb(link.url);
+    const fav = _mghFav(link.url);
+    /* Only use thumbUrls that are user-supplied or og:image captures.
+       Skip thum.io and unavatar.io: those services return HTML for blocked/adult content
+       which triggers browser OpaqueResponseBlocking errors. */
+    const _rawThumb = link.thumbUrl || "";
+    const thumb = (_rawThumb && !_rawThumb.includes("thum.io") && !_rawThumb.includes("unavatar.io"))
+        ? _rawThumb : "";
     const label = link.title || _mghPretty(link.url); const fbId = "mgh_fb_" + link.id;
     card.innerHTML = `
         <a class="db-site-link" href="${escHtml(link.url || "#")}" target="_blank" rel="noopener noreferrer">
             <div class="db-site-thumb">
-                <img class="db-site-thumb-img" src="${escHtml(thumb)}" alt=""
-                     onerror="this.style.display='none';document.getElementById('${fbId}').style.display='flex'">
-                <div class="db-site-thumb-fb" id="${fbId}" style="display:none">
-                    <img src="${escHtml(fav)}" alt="" onerror="this.style.display='none'">
-                    <span>${escHtml(label)}</span>
-                </div>
+                ${thumb
+                    ? `<img class="db-site-thumb-img" src="${escHtml(thumb)}" alt=""
+                           onerror="this.style.display='none';document.getElementById('${fbId}').style.display='flex'">
+                       <div class="db-site-thumb-fb" id="${fbId}" style="display:none">
+                           <img src="${escHtml(fav)}" alt="" onerror="this.style.display='none'">
+                           <span>${escHtml(label)}</span>
+                       </div>`
+                    : `<div class="db-site-thumb-fb" id="${fbId}">
+                           <img src="${escHtml(fav)}" alt="" onerror="this.style.display='none'">
+                           <span>${escHtml(label)}</span>
+                       </div>`}
             </div>
             <div class="db-site-body">
                 <div class="db-site-name">${escHtml(label)}</div>
@@ -1502,16 +1739,11 @@ function _mghVideoCard(link) {
     } else if (link.thumbUrl) {
         isThumb = true;
         mediaHtml = `<img src="${escHtml(link.thumbUrl)}" alt="${escHtml(link.title || "")}" style="width:100%;height:auto;display:block">
-            <div class="video-thumb-play-overlay">
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" fill="rgba(0,0,0,0.55)" stroke="rgba(255,255,255,0.6)" stroke-width="1.5"/><path d="M13 10.5l10 5.5-10 5.5V10.5z" fill="white"/></svg>
-            </div>`;
+            <div class="video-thumb-play-overlay">${_playSvg(40)}</div>`;
     } else if (link.url) {
         isLink = true;
         const domain = _domain(link.url);
-        mediaHtml = `<div class="video-link-placeholder">
-            <svg width="36" height="36" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/><path d="M13 10.5l10 5.5-10 5.5V10.5z" fill="rgba(255,255,255,0.85)"/></svg>
-            <span class="video-link-domain">${escHtml(domain)}</span>
-        </div>`;
+        mediaHtml = `<div class="video-link-placeholder">${_playSvg(36)}<span class="video-link-domain">${escHtml(domain)}</span></div>`;
     } else {
         mediaHtml = `<div style="display:flex;align-items:center;justify-content:center;height:100%;min-height:80px;color:#555;font-size:0.8rem">No video</div>`;
     }
@@ -1531,6 +1763,29 @@ function _mghVideoCard(link) {
         const openLb = e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], _vi); };
         card.querySelector(".video-thumb-play-overlay")?.addEventListener("click", openLb);
         card.querySelector(".video-iframe-wrap img")?.addEventListener("click", openLb);
+    }
+    // For direct video embeds: fall back to thumbnail (or link) on error (403, CORS, etc.)
+    const _inlineVid = card.querySelector(".video-iframe-wrap video");
+    if (_inlineVid) {
+        _inlineVid.addEventListener("error", () => {
+            const wrap = _inlineVid.closest(".video-iframe-wrap");
+            if (!wrap) return;
+            if (link.thumbUrl) {
+                wrap.className = "video-iframe-wrap video-iframe-wrap--thumb";
+                wrap.innerHTML = `<img src="${escHtml(link.thumbUrl)}" alt="${escHtml(link.title || "")}" style="width:100%;height:auto;display:block"><div class="video-thumb-play-overlay">${_playSvg(40)}</div>`;
+                if (link.url) {
+                    const _vi2 = _mghViewItems.length;
+                    _mghViewItems.push({ type: "thumb-video", src: link.thumbUrl, name: link.title || "", url: link.url });
+                    const openLb2 = e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], _vi2); };
+                    wrap.querySelector(".video-thumb-play-overlay")?.addEventListener("click", openLb2);
+                    wrap.querySelector("img")?.addEventListener("click", openLb2);
+                }
+            } else if (link.url) {
+                wrap.className = "video-iframe-wrap";
+                wrap.innerHTML = `<div class="video-link-placeholder">${_playSvg(36)}<span class="video-link-domain">${escHtml(_domain(link.url))}</span></div>`;
+                wrap.querySelector(".video-link-placeholder")?.addEventListener("click", e => { e.stopPropagation(); window.open(link.url, "_blank", "noopener"); });
+            }
+        }, { once: true });
     }
     if (isLink && link.url) {
         const _vi = _mghViewItems.length;
@@ -1578,8 +1833,11 @@ function _mghImageCard(link) {
 function _mghImageGroupCard(link) {
     const card = document.createElement("div"); card.className = "image-group-card";
     const imgs = Array.isArray(link.images) ? link.images.filter(i => i?.url) : [];
-    const count = Math.min(imgs.length, 4);
+    const count = imgs.length;
     const fallback = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 3'%3E%3Crect fill='%231a1a1a' width='4' height='3'/%3E%3C/svg%3E";
+    const creator   = _mghFindCreatorFor(link);
+    const personIds = link.personIds || (link.personId ? [link.personId] : []);
+    const persons   = personIds.map(id => _links.find(l => l.id === id)).filter(Boolean);
 
     if (count === 0) {
         card.innerHTML = `<div style="background:#111;min-height:80px;display:flex;align-items:center;justify-content:center;color:#444;font-size:0.72rem">No images</div><div class="image-card-body"><span class="image-type-badge">GROUP</span><span class="image-card-name">${escHtml(link.title || "")}</span></div>`;
@@ -1587,27 +1845,101 @@ function _mghImageGroupCard(link) {
         return card;
     }
 
-    const grid = document.createElement("div");
-    grid.className = "image-group-grid";
-    grid.dataset.count = count;
+    // Register all images in the global viewer list
+    const viStart = _mghViewItems.length;
+    imgs.forEach(img => _mghViewItems.push({ type: "image", src: img.url, name: img.name || link.title || "" }));
 
-    imgs.slice(0, 4).forEach(img => {
-        const item = document.createElement("div"); item.className = "ig-item";
-        const imgEl = document.createElement("img");
-        imgEl.src = img.url; imgEl.alt = img.name || link.title || "";
-        imgEl.loading = "lazy";
+    if (count <= 4) {
+        // Grid layout — first image sets height, others cover their cells
+        const grid = document.createElement("div");
+        grid.className = "image-group-grid";
+        grid.dataset.count = count;
+        imgs.forEach((img, i) => {
+            const item = document.createElement("div"); item.className = "ig-item";
+            const imgEl = document.createElement("img");
+            imgEl.src = img.url; imgEl.alt = img.name || link.title || "";
+            imgEl.loading = "lazy";
+            imgEl.onerror = function() { this.src = fallback; };
+            imgEl.addEventListener("click", e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], viStart + i); });
+            item.appendChild(imgEl);
+            grid.appendChild(item);
+        });
+        // After first image loads, lock grid height so 1fr rows work and others fill with cover
+        if (count > 1) {
+            const firstImg = grid.querySelector("img");
+            const lockHeight = () => {
+                const h = firstImg.offsetHeight;
+                if (h > 0) {
+                    // count=4 is 2×2 equal: first image is in one row, so grid needs 2× that height
+                    grid.style.height = `${h * (count === 4 ? 2 : 1)}px`;
+                } else requestAnimationFrame(lockHeight);
+            };
+            firstImg.complete ? requestAnimationFrame(lockHeight)
+                              : firstImg.addEventListener("load", () => requestAnimationFrame(lockHeight), { once: true });
+        }
+        card.appendChild(grid);
+    } else {
+        // Cycling layout for > 4 images — one image at a time with prev/next
+        let curIdx = 0;
+        let heightLocked = false;
+        const wrap = document.createElement("div"); wrap.className = "ig-cycle-wrap";
+        const imgEl = document.createElement("img"); imgEl.className = "ig-cycle-img";
+        imgEl.src = imgs[0].url; imgEl.alt = imgs[0].name || link.title || ""; imgEl.loading = "lazy";
         imgEl.onerror = function() { this.src = fallback; };
-        const vi = _mghViewItems.length;
-        _mghViewItems.push({ type: "image", src: img.url, name: img.name || link.title || "" });
-        imgEl.addEventListener("click", e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], vi); });
-        item.appendChild(imgEl);
-        grid.appendChild(item);
-    });
+        const counter = document.createElement("div"); counter.className = "ig-cycle-counter";
+        counter.textContent = `1 / ${count}`;
+        const goTo = (idx) => {
+            curIdx = (idx + count) % count;
+            imgEl.src = imgs[curIdx].url; imgEl.alt = imgs[curIdx].name || link.title || "";
+            counter.textContent = `${curIdx + 1} / ${count}`;
+        };
+        const prev = document.createElement("button"); prev.className = "ig-cycle-btn ig-cycle-prev"; prev.innerHTML = "&#8249;"; prev.title = "Previous";
+        const next = document.createElement("button"); next.className = "ig-cycle-btn ig-cycle-next"; next.innerHTML = "&#8250;"; next.title = "Next";
+        prev.addEventListener("click", e => { e.stopPropagation(); goTo(curIdx - 1); });
+        next.addEventListener("click", e => { e.stopPropagation(); goTo(curIdx + 1); });
+        imgEl.addEventListener("click", e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], viStart + curIdx); });
+        // After first image loads, lock wrap height; all subsequent images fill with cover
+        const lockWrap = () => {
+            const h = imgEl.offsetHeight;
+            if (h > 0 && !heightLocked) {
+                heightLocked = true;
+                wrap.style.height = `${h}px`;
+                imgEl.style.height = "100%";
+                imgEl.style.objectFit = "cover";
+            } else if (!heightLocked) { requestAnimationFrame(lockWrap); }
+        };
+        imgEl.complete ? requestAnimationFrame(lockWrap)
+                       : imgEl.addEventListener("load", () => requestAnimationFrame(lockWrap), { once: true });
+        wrap.appendChild(imgEl); wrap.appendChild(prev); wrap.appendChild(next); wrap.appendChild(counter);
+        card.appendChild(wrap);
+        // Auto-cycle; pause on hover, clean up when card is removed
+        let _autoTimer = setInterval(() => goTo(curIdx + 1), 3000);
+        wrap.addEventListener("mouseenter", () => clearInterval(_autoTimer));
+        wrap.addEventListener("mouseleave", () => { _autoTimer = setInterval(() => goTo(curIdx + 1), 3000); });
+        new MutationObserver((_, obs) => { if (!document.contains(card)) { clearInterval(_autoTimer); obs.disconnect(); } })
+            .observe(document.body, { childList: true, subtree: true });
+    }
 
-    card.appendChild(grid);
     const body = document.createElement("div"); body.className = "image-card-body";
-    body.innerHTML = `<span class="image-type-badge">GROUP</span><span class="image-card-name">${escHtml(link.title || `Group · ${count} image${count !== 1 ? "s" : ""}`)}</span>`;
+    body.innerHTML = `<span class="image-type-badge">GROUP</span><span class="image-card-name">${escHtml(link.title || `Group · ${count} image${count !== 1 ? "s" : ""}`)}</span>${link.sourceUrl ? `<a class="card-source-link" href="${escHtml(link.sourceUrl)}" target="_blank" rel="noopener noreferrer" title="Go to source" onclick="event.stopPropagation()"><svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M5.5 1H9v3.5M9 1L4 6M2 3.5H1v5.5h5.5V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>` : ""}`;
     card.appendChild(body);
+
+    if (creator) {
+        const creatorEl = document.createElement("div");
+        creatorEl.className = "image-card-creator";
+        creatorEl.title = `Creator: ${creator.title || ""}`;
+        creatorEl.innerHTML = `<svg width="10" height="10" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2.761 2.686-5 6-5s6 2.239 6 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg><span>${escHtml(creator.title || "")}</span>`;
+        creatorEl.addEventListener("click", e => { e.stopPropagation(); _mghOpenCreatorPanel(creator); });
+        card.appendChild(creatorEl);
+    }
+    if (persons.length) {
+        const personEl = document.createElement("div");
+        personEl.className = "image-card-person";
+        personEl.innerHTML = `<svg width="10" height="10" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="2.5" stroke="#55ccbb" stroke-width="1.3"/><path d="M1 13c0-2.761 2.686-5 6-5s6 2.239 6 5" stroke="#55ccbb" stroke-width="1.3" stroke-linecap="round"/></svg><span class="image-card-person-name">${escHtml(persons.map(p => p.title).join(", "))}</span>`;
+        personEl.addEventListener("click", e => { e.stopPropagation(); if (persons[0]) _mghOpenCreatorPanel(persons[0]); });
+        card.appendChild(personEl);
+    }
+
     card.appendChild(_mghCardActions(link));
     return card;
 }
@@ -1616,18 +1948,36 @@ function _mghImageGroupCard(link) {
 function _mghCreatorCard(link) {
     const card = document.createElement("div"); card.className = "creator-card";
     const isChar = link.type === "person";
-    const avatarSrc = link.thumbUrl || "";
+
+    /* Determine avatar to display synchronously:
+       - Use stored thumbUrl if it's a valid, non-broken URL
+       - Otherwise show DiceBear immediately (no network request, no ORB error)
+       - A background refresh will patch the card once a real/cached avatar is found */
+    const _raw          = link.thumbUrl || "";
+    const _isOldService = _raw.includes("unavatar.io") || _raw.includes("ui-avatars.com");
+    const _isDicebear   = _raw.includes("dicebear.com");
+    const _isBroken     = _isOldService || _isDicebear;
+    const avatarSrc     = (_raw && !_isBroken) ? _raw : _mghDiceBearUrl(link.title || link.username || link.id || "anon");
+    const needsRefresh  = !_raw || _isOldService;
+    // Clear any stored DiceBear URL — it should not be in the database (once per session)
+    if (_isDicebear && _db && _uid?.() && !_adminOwnerUid && link.id && !_mghDicebearCleaned.has(link.id)) {
+        _mghDicebearCleaned.add(link.id);
+        updateDoc(doc(_db, "users", _uid(), "gallery-links", link.id), { thumbUrl: deleteField() }).catch(() => {});
+    }
+
     const { cls, label: bdgLabel, color, isCustom } = _mghPlatBadge(link);
-    const badgeStyle = (isCustom && color) ? ` style="color:${escHtml(color)};border-color:${escHtml(color)}66"` : "";
-    const linkedCount = _mghMatchLinked(link).length;
+    const badgeStyle    = (isCustom && color) ? ` style="color:${escHtml(color)};border-color:${escHtml(color)}66"` : "";
+    const linkedCount   = _mghMatchLinked(link).length;
     const _cx = link.thumbCropCx   ?? 50;
     const _cy = link.thumbCropCy   ?? 50;
     const _cz = link.thumbCropZoom ?? 1;
+
     card.innerHTML = `
-        ${avatarSrc
-            ? `<div class="creator-avatar-clip"><img class="creator-avatar" src="${escHtml(avatarSrc)}" alt="${escHtml(link.title || "")}" onerror="this.closest('.creator-avatar-clip').style.display='none';this.closest('.creator-avatar-clip').nextElementSibling.style.display='flex'"></div>
-               <div class="creator-avatar-fallback" style="display:none">👤</div>`
-            : `<div class="creator-avatar-fallback">👤</div>`}
+        <div class="creator-avatar-clip">
+            <img class="creator-avatar" src="${escHtml(avatarSrc)}" alt="${escHtml(link.title || "")}"
+                 onerror="this.closest('.creator-avatar-clip').style.display='none';this.closest('.creator-avatar-clip').nextElementSibling.style.removeProperty('display')">
+        </div>
+        <div class="creator-avatar-fallback" style="display:none">${escHtml((link.title || "?")[0].toUpperCase())}</div>
         <div class="creator-info">
             <div class="creator-name">${escHtml(link.title || "")}</div>
             <div class="creator-meta">
@@ -1640,8 +1990,25 @@ function _mghCreatorCard(link) {
         </div>
         ${(link.url || link.profileUrl) ? `<a class="creator-card-link" href="${escHtml(link.url || link.profileUrl)}" target="_blank" rel="noopener noreferrer" title="Open profile" onclick="event.stopPropagation()"><svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M5.5 1H9v3.5M9 1L4 6M2 3.5H1v5.5h5.5V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>` : ""}`;
 
-    // Apply pixel-accurate crop (same formula as modal, scaled to 48px)
-    if (avatarSrc) _acmApplyToClip(card.querySelector(".creator-avatar-clip"), _cx, _cy, _cz, 48);
+    /* Crop only when using an explicit manually-set avatar */
+    if (!_isBroken && _raw) _acmApplyToClip(card.querySelector(".creator-avatar-clip"), _cx, _cy, _cz, 48);
+
+    /* Background refresh for missing/broken avatars — patches card + Firestore when resolved */
+    if (needsRefresh) {
+        const creatorUrl = link.url || link.profileUrl || "";
+        const parsed     = creatorUrl ? _mghParseCreatorUrl(creatorUrl) : null;
+        if (parsed?.username) {
+            const key = _mghProfileKey(parsed.platform, parsed.username);
+            /* Use session cache to avoid duplicate fetches for the same creator */
+            if (_mghProfileCache.has(key)) {
+                /* Already resolved this session — patch immediately */
+                const cached = _mghProfileCache.get(key);
+                if (cached) card.querySelector(".creator-avatar").src = cached;
+            } else {
+                _mghRefreshAvatarBackground(link, card, parsed);
+            }
+        }
+    }
 
     card.addEventListener("click", e => {
         if (e.target.closest(".db-card-actions,.creator-card-link")) return;
@@ -1655,7 +2022,7 @@ async function _mghAutoLinkPerson(person) {
     const name = (person.title || "").toLowerCase().trim();
     if (!name) { toast("Person has no name to match against.", "info"); return; }
 
-    const MEDIA_TYPES = ["image", "3d-model", "image-group", "youtube-video", "youtube-playlist", "video"];
+    const MEDIA_TYPES = ["image", "3d-model", "image-group", "youtube-video", "youtube-playlist", "video", "video-group"];
     const catMedia = _links.filter(l => l.category === person.category && MEDIA_TYPES.includes(l.type));
 
     const unlinked = catMedia.filter(l => {
@@ -1673,7 +2040,7 @@ async function _mghAutoLinkPerson(person) {
         await Promise.all(unlinked.map(l => {
             const existing = l.personIds || (l.personId ? [l.personId] : []);
             const newIds   = [...existing, person.id];
-            return updateDoc(doc(_db, "users", _user.uid, "gallery-links", l.id), {
+            return updateDoc(doc(_db, "users", _uid(), "gallery-links", l.id), {
                 personIds: newIds,
                 personId:  newIds[0],
             });
@@ -1702,15 +2069,15 @@ function _mghFeedCard(link) {
         const embed = _mghEmbed(link.url);
         if (embed) {
             if (embed.type === "direct") {
-                mediaHtml = `<video class="feed-card-media" src="${escHtml(embed.src)}" controls preload="metadata"></video>`;
+                mediaHtml = `<video class="feed-card-media" src="${escHtml(embed.src)}" controls preload="metadata" playsinline></video>`;
             } else {
-                mediaHtml = `<iframe class="feed-card-media" src="${escHtml(embed.src)}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" loading="lazy"></iframe>`;
+                const apiSrc = embed.src + (embed.src.includes("?") ? "&" : "?") + "enablejsapi=1";
+                mediaHtml = `<iframe class="feed-card-media" src="${escHtml(apiSrc)}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" loading="lazy"></iframe>`;
             }
         } else if (link.thumbUrl) {
-            mediaHtml = `<img class="feed-card-media" src="${escHtml(link.thumbUrl)}" alt="${escHtml(link.title || "")}">
-                <div class="feed-card-play-btn"><svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" fill="rgba(0,0,0,0.5)" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/><path d="M13 10.5l10 5.5-10 5.5z" fill="white"/></svg></div>`;
+            mediaHtml = `<img class="feed-card-media" src="${escHtml(link.thumbUrl)}" alt="${escHtml(link.title || "")}"><div class="feed-card-play-btn">${_playSvg(44)}</div>`;
         } else {
-            mediaHtml = `<div class="feed-card-placeholder"><svg viewBox="0 0 32 32" fill="none"><path d="M13 10.5l10 5.5-10 5.5z" fill="rgba(255,255,255,0.4)"/></svg></div>`;
+            mediaHtml = `<div class="feed-card-placeholder">${_playSvg(44)}</div>`;
         }
     } else {
         const src = link.thumbUrl || link.url;
@@ -1831,6 +2198,375 @@ function _mghImageGroupFeedCard(link) {
     return card;
 }
 
+/* ══════════ VIDEO GROUP ══════════ */
+
+/* Grid card — shows thumbnails/count for a video collection */
+function _mghVideoGroupCard(link) {
+    const card  = document.createElement("div"); card.className = "image-group-card";
+    const vids  = Array.isArray(link.videos) ? link.videos.filter(v => v?.url) : [];
+    const count = vids.length;
+    if (!count) {
+        card.innerHTML = `<div style="background:#111;min-height:80px;display:flex;align-items:center;justify-content:center;color:#444;font-size:0.72rem">No videos</div>
+            <div class="image-card-body"><span class="image-type-badge">VIDEO GROUP</span><span class="image-card-name">${escHtml(link.title || "")}</span></div>`;
+        card.appendChild(_mghCardActions(link));
+        return card;
+    }
+    const creator   = _mghFindCreatorFor(link);
+    const personIds = link.personIds || (link.personId ? [link.personId] : []);
+    const persons   = personIds.map(id => _links.find(l => l.id === id)).filter(Boolean);
+
+    // Register ALL videos in the global viewer list so navigation isn't isolated
+    const viStart = _mghViewItems.length;
+    vids.forEach(v => _mghViewItems.push({ type: "video", url: v.url, thumb: v.thumb || "", name: link.title || "" }));
+
+    const _vThumb = (v) => {
+        const embed = _mghEmbed(v.url);
+        return v.thumb || (embed?.type === "youtube"
+            ? `https://i.ytimg.com/vi/${embed.src.split("/embed/")[1]?.split("?")[0]}/mqdefault.jpg`
+            : "");
+    };
+
+    if (count <= 4) {
+        /* Grid of up to 4 thumbnails */
+        const grid = document.createElement("div"); grid.className = "image-group-grid"; grid.dataset.count = count;
+        vids.forEach((v, idx) => {
+            const item = document.createElement("div"); item.className = "ig-item";
+            item.style.position = "relative";
+            const thumbSrc = _vThumb(v);
+            if (thumbSrc) {
+                const imgEl = document.createElement("img");
+                imgEl.src = thumbSrc; imgEl.alt = link.title || ""; imgEl.loading = "lazy";
+                item.appendChild(imgEl);
+            } else {
+                const ph = document.createElement("div"); ph.style.cssText = "width:100%;height:100%;background:#1a1a1a;display:flex;align-items:center;justify-content:center";
+                ph.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+                item.appendChild(ph);
+            }
+            const play = document.createElement("div"); play.style.cssText = "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none";
+            play.innerHTML = _playSvg(36);
+            item.appendChild(play);
+            item.addEventListener("click", e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], viStart + idx); });
+            grid.appendChild(item);
+        });
+        if (count > 1) {
+            const firstImg = grid.querySelector("img");
+            if (firstImg) {
+                const lockHeight = () => {
+                    const h = firstImg.offsetHeight;
+                    if (h > 0) grid.style.height = `${h * (count === 4 ? 2 : 1)}px`;
+                    else requestAnimationFrame(lockHeight);
+                };
+                firstImg.complete ? requestAnimationFrame(lockHeight)
+                                  : firstImg.addEventListener("load", () => requestAnimationFrame(lockHeight), { once: true });
+            }
+        }
+        card.appendChild(grid);
+    } else {
+        /* Cycling slideshow for > 4 videos — same as image groups */
+        let curIdx = 0;
+        let heightLocked = false;
+        const wrap = document.createElement("div"); wrap.className = "ig-cycle-wrap";
+        const imgEl = document.createElement("img"); imgEl.className = "ig-cycle-img";
+        const firstThumb = _vThumb(vids[0]);
+        imgEl.src = firstThumb; imgEl.alt = link.title || ""; imgEl.loading = "lazy";
+        const playOverlay = document.createElement("div");
+        playOverlay.style.cssText = "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none";
+        playOverlay.innerHTML = _playSvg(44);
+        const counter = document.createElement("div"); counter.className = "ig-cycle-counter";
+        counter.textContent = `1 / ${count}`;
+        const goTo = (idx) => {
+            curIdx = (idx + count) % count;
+            imgEl.src = _vThumb(vids[curIdx]); imgEl.alt = link.title || "";
+            counter.textContent = `${curIdx + 1} / ${count}`;
+        };
+        const prev = document.createElement("button"); prev.className = "ig-cycle-btn ig-cycle-prev"; prev.innerHTML = "&#8249;"; prev.title = "Previous";
+        const next = document.createElement("button"); next.className = "ig-cycle-btn ig-cycle-next"; next.innerHTML = "&#8250;"; next.title = "Next";
+        prev.addEventListener("click", e => { e.stopPropagation(); goTo(curIdx - 1); });
+        next.addEventListener("click", e => { e.stopPropagation(); goTo(curIdx + 1); });
+        wrap.addEventListener("click", e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], viStart + curIdx); });
+        const lockWrap = () => {
+            const h = imgEl.offsetHeight;
+            if (h > 0 && !heightLocked) {
+                heightLocked = true; wrap.style.height = `${h}px`;
+                imgEl.style.height = "100%"; imgEl.style.objectFit = "cover";
+            } else if (!heightLocked) requestAnimationFrame(lockWrap);
+        };
+        imgEl.complete ? requestAnimationFrame(lockWrap)
+                       : imgEl.addEventListener("load", () => requestAnimationFrame(lockWrap), { once: true });
+        wrap.appendChild(imgEl); wrap.appendChild(playOverlay); wrap.appendChild(prev); wrap.appendChild(next); wrap.appendChild(counter);
+        card.appendChild(wrap);
+        let _autoTimer = setInterval(() => goTo(curIdx + 1), 3000);
+        wrap.addEventListener("mouseenter", () => clearInterval(_autoTimer));
+        wrap.addEventListener("mouseleave", () => { _autoTimer = setInterval(() => goTo(curIdx + 1), 3000); });
+        new MutationObserver((_, obs) => { if (!document.contains(card)) { clearInterval(_autoTimer); obs.disconnect(); } })
+            .observe(document.body, { childList: true, subtree: true });
+    }
+    const body = document.createElement("div"); body.className = "image-card-body";
+    body.innerHTML = `<span class="image-type-badge">VIDEO GROUP</span><span class="image-card-name">${escHtml(link.title || `${count} video${count !== 1 ? "s" : ""}`)}</span>${link.sourceUrl ? `<a class="card-source-link" href="${escHtml(link.sourceUrl)}" target="_blank" rel="noopener noreferrer" title="Go to source" onclick="event.stopPropagation()"><svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M5.5 1H9v3.5M9 1L4 6M2 3.5H1v5.5h5.5V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>` : ""}`;
+    card.appendChild(body);
+    if (creator) { const el = document.createElement("div"); el.className = "image-card-creator"; el.title = `Creator: ${creator.title||""}`; el.innerHTML = `<svg width="10" height="10" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2.761 2.686-5 6-5s6 2.239 6 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg><span>${escHtml(creator.title||"")}</span>`; el.addEventListener("click", e=>{e.stopPropagation();_mghOpenCreatorPanel(creator);}); card.appendChild(el); }
+    if (persons.length) { const el = document.createElement("div"); el.className = "image-card-person"; el.innerHTML = `<svg width="10" height="10" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="2.5" stroke="#55ccbb" stroke-width="1.3"/><path d="M1 13c0-2.761 2.686-5 6-5s6 2.239 6 5" stroke="#55ccbb" stroke-width="1.3" stroke-linecap="round"/></svg><span class="image-card-person-name">${escHtml(persons.map(p=>p.title).join(", "))}</span>`; el.addEventListener("click", e=>{e.stopPropagation();if(persons[0])_mghOpenCreatorPanel(persons[0]);}); card.appendChild(el); }
+    card.appendChild(_mghCardActions(link));
+    return card;
+}
+
+/* Feed card — TikTok-style swipeable video player */
+function _mghVideoGroupFeedCard(link) {
+    const vids = Array.isArray(link.videos) ? link.videos.filter(v => v?.url) : [];
+    if (!vids.length) return null;
+
+    let curIdx = 0;
+    const card = document.createElement("div"); card.className = "feed-card feed-card--group"; card.dataset.id = link.id;
+
+    const mediaWrap = document.createElement("div"); mediaWrap.className = "feed-card-media-wrap";
+
+    const _buildThumbFallback = (v) => {
+        const a = document.createElement("a");
+        a.className = "feed-card-media feed-vg-player feed-vg-thumb-fallback";
+        a.href = v.url; a.target = "_blank"; a.rel = "noopener noreferrer";
+        a.addEventListener("click", e => e.stopPropagation());
+        if (v.thumb) {
+            const img = document.createElement("img"); img.src = v.thumb; img.alt = "";
+            img.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;";
+            a.appendChild(img);
+        }
+        const play = document.createElement("div");
+        play.style.cssText = "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none";
+        play.innerHTML = _playSvg(56);
+        a.appendChild(play);
+        return a;
+    };
+
+    function _buildPlayer(v) {
+        const embed = _mghEmbed(v.url);
+        if (embed?.type === "direct") {
+            const vid = document.createElement("video");
+            vid.className = "feed-card-media feed-vg-player"; vid.src = embed.src; vid.controls = true; vid.preload = "metadata"; vid.playsInline = true;
+            vid.addEventListener("error", () => {
+                vid.parentNode?.replaceChild(_buildThumbFallback(v), vid);
+            }, { once: true });
+            return vid;
+        }
+        if (embed) {
+            const src = embed.src + (embed.src.includes("?") ? "&" : "?") + "enablejsapi=1";
+            const iframe = document.createElement("iframe");
+            iframe.className = "feed-card-media feed-vg-player"; iframe.src = src; iframe.allowFullscreen = true;
+            iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+            iframe.loading = "lazy"; iframe.dataset.embedType = embed.type;
+            return iframe;
+        }
+        return _buildThumbFallback(v);
+    }
+
+    let playerEl = _buildPlayer(vids[0]);
+    mediaWrap.appendChild(playerEl);
+    card.appendChild(mediaWrap);
+
+    /* Dot nav */
+    const dotsEl = document.createElement("div"); dotsEl.className = "feed-card-slideshow-dots";
+    if (vids.length > 1) {
+        vids.forEach((_, i) => { const d = document.createElement("span"); d.className = "feed-card-slideshow-dot" + (i === 0 ? " active" : ""); dotsEl.appendChild(d); });
+        card.appendChild(dotsEl);
+    }
+
+    const goTo = (idx) => {
+        curIdx = (idx + vids.length) % vids.length;
+        /* Pause current before switching */
+        if (playerEl.tagName === "VIDEO") { playerEl.pause(); }
+        else if (playerEl.tagName === "IFRAME") { _iframePause(playerEl); }
+        mediaWrap.innerHTML = "";
+        playerEl = _buildPlayer(vids[curIdx]);
+        mediaWrap.appendChild(playerEl);
+        dotsEl.querySelectorAll(".feed-card-slideshow-dot").forEach((d, i) => d.classList.toggle("active", i === curIdx));
+    };
+
+    if (vids.length > 1) {
+        const prev = document.createElement("button"); prev.className = "ig-cycle-btn ig-cycle-prev"; prev.innerHTML = "&#8249;"; prev.title = "Previous";
+        const next = document.createElement("button"); next.className = "ig-cycle-btn ig-cycle-next"; next.innerHTML = "&#8250;"; next.title = "Next";
+        prev.addEventListener("click", e => { e.stopPropagation(); goTo(curIdx - 1); });
+        next.addEventListener("click", e => { e.stopPropagation(); goTo(curIdx + 1); });
+        card.appendChild(prev); card.appendChild(next);
+        let _sx = 0;
+        card.addEventListener("touchstart", e => { _sx = e.touches[0].clientX; }, { passive: true });
+        card.addEventListener("touchend", e => { const dx = e.changedTouches[0].clientX - _sx; if (Math.abs(dx) > 40) goTo(dx < 0 ? curIdx + 1 : curIdx - 1); }, { passive: true });
+    }
+
+    const creator = _mghFindCreatorFor(link);
+    const overlay = document.createElement("div"); overlay.className = "feed-card-overlay";
+    overlay.innerHTML = `<div class="feed-card-info">
+        ${link.title ? `<div class="feed-card-title">${escHtml(link.title)}</div>` : ""}
+        ${creator ? `<div class="feed-card-creator"><span class="feed-card-creator-name">${escHtml(creator.title||"")}</span></div>` : ""}
+        <div class="feed-card-vg-count"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:-2px">video_library</span> ${vids.length} video${vids.length!==1?"s":""}</div>
+    </div>`;
+    overlay.querySelector(".feed-card-creator")?.addEventListener("click", e => { e.stopPropagation(); _mghOpenCreatorPanel(creator); });
+    card.appendChild(overlay);
+    card.appendChild(_mghCardActions(link));
+    return card;
+}
+
+/* Open the shared viewer for video groups — reuses all nav, keyboard, dots */
+function _mghOpenVideoGroupViewer(link, startIdx) {
+    const vids = Array.isArray(link.videos) ? link.videos.filter(v => v?.url) : [];
+    if (!vids.length) return;
+    const items = vids.map(v => ({ type: "video", url: v.url, thumb: v.thumb || "", name: link.title || "" }));
+    _mghOpenViewer(items, startIdx || 0);
+}
+
+/* ══════════ FEED VIDEO AUTOPLAY ══════════ */
+
+function _iframePause(iframe) {
+    const src = iframe.src || "";
+    if (src.includes("youtube") || src.includes("youtu.be") || src.includes("youtube-nocookie")) {
+        iframe.contentWindow?.postMessage('{"event":"command","func":"pauseVideo","args":""}', "*");
+    } else if (src.includes("vimeo")) {
+        iframe.contentWindow?.postMessage('{"method":"pause"}', "*");
+    }
+}
+function _iframePlay(iframe) {
+    const src = iframe.src || "";
+    if (src.includes("youtube") || src.includes("youtu.be") || src.includes("youtube-nocookie")) {
+        iframe.contentWindow?.postMessage('{"event":"command","func":"playVideo","args":""}', "*");
+    } else if (src.includes("vimeo")) {
+        iframe.contentWindow?.postMessage('{"method":"play"}', "*");
+    }
+}
+
+/**
+ * Sets up IntersectionObserver-based autoplay for all video/iframe elements
+ * in a feed container. Videos play when ≥50% visible, pause when they leave.
+ * Everything pauses when the tab loses focus.
+ */
+function _initFeedAutoplay(container) {
+    if (!container) return;
+    const obs = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            const el = entry.target;
+            if (entry.isIntersecting) {
+                if (el.tagName === "VIDEO")  { el.play().catch(() => {}); }
+                else if (el.tagName === "IFRAME") { _iframePlay(el); }
+            } else {
+                if (el.tagName === "VIDEO")  { el.pause(); }
+                else if (el.tagName === "IFRAME") { _iframePause(el); }
+            }
+        });
+    }, { threshold: 0.5 });
+
+    container.querySelectorAll("video, iframe.feed-card-media, iframe.feed-vg-player").forEach(el => obs.observe(el));
+
+    /* Also pause everything when the browser tab is hidden */
+    const onVisibility = () => {
+        if (document.hidden) {
+            container.querySelectorAll("video").forEach(v => v.pause());
+            container.querySelectorAll("iframe").forEach(f => _iframePause(f));
+        }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    /* Clean up observer if the container is removed from the DOM */
+    new MutationObserver((_, mo) => {
+        if (!container.isConnected) { obs.disconnect(); mo.disconnect(); document.removeEventListener("visibilitychange", onVisibility); }
+    }).observe(document.body, { childList: true, subtree: true });
+}
+
+/* ══════════ VIDEO-GROUP FORM HELPERS ══════════ */
+
+function _addIgImageField(urlVal = "", nameVal = "") {
+    const list = document.getElementById("link-ig-list"); if (!list) return;
+    const row = document.createElement("div"); row.className = "link-vg-row";
+    row.innerHTML = `
+        <div class="link-vg-fields">
+            <input type="url"  class="link-ig-url"  placeholder="https://…" value="${escHtml(urlVal)}">
+            <input type="text" class="link-ig-name" placeholder="Caption (optional)" value="${escHtml(nameVal)}">
+        </div>
+        <button type="button" class="link-vg-remove ws-icon-btn" title="Remove">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>`;
+    row.querySelector(".link-vg-remove").addEventListener("click", () => row.remove());
+    list.appendChild(row);
+}
+
+function _initImageGroupForm() {
+    document.getElementById("btn-add-ig-image")?.addEventListener("click", () => _addIgImageField());
+}
+
+function _openLinksSettings() {
+    const grid = document.getElementById("links-dicebear-grid");
+    if (grid) {
+        grid.innerHTML = "";
+        DICEBEAR_STYLES.forEach(s => {
+            const btn = document.createElement("button");
+            btn.className = "dicebear-style-btn" + (s.id === _dicebearStyle ? " active" : "");
+            btn.title = s.label;
+            btn.dataset.style = s.id;
+            const previewUrl = `https://api.dicebear.com/10.x/${s.id}/svg?seed=preview`;
+            btn.innerHTML = `<img src="${previewUrl}" width="48" height="48" loading="lazy" alt="${escHtml(s.label)}"><span>${escHtml(s.label)}</span>`;
+            btn.addEventListener("click", async () => {
+                _dicebearStyle = s.id;
+                try { localStorage.setItem("links_dicebear_style", s.id); } catch {}
+                grid.querySelectorAll(".dicebear-style-btn").forEach(b => b.classList.toggle("active", b.dataset.style === s.id));
+                if (!_db || !_user?.uid || _adminOwnerUid) return;
+                // Save style preference
+                setDoc(refs.linkSettings(_db, _uid()), { dicebearStyle: s.id }, { merge: true }).catch(console.error);
+                // Clear any stored DiceBear URLs — they should never be in the database
+                const toClean = _links.filter(l => (l.thumbUrl || "").includes("dicebear.com"));
+                if (!toClean.length) return;
+                const batch = writeBatch(_db);
+                toClean.forEach(l => {
+                    batch.update(doc(_db, "users", _uid(), "gallery-links", l.id), { thumbUrl: deleteField() });
+                });
+                await batch.commit().catch(console.error);
+            });
+            grid.appendChild(btn);
+        });
+    }
+    openModal("modal-links-settings");
+}
+
+function _initVideoGroupForm() {
+    /* Inject option into the type <select> */
+    const sel = document.getElementById("link-type-field");
+    if (sel && !sel.querySelector('[value="video-group"]')) {
+        const opt = document.createElement("option");
+        opt.value = "video-group"; opt.textContent = "Video Group";
+        const videoOpt = sel.querySelector('[value="video"]');
+        if (videoOpt) videoOpt.after(opt); else sel.appendChild(opt);
+    }
+
+    /* Inject the section into the form */
+    if (document.getElementById("link-video-group-section")) return;
+    const form = document.getElementById("form-add-link");
+    if (!form) return;
+    const section = document.createElement("div");
+    section.id = "link-video-group-section"; section.style.display = "none";
+    section.innerHTML = `
+        <div class="form-group">
+            <label>Videos <span class="form-hint">(add as many as you want)</span></label>
+            <div id="link-vg-list" class="link-vg-list"></div>
+            <button type="button" id="btn-add-vg-video" class="ws-btn ws-btn-ghost ws-btn-sm" style="margin-top:6px">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add video
+            </button>
+        </div>`;
+    const urlGroup = document.getElementById("link-url-group");
+    if (urlGroup) urlGroup.parentNode.insertBefore(section, urlGroup.nextSibling);
+    else form.appendChild(section);
+
+    document.getElementById("btn-add-vg-video")?.addEventListener("click", () => _addVgVideoField());
+    /* Ensure at least one row shows when the type is first selected */
+}
+
+function _addVgVideoField(urlVal = "", thumbVal = "") {
+    const list = document.getElementById("link-vg-list"); if (!list) return;
+    const row = document.createElement("div"); row.className = "link-vg-row";
+    row.innerHTML = `
+        <input type="url" class="link-vg-url"   placeholder="https://… (YouTube, video file…)" value="${escHtml(urlVal)}">
+        <input type="url" class="link-vg-thumb" placeholder="Thumbnail URL (optional)"          value="${escHtml(thumbVal)}">
+        <button type="button" class="link-vg-remove ws-icon-btn" title="Remove">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>`;
+    row.querySelector(".link-vg-remove").addEventListener("click", () => row.remove());
+    list.appendChild(row);
+}
+
 /* ══════════ MEDIA HUB VIEW ══════════ */
 
 function _renderMediaHub(body, cat) {
@@ -1852,7 +2588,7 @@ function _renderMediaHub(body, cat) {
     const CREATOR_TYPES = ["creator", "youtube-channel"];
     const PERSON_TYPES  = ["person"];
     const IMAGE_TYPES   = ["image", "3d-model", "image-group"];
-    const VIDEO_TYPES   = ["youtube-video", "youtube-playlist", "video"];
+    const VIDEO_TYPES   = ["youtube-video", "youtube-playlist", "video", "video-group"];
 
     const hub = document.createElement("div"); hub.className = "media-gallery-hub";
 
@@ -1942,7 +2678,22 @@ function _renderMediaHub(body, cat) {
     let _order = _mghSectionOrder || DEFAULT_ORDER;
     _order = [...new Set([..._order, ...DEFAULT_ORDER])]; // ensure all keys present
 
+    const _scrollKey = `mgh_scroll_${cat.id || cat.name}`;
+    // Persist scroll position continuously
+    const _onScroll = () => sessionStorage.setItem(_scrollKey, String(Math.round(window.scrollY)));
+    window.addEventListener("scroll", _onScroll, { passive: true });
+    hub.addEventListener("ws:destroy", () => window.removeEventListener("scroll", _onScroll), { once: true });
+
+    const _restoreScroll = () => {
+        const t = Number(sessionStorage.getItem(_scrollKey) || 0);
+        if (t > 0) window.scrollTo({ top: t, behavior: "instant" });
+    };
+
     function _renderSections() {
+        // Schedule scroll restore at multiple timings: after DOM build, after first paint, after images start loading
+        requestAnimationFrame(_restoreScroll);
+        setTimeout(_restoreScroll, 50);
+        setTimeout(_restoreScroll, 300);
         mghBody.innerHTML = "";
         _mghViewItems = [];
         const search = _mghSearch;
@@ -1974,10 +2725,14 @@ function _renderMediaHub(body, cat) {
             const idMap = Object.fromEntries(allMedia.map(l => [l.id, l]));
             const feedGrid = document.createElement("div"); feedGrid.className = "shorts-grid";
             _mghFeedIds.map(id => idMap[id]).filter(Boolean).forEach(l => {
-                const c = l.type === "image-group" ? _mghImageGroupFeedCard(l) : _mghFeedCard(l);
+                let c;
+                if (l.type === "image-group")       c = _mghImageGroupFeedCard(l);
+                else if (l.type === "video-group")  c = _mghVideoGroupFeedCard(l);
+                else                                c = _mghFeedCard(l);
                 if (c) feedGrid.appendChild(c);
             });
             mghBody.appendChild(feedGrid);
+            _initFeedAutoplay(feedGrid);
             return;
         }
 
@@ -1985,7 +2740,7 @@ function _renderMediaHub(body, cat) {
             creator: { label: "Creators",        items: creators, gridClass: "creators-grid", buildCard: _mghCreatorCard },
             person:  { label: "Persons & Chars",  items: persons,  gridClass: "creators-grid", buildCard: _mghCreatorCard },
             image:   { label: "Images & 3D",      items: images,   gridClass: "media-grid",    buildCard: l => l.type === "image-group" ? _mghImageGroupCard(l) : _mghImageCard(l) },
-            video:   { label: "Videos",           items: videos,   gridClass: "media-grid",    buildCard: _mghVideoCard },
+            video:   { label: "Videos",           items: videos,   gridClass: "media-grid",    buildCard: l => l.type === "video-group" ? _mghVideoGroupCard(l) : _mghVideoCard(l) },
             site:    { label: "Sites & Files",    items: sites,    gridClass: "db-sites-grid", buildCard: _mghSiteCard },
         };
 
@@ -2007,12 +2762,11 @@ function _renderMediaHub(body, cat) {
         hdr.addEventListener("mousedown", () => sg.setAttribute("draggable", "true"));
         sg.addEventListener("mouseleave", () => sg.setAttribute("draggable", "false"));
         sg.addEventListener("mouseup", () => sg.setAttribute("draggable", "false"));
-        sg.addEventListener("dragstart", e => { window._mghDragSg = sg; e.dataTransfer.effectAllowed = "move"; setTimeout(() => sg.style.opacity = "0.4", 0); });
+        sg.addEventListener("dragstart", e => { window._mghDragSg = sg; e.dataTransfer.effectAllowed = "move"; setTimeout(() => sg.style.opacity = "0.4", 0); _asStart(mghBody); });
         sg.addEventListener("dragover", e => {
             e.preventDefault(); e.dataTransfer.dropEffect = "move";
             if (!window._mghDragSg) return;
-            const bodyRect = mghBody.getBoundingClientRect(), y = e.clientY - bodyRect.top;
-            if (y < 80) mghBody.scrollTop -= 15; else if (y > bodyRect.height - 80) mghBody.scrollTop += 15;
+            _asMove(e.clientY);
             const afterEl = [...mghBody.querySelectorAll(".db-sub-group:not([style*='opacity: 0.4'])")].reduce((closest, child) => {
                 const box = child.getBoundingClientRect(); const offset = e.clientY - box.top - box.height / 2;
                 if (offset < 0 && offset > closest.offset) return { offset, element: child };
@@ -2021,7 +2775,7 @@ function _renderMediaHub(body, cat) {
             if (afterEl == null) mghBody.appendChild(window._mghDragSg); else mghBody.insertBefore(window._mghDragSg, afterEl);
         });
         sg.addEventListener("dragend", () => {
-            sg.setAttribute("draggable", "false"); sg.style.opacity = "1";
+            sg.setAttribute("draggable", "false"); sg.style.opacity = "1"; _asStop();
             if (window._mghDragSg) {
                 window._mghDragSg = null;
                 _order = [...mghBody.querySelectorAll(".db-sub-group")].map(el => el.dataset.typeKey);
@@ -2040,7 +2794,7 @@ function _renderMediaHub(body, cat) {
 async function _mghImportFromWorkspace(cat) {
     let projects = [];
     try {
-        const snap = await getDocs(refs.projects(_db, _user.uid));
+        const snap = await getDocs(refs.projects(_db, _uid()));
         projects = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p.title);
     } catch (err) { console.error(err); toast("Could not fetch workspace projects.", "error"); return; }
     if (!projects.length) { toast("No workspace projects found.", "error"); return; }
@@ -2087,13 +2841,13 @@ async function _doWorkspaceImport(cat, projId, skipDup) {
     // Mirror workspace logic: links use categoryId === sourceCategoryId ?? projectId
     let catId = projId;
     try {
-        const projSnap = await getDoc(refs.project(_db, _user.uid, projId));
+        const projSnap = await getDoc(refs.project(_db, _uid(), projId));
         if (projSnap.exists()) catId = projSnap.data().sourceCategoryId ?? projId;
     } catch { /* fall back to projId */ }
 
     let wsLinks = [];
     try {
-        const snap = await getDocs(query(refs.links(_db, _user.uid),
+        const snap = await getDocs(query(refs.links(_db, _uid()),
             where("categoryId", "==", catId)));
         wsLinks = snap.docs.map(d => ({ id: d.id, ...d.data() }))
             .sort((a, b) => (a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0));
@@ -2156,7 +2910,7 @@ async function _doWorkspaceImport(cat, projId, skipDup) {
             continue;
         }
         try {
-            const ref = await addDoc(refs.galleryLinks(_db, _user.uid), mapDoc(l, remapId));
+            const ref = await addDoc(refs.galleryLinks(_db, _uid()), mapDoc(l, remapId));
             idMap[l.id] = ref.id;
             if (l.url) existingUrls.add(l.url);
             count++;
@@ -2168,7 +2922,7 @@ async function _doWorkspaceImport(cat, projId, skipDup) {
         if (l.type === "creator" || l.type === "person") continue;
         if (skipDup && l.url && existingUrls.has(l.url)) continue;
         try {
-            await addDoc(refs.galleryLinks(_db, _user.uid), mapDoc(l, remapId));
+            await addDoc(refs.galleryLinks(_db, _uid()), mapDoc(l, remapId));
             if (l.url) existingUrls.add(l.url);
             count++;
         } catch (err) { console.error("[import] media:", err); }
@@ -2182,6 +2936,8 @@ function _render() {
     _renderCatBar();
     const body = document.getElementById("links-body");
     if (!body) return;
+    // Notify any media hub teardown listeners before wiping content
+    body.querySelector(".media-gallery-hub")?.dispatchEvent(new Event("ws:destroy"));
 
     // Mark app container with active prefab for CSS-driven UI hiding
     const _appEl = document.getElementById("app-links");
@@ -2444,7 +3200,7 @@ async function _delete(id) {
     const ok   = await confirm(`Delete "${link?.title || link?.url}"?`);
     if (!ok) return;
     try {
-        await deleteDoc(doc(_db, "users", _user.uid, "gallery-links", id));
+        await deleteDoc(doc(_db, "users", _uid(), "gallery-links", id));
         toast("Link deleted");
     } catch (err) {
         console.error(err);
@@ -2456,7 +3212,7 @@ async function _togglePin(id) {
     const link = _links.find(l => l.id === id);
     if (!link) return;
     try {
-        await updateDoc(doc(_db, "users", _user.uid, "gallery-links", id), {
+        await updateDoc(doc(_db, "users", _uid(), "gallery-links", id), {
             pinned: !link.pinned, updatedAt: serverTimestamp(),
         });
     } catch (err) { console.error(err); toast("Error updating link", "error"); }
@@ -2470,8 +3226,8 @@ async function _reorder(draggedId, targetId) {
     const tOrder = target.sortOrder ?? Date.now() - 1;
     try {
         await Promise.all([
-            updateDoc(doc(_db, "users", _user.uid, "gallery-links", draggedId), { sortOrder: tOrder, updatedAt: serverTimestamp() }),
-            updateDoc(doc(_db, "users", _user.uid, "gallery-links", targetId),  { sortOrder: dOrder, updatedAt: serverTimestamp() }),
+            updateDoc(doc(_db, "users", _uid(), "gallery-links", draggedId), { sortOrder: tOrder, updatedAt: serverTimestamp() }),
+            updateDoc(doc(_db, "users", _uid(), "gallery-links", targetId),  { sortOrder: dOrder, updatedAt: serverTimestamp() }),
         ]);
     } catch (err) { console.error(err); }
 }
@@ -2703,7 +3459,7 @@ async function _onCatFormSubmit(e) {
         if (oldName && oldName !== name) {
             const toUpdate = _links.filter(l => l.category === oldName);
             Promise.all(toUpdate.map(l =>
-                updateDoc(doc(_db, "users", _user.uid, "gallery-links", l.id), { category: name, updatedAt: serverTimestamp() })
+                updateDoc(doc(_db, "users", _uid(), "gallery-links", l.id), { category: name, updatedAt: serverTimestamp() })
             )).catch(err => console.error(err));
             if (_activeCat === oldName) _activeCat = name;
         }
@@ -2737,7 +3493,7 @@ async function _deleteCat(id) {
     // Remove the category from all links in Firestore so they don't recreate it
     if (linksInCat.length) {
         Promise.all(linksInCat.map(l =>
-            updateDoc(doc(_db, "users", _user.uid, "gallery-links", l.id), { category: deleteField() })
+            updateDoc(doc(_db, "users", _uid(), "gallery-links", l.id), { category: deleteField() })
         )).catch(err => console.error("[links] _deleteCat uncat error:", err));
     }
     toast("Category deleted");
@@ -2787,14 +3543,25 @@ function _openForm(editId) {
         const _blf = document.getElementById("link-badge-label-field"); if (_blf) _blf.value = link.badgeLabel || "";
         const _bcf = document.getElementById("link-badge-color-field"); if (_bcf) _bcf.value = link.badgeColor || "#888888";
         const _sf  = document.getElementById("link-source-field");      if (_sf)  _sf.value  = link.sourceUrl  || "";
-        // Pre-fill image group URL fields
-        for (let i = 1; i <= 4; i++) {
-            const el = document.getElementById(`link-ig-url-${i}`);
-            if (el) el.value = link.images?.[i - 1]?.url || "";
-        }
+        // Pre-fill image group rows
         if (link.type === "image-group") {
+            const igList = document.getElementById("link-ig-list");
+            if (igList) {
+                igList.innerHTML = "";
+                (link.images || []).forEach(img => _addIgImageField(img.url || "", img.name || ""));
+                if (!link.images?.length) _addIgImageField();
+            }
             const _sf2 = document.getElementById("link-source-field");
             if (_sf2) _sf2.value = link.sourceUrl || "";
+        }
+        // Pre-fill video group rows
+        if (link.type === "video-group") {
+            const vgList = document.getElementById("link-vg-list");
+            if (vgList) {
+                vgList.innerHTML = "";
+                (link.videos || []).forEach(v => _addVgVideoField(v.url, v.thumb || ""));
+                if (!link.videos?.length) _addVgVideoField();
+            }
         }
         // Attribution
         if (creatorSel && link.creatorId) creatorSel.value = link.creatorId;
@@ -2832,6 +3599,9 @@ function _openForm(editId) {
         document.getElementById("link-batch-field").value = "";
         _updateBatchHint();
         _updateTypeHint("website");
+        // Clear dynamic group lists so stale rows from previous edit don't show
+        const _igList = document.getElementById("link-ig-list"); if (_igList) _igList.innerHTML = "";
+        const _vgList = document.getElementById("link-vg-list"); if (_vgList) _vgList.innerHTML = "";
         // Reset crop
         _acmCx = 50; _acmCy = 50; _acmZoom = 1;
         const _zs2 = document.getElementById("acm-zoom"); if (_zs2) _zs2.value = 100;
@@ -2955,19 +3725,32 @@ function _updateTypeHint(type) {
     const isImage      = type === "image" || type === "3d-model";
     const isVideo      = type === "youtube-video" || type === "youtube-playlist" || type === "video";
     const isImageGroup = type === "image-group";
+    const isVideoGroup = type === "video-group";
 
     const urlGroup  = document.getElementById("link-url-group");
     const igSection = document.getElementById("link-image-group-section");
-    if (urlGroup)  urlGroup.style.display  = isImageGroup ? "none" : "";
-    if (igSection) igSection.style.display = isImageGroup ? ""     : "none";
+    const vgSection = document.getElementById("link-video-group-section");
+    if (urlGroup)  urlGroup.style.display  = (isImageGroup || isVideoGroup) ? "none" : "";
+    if (igSection) {
+        igSection.style.display = isImageGroup ? "" : "none";
+        if (isImageGroup && !document.getElementById("link-ig-list")?.children.length) {
+            _addIgImageField();
+        }
+    }
+    if (vgSection) {
+        vgSection.style.display = isVideoGroup ? "" : "none";
+        if (isVideoGroup && !document.getElementById("link-vg-list")?.children.length) {
+            _addVgVideoField(); // ensure at least one empty row shows
+        }
+    }
 
     if (urlLabel)    urlLabel.textContent    = isImage ? "Image URL *" : "URL *";
-    if (thumbGroup)  thumbGroup.style.display  = (isCreator || isPerson || isVideo || isImage) ? "" : "none";
+    if (thumbGroup)  thumbGroup.style.display  = (isCreator || isPerson || isVideo || isImage || isVideoGroup) ? "" : "none";
     if (thumbLabel)  thumbLabel.textContent  = (isCreator || isPerson) ? "Avatar URL" : "Thumbnail URL";
     if (sourceGroup) sourceGroup.style.display = (isImage || isImageGroup) ? "" : "none";
     if (badgeGroup)  badgeGroup.style.display  = (isCreator) ? "" : "none";
     if (descGroup)   descGroup.style.display   = (isCreator || isPerson) ? "" : "none";
-    if (attrGroup)   attrGroup.style.display   = (isImage || isVideo || isImageGroup) ? "" : "none";
+    if (attrGroup)   attrGroup.style.display   = (isImage || isVideo || isImageGroup || isVideoGroup) ? "" : "none";
     // Batch URL textarea makes no sense for image-group — hide it and show source URL instead
     const batchGroup = document.getElementById("link-batch-group");
     if (batchGroup) {
@@ -3093,10 +3876,10 @@ async function _buildBatchLinkData(url, category, preferredType = "") {
     } else if (meta?.imageUrl) {
         thumbUrl = meta.imageUrl;
     } else if (type === "youtube-channel" && parsedCreator?.platform && parsedCreator?.username) {
-        thumbUrl = _mghCreatorAvatar(parsedCreator.platform, parsedCreator.username);
-    } else if (_isSafeUrl(url)) {
-        thumbUrl = _mghThumb(url);
+        thumbUrl = await _mghCreatorAvatar(parsedCreator.platform, parsedCreator.username, url);
     }
+    /* thum.io removed: it returns HTML for adult/blocked sites which causes ORB errors.
+       Site cards show a favicon+domain fallback when no og:image is available. */
 
     const finalUrl = (type === "image" && !isDirectImage && meta?.imageUrl) ? meta.imageUrl : url;
     const finalTitle = (type === "image" && !isDirectImage && derivedTitle)
@@ -3141,7 +3924,7 @@ async function _importBatchUrls(urls, category, preferredType = "") {
         try {
             const data = await _buildBatchLinkData(url, category, preferredType);
             data.sortOrder = Date.now() + added;
-            await addDoc(refs.galleryLinks(_db, _user.uid), data);
+            await addDoc(refs.galleryLinks(_db, _uid()), data);
             added++;
         } catch (err) {
             console.error("[links] batch import failed:", url, err);
@@ -3181,10 +3964,11 @@ async function _onFormSubmit(e) {
     // Handle image-group separately — stores images[] array, no single URL
     if (selectedType === "image-group") {
         const imgs = [];
-        for (let i = 1; i <= 4; i++) {
-            const u = document.getElementById(`link-ig-url-${i}`)?.value.trim();
-            if (u && _isSafeUrl(u)) imgs.push({ url: u });
-        }
+        document.querySelectorAll("#link-ig-list .link-ig-url").forEach(inp => {
+            const u = inp.value.trim();
+            const n = inp.closest(".link-vg-row")?.querySelector(".link-ig-name")?.value.trim() || "";
+            if (u && _isSafeUrl(u)) imgs.push({ url: u, ...(n ? { name: n } : {}) });
+        });
         if (!imgs.length) { toast("Add at least one image URL", "error"); return; }
         const _igSrc  = document.getElementById("link-source-field")?.value.trim();
         const _igCVal = document.getElementById("link-creator-field")?.value || null;
@@ -3224,10 +4008,10 @@ async function _onFormSubmit(e) {
                         title: _igParsed.username, url: _igProfileUrls[_igParsed.platform] || _igSrc,
                         type: "creator", category: igData.category,
                         username: _igParsed.username, platform: _igParsed.platform,
-                        thumbUrl: _mghCreatorAvatar(_igParsed.platform, _igParsed.username),
+                        thumbUrl: await _mghCreatorAvatar(_igParsed.platform, _igParsed.username, _igProfileUrls[_igParsed.platform] || _igSrc),
                         badgeLabel: "", badgeColor: "", createdAt: serverTimestamp(),
                     };
-                    const _igDocRef = await addDoc(refs.galleryLinks(_db, _user.uid), _igCData);
+                    const _igDocRef = await addDoc(refs.galleryLinks(_db, _uid()), _igCData);
                     igData.creatorId = _igDocRef.id;
                     toast(`Creator @${_igParsed.username} auto-added.`);
                 }
@@ -3235,10 +4019,10 @@ async function _onFormSubmit(e) {
         }
         try {
             if (editId) {
-                await updateDoc(doc(_db, "users", _user.uid, "gallery-links", editId), igData);
+                await updateDoc(doc(_db, "users", _uid(), "gallery-links", editId), igData);
             } else {
                 igData.createdAt = serverTimestamp();
-                await addDoc(refs.galleryLinks(_db, _user.uid), igData);
+                await addDoc(refs.galleryLinks(_db, _uid()), igData);
             }
             closeModal("modal-link");
             _editId = null;
@@ -3246,6 +4030,44 @@ async function _onFormSubmit(e) {
         } catch (err) {
             console.error(err);
             toast("Error saving group", "error");
+        }
+        return;
+    }
+
+    // Handle video-group — stores videos[] array
+    if (selectedType === "video-group") {
+        const vids = [...document.querySelectorAll("#link-vg-list .link-vg-row")].map(row => {
+            const u = row.querySelector(".link-vg-url")?.value.trim()   || "";
+            const t = row.querySelector(".link-vg-thumb")?.value.trim() || "";
+            return { url: u, ...(t && _isSafeUrl(t) ? { thumb: t } : {}) };
+        }).filter(v => v.url && _isSafeUrl(v.url));
+        if (!vids.length) { toast("Add at least one video URL", "error"); return; }
+        const _vgCVal = document.getElementById("link-creator-field")?.value || null;
+        const _vgPSel = document.getElementById("link-person-field");
+        const _vgPIds = _vgPSel ? Array.from(_vgPSel.selectedOptions).map(o => o.value).filter(Boolean) : [];
+        const vgData = {
+            type:      "video-group",
+            title:     document.getElementById("link-title-field").value.trim(),
+            category:  document.getElementById("link-cat-field").value.trim(),
+            videos:    vids,
+            creatorId: _vgCVal,
+            personIds: _vgPIds,
+            personId:  _vgPIds[0] || null,
+            updatedAt: serverTimestamp(),
+        };
+        try {
+            if (editId) {
+                await updateDoc(doc(_db, "users", _uid(), "gallery-links", editId), vgData);
+            } else {
+                vgData.createdAt = serverTimestamp();
+                await addDoc(refs.galleryLinks(_db, _uid()), vgData);
+            }
+            closeModal("modal-link");
+            _editId = null;
+            toast(editId ? "Video group updated" : "Video group added", "success");
+        } catch (err) {
+            console.error(err);
+            toast("Error saving video group", "error");
         }
         return;
     }
@@ -3288,7 +4110,7 @@ async function _onFormSubmit(e) {
             if (parsed && parsed.platform !== "other" && parsed.username) {
                 data.username = parsed.username;
                 data.platform = parsed.platform;
-                if (!data.thumbUrl) data.thumbUrl = _mghCreatorAvatar(parsed.platform, parsed.username);
+                if (!data.thumbUrl) data.thumbUrl = await _mghCreatorAvatar(parsed.platform, parsed.username, url);
             }
         }
     }
@@ -3328,14 +4150,14 @@ async function _onFormSubmit(e) {
                             twitch:    `https://www.twitch.tv/${parsed.username}`,
                         };
                         const profileUrl = _profileUrls[parsed.platform] || sourceUrl;
-                        const avatarUrl  = _mghCreatorAvatar(parsed.platform, parsed.username);
+                        const avatarUrl  = await _mghCreatorAvatar(parsed.platform, parsed.username, profileUrl);
                         const cData = {
                             title: parsed.username, url: profileUrl, type: "creator",
                             category: data.category, username: parsed.username,
                             platform: parsed.platform, thumbUrl: avatarUrl,
                             badgeLabel: "", badgeColor: "", createdAt: serverTimestamp(),
                         };
-                        const docRef = await addDoc(refs.galleryLinks(_db, _user.uid), cData);
+                        const docRef = await addDoc(refs.galleryLinks(_db, _uid()), cData);
                         data.creatorId = docRef.id;
                         toast(`Creator @${parsed.username} auto-added.`);
                     }
@@ -3374,7 +4196,7 @@ async function _onFormSubmit(e) {
                                         description: wData.description || "",
                                         createdAt: serverTimestamp(),
                                     };
-                                    const docRef = await addDoc(refs.galleryLinks(_db, _user.uid), pData);
+                                    const docRef = await addDoc(refs.galleryLinks(_db, _uid()), pData);
                                     detectedId = docRef.id;
                                     toast(`Person "${pData.title}" auto-added.`);
                                 }
@@ -3390,10 +4212,10 @@ async function _onFormSubmit(e) {
 
     try {
         if (editId) {
-            await updateDoc(doc(_db, "users", _user.uid, "gallery-links", editId), data);
+            await updateDoc(doc(_db, "users", _uid(), "gallery-links", editId), data);
             toast("Link updated", "success");
         } else {
-            await addDoc(refs.galleryLinks(_db, _user.uid), {
+            await addDoc(refs.galleryLinks(_db, _uid()), {
                 ...data, pinned: false, sortOrder: Date.now(), createdAt: serverTimestamp(),
             });
             toast("Link added", "success");
@@ -3507,7 +4329,7 @@ async function _fetchTmdbMeta(urlStr, title, type) {
 }
 
 function _streamRef(linkId) {
-    return collection(_db, "users", _user.uid, "gallery-links", linkId, "streaming-items");
+    return collection(_db, "users", _uid(), "gallery-links", linkId, "streaming-items");
 }
 
 async function _loadStreamItems(linkId) {
@@ -3841,7 +4663,7 @@ async function _reorderStreamUnit(src, tgt, insertAfter = false) {
             if (item.sortOrder !== newSO) {
                 item.sortOrder = newSO;
                 updates.push(updateDoc(
-                    doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", item.id),
+                    doc(_db, "users", _uid(), "gallery-links", _openDrawerLinkId, "streaming-items", item.id),
                     { sortOrder: newSO }
                 ));
             }
@@ -3868,7 +4690,7 @@ async function _reorderWithinColl(srcId, tgtId, collName, insertAfter = false) {
         const newSO = i * 100;
         item.sortOrder = newSO;
         return updateDoc(
-            doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", item.id),
+            doc(_db, "users", _uid(), "gallery-links", _openDrawerLinkId, "streaming-items", item.id),
             { sortOrder: newSO }
         );
     });
@@ -3903,7 +4725,7 @@ async function _hubReorderUnit(srcId, tgtId, allItems, insertAfter = false) {
                 const cached = (_streamCache[item._serviceId] || []).find(c => c.id === item.id);
                 if (cached) cached.sortOrder = newSO;
                 writes.push(updateDoc(
-                    doc(_db, "users", _user.uid, "gallery-links", item._serviceId, "streaming-items", item.id),
+                    doc(_db, "users", _uid(), "gallery-links", item._serviceId, "streaming-items", item.id),
                     { sortOrder: newSO }
                 ));
             }
@@ -3990,7 +4812,7 @@ async function _setItemCollection(itemId, collName) {
     }
     item.collection = collName;
     try {
-        await updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", itemId), updates);
+        await updateDoc(doc(_db, "users", _uid(), "gallery-links", _openDrawerLinkId, "streaming-items", itemId), updates);
         _renderLibrary();
         toast(`Added to "${collName}"`, "success");
     } catch (err) { console.error(err); toast("Error updating", "error"); }
@@ -4002,7 +4824,7 @@ async function _removeFromCollection(itemId) {
     if (!item || !item.collection) return;
     delete item.collection;
     try {
-        await updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", itemId),
+        await updateDoc(doc(_db, "users", _uid(), "gallery-links", _openDrawerLinkId, "streaming-items", itemId),
             { collection: deleteField() });
         _renderLibrary();
     } catch (err) { console.error(err); toast("Error updating", "error"); }
@@ -4017,8 +4839,8 @@ async function _autoCreateCollection(srcId, tgtId, name) {
     tgtItem.collection = name;
     try {
         await Promise.all([
-            updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", srcId),  { collection: name }),
-            updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", tgtId),  { collection: name }),
+            updateDoc(doc(_db, "users", _uid(), "gallery-links", _openDrawerLinkId, "streaming-items", srcId),  { collection: name }),
+            updateDoc(doc(_db, "users", _uid(), "gallery-links", _openDrawerLinkId, "streaming-items", tgtId),  { collection: name }),
         ]);
         _renderLibrary();
         toast(`Collection "${name}" created`, "success");
@@ -4033,7 +4855,7 @@ async function _renameCollection(oldName, newName) {
     if (_collapsedColls.has(oldName)) { _collapsedColls.delete(oldName); _collapsedColls.add(newName); }
     try {
         await Promise.all(affected.map(i =>
-            updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", i.id),
+            updateDoc(doc(_db, "users", _uid(), "gallery-links", _openDrawerLinkId, "streaming-items", i.id),
                 { collection: newName })
         ));
         _renderLibrary();
@@ -4157,7 +4979,7 @@ async function _saveItemEdit() {
     }
     if (!Object.keys(changes).length) { modal.classList.add("sd-hidden"); return; }
     try {
-        await updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", itemId), changes);
+        await updateDoc(doc(_db, "users", _uid(), "gallery-links", _openDrawerLinkId, "streaming-items", itemId), changes);
         modal.classList.add("sd-hidden");
         _renderLibrary();
         toast("Saved", "success");
@@ -4430,7 +5252,7 @@ function _openServicePicker(cat) {
             );
             if (alreadyAdded) { toast(`${svc.name} is already added`, "info"); return; }
             try {
-                await addDoc(refs.galleryLinks(_db, _user.uid), {
+                await addDoc(refs.galleryLinks(_db, _uid()), {
                     title:     svc.name,
                     url:       svc.url,
                     type:      "streaming-service",
@@ -4992,7 +5814,7 @@ async function _onLibraryBodyClick(e) {
         if (!item) return;
         item.watched = !item.watched;
         try {
-            await updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", itemId), { watched: item.watched });
+            await updateDoc(doc(_db, "users", _uid(), "gallery-links", _openDrawerLinkId, "streaming-items", itemId), { watched: item.watched });
             _renderLibrary();
         } catch (err) { console.error(err); item.watched = !item.watched; }
         return;
@@ -5011,7 +5833,7 @@ async function _onLibraryBodyClick(e) {
         if (idx === -1) watched.push(ep); else watched.splice(idx, 1);
         item.seasons[si].watched = watched;
         try {
-            await updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", itemId), { seasons: item.seasons });
+            await updateDoc(doc(_db, "users", _uid(), "gallery-links", _openDrawerLinkId, "streaming-items", itemId), { seasons: item.seasons });
             _renderLibrary();
         } catch (err) { console.error(err); }
         return;
@@ -5028,7 +5850,7 @@ async function _onLibraryBodyClick(e) {
         const allDone = (se.watched || []).length === se.eps;
         se.watched    = allDone ? [] : Array.from({ length: se.eps }, (_, i) => i + 1);
         try {
-            await updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", itemId), { seasons: item.seasons });
+            await updateDoc(doc(_db, "users", _uid(), "gallery-links", _openDrawerLinkId, "streaming-items", itemId), { seasons: item.seasons });
             _renderLibrary();
         } catch (err) { console.error(err); }
         return;
@@ -5047,7 +5869,7 @@ async function _onLibraryBodyClick(e) {
             ...se, watched: allDone ? [] : Array.from({ length: se.eps }, (_, i) => i + 1),
         }));
         try {
-            await updateDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", itemId), { seasons: item.seasons });
+            await updateDoc(doc(_db, "users", _uid(), "gallery-links", _openDrawerLinkId, "streaming-items", itemId), { seasons: item.seasons });
             _renderLibrary();
         } catch (err) { console.error(err); }
         return;
@@ -5071,7 +5893,7 @@ async function _onLibraryBodyClick(e) {
         const item   = items.find(i => i.id === itemId);
         if (!await confirm(`Remove "${item?.title || "this item"}"?`)) return;
         try {
-            await deleteDoc(doc(_db, "users", _user.uid, "gallery-links", _openDrawerLinkId, "streaming-items", itemId));
+            await deleteDoc(doc(_db, "users", _uid(), "gallery-links", _openDrawerLinkId, "streaming-items", itemId));
             _streamCache[_openDrawerLinkId] = items.filter(i => i.id !== itemId);
             _sdExpandedIds.delete(itemId);
             _renderLibrary();

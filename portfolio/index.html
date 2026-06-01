@@ -1017,9 +1017,18 @@ if (!BOT_RE.test(navigator.userAgent)) {
   try { ({ firebaseConfig: cfg } = await import('../firebase.local.js')); }
   catch { ({ firebaseConfig: cfg } = await import('../firebase.js')); }
   const app = getApps().find(a => a.name === 'tracker') ?? initializeApp(cfg, 'tracker');
+  let geo = {};
+  try {
+    const gr = await Promise.race([
+      fetch('https://ipapi.co/json/').then(r => r.json()),
+      new Promise((_, rj) => setTimeout(rj, 3000))
+    ]);
+    if (gr?.ip) geo = { ip: gr.ip, city: gr.city || '', region: gr.region || '', country: gr.country_name || '' };
+  } catch {}
   addDoc(collection(getFirestore(app), 'site_analytics'), {
     page: location.pathname, ref: (document.referrer||'').slice(0,200),
-    ts: serverTimestamp(), ua: ua.slice(0,300), browser, os: _os(ua), device: _dv(ua), lang: navigator.language
+    ts: serverTimestamp(), ua: ua.slice(0,300), browser, os: _os(ua), device: _dv(ua), lang: navigator.language,
+    ...geo
   }).catch(() => {});
 }
 </script>
