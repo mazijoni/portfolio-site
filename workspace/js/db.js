@@ -89,4 +89,8 @@ export const refs = {
     /** users/{uid}/projects/{pid}/anim_scenes */
     animScenes: (db, uid, pid) =>
         collection(db, "users", uid, "projects", pid, "anim_scenes"),
+
+    /** users/{uid}/settings/features — per-user feature flags (written by admin) */
+    featuresSettings: (db, uid) =>
+        doc(db, "users", uid, "settings", "features"),
 };

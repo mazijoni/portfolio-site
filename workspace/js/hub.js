@@ -2,6 +2,8 @@
  * hub.js — Hub app switching (Outlook-style sidebar nav).
  */
 
+import { isFeatureEnabled } from "./features.js";
+
 const _HIDDEN_BY_DEFAULT = new Set(['sheet', 'bluemap']);
 const _PREF_KEY = 'hub_tab_prefs';
 
@@ -16,8 +18,9 @@ function _applyTabPrefs() {
         const app = btn.dataset.app;
         if (app === 'workspace' || app === 'settings') return;
         const defaultVisible = !_HIDDEN_BY_DEFAULT.has(app);
-        const visible = prefs[app] !== undefined ? prefs[app] : defaultVisible;
-        btn.style.display = visible ? '' : 'none';
+        const userVisible  = prefs[app] !== undefined ? prefs[app] : defaultVisible;
+        const flagEnabled  = isFeatureEnabled(app);
+        btn.style.display  = (userVisible && flagEnabled) ? '' : 'none';
     });
 }
 
@@ -68,6 +71,11 @@ export function initHub() {
     if (saved && document.getElementById("app-" + saved)) {
         switchApp(saved);
     }
+}
+
+/** Re-apply tab visibility after feature flags are loaded. */
+export function applyHubFeatureFlags() {
+    _applyTabPrefs();
 }
 
 export function switchApp(appName) {

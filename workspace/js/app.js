@@ -3,8 +3,9 @@
  *
  * Module map:
  *   app.js          ← you are here (entry, Firebase init, wires)
- *   auth.js         ← Firebase Auth guard + UI updates
+ *   auth.js         ← Firebase Auth guard + UI updates + account switcher
  *   db.js           ← Firestore helpers (refs, CRUD wrappers)
+ *   features.js     ← Per-user feature flags
  *   projects.js     ← Project list sidebar + CRUD
  *   sections.js     ← Section/tab switching
  *   ui.js           ← Shared UI helpers (modal, toast, confirm)
@@ -14,6 +15,7 @@
  *     nodes.js      ← Node flow section
  *     media.js      ← Media & links section
  *     kanban.js     ← Kanban section
+ *   admin-panel.js  ← Admin dashboard (users, feature flags, links browser)
  */
 
 import { initializeApp }   from "https://www.gstatic.com/firebasejs/11.5.0/firebase-app.js";
@@ -25,12 +27,15 @@ import { initProjects }    from "./projects.js";
 import { initSections }    from "./sections.js";
 import { initUI }          from "./ui.js";
 import { runMigrations }   from "./migrate.js";
-import { initHub }         from "./hub.js";
+import { initHub, applyHubFeatureFlags } from "./hub.js";
 import { initLinks }       from "./apps/links.js";
 import { initGmail }       from "./apps/gmail.js";
 import { initEurovision, initEurovisionUser } from "./apps/eurovision.js";
 import { initSharing }     from "./sharing.js";
 import { initAnalytics }   from "./apps/analytics.js";
+import { loadUserFeatures } from "./features.js";
+
+const ADMIN_EMAIL = "maze.development.admin@gmail.com";
 
 /* ── Firebase bootstrap ── */
 let firebaseConfig;
@@ -75,10 +80,8 @@ function _initBlueMap() {
         }
 
         if (url.protocol === "https:") {
-            // Embedded iframe — works on HTTPS pages
-            content.innerHTML = `<iframe src="${url.href}" class="bluemap-frame" title="BlueMap" allowfullscreen></iframe>`;
+            content.innerHTML = `<iframe src="${url.href}" class="bluemap-frame" title="ServerMap" allowfullscreen></iframe>`;
         } else {
-            // HTTP — show open-tab fallback with setup instructions
             content.innerHTML = `
                 <div class="bluemap-open-wrap">
                     <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="opacity:.3"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
@@ -100,8 +103,12 @@ function _initBlueMap() {
     _apply();
 }
 
-function onUserReady(user) {
-    runMigrations(user.uid);   // auto-import private.html categories as projects
+async function onUserReady(user) {
+    /* Load feature flags first so hub can apply them before any app initializes */
+    await loadUserFeatures(db, user.uid);
+    applyHubFeatureFlags();
+
+    runMigrations(user.uid);
     initProjects(db, user);
     initSections();
     initSharing(db, user);
@@ -109,4 +116,10 @@ function onUserReady(user) {
     initGmail(db, user, googleClientId ?? "");
     initEurovisionUser(db, user.uid, user.displayName || user.email?.split("@")[0] || "", user.photoURL || "");
     initAnalytics(db);
+
+    /* Admin-only: initialise the admin panel dashboard */
+    if (user.email === ADMIN_EMAIL) {
+        const { initAdminPanel } = await import("./admin-panel.js");
+        initAdminPanel(db);
+    }
 }

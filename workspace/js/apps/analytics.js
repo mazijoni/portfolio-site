@@ -1,7 +1,7 @@
 /**
  * analytics.js — Portfolio site visit analytics viewer.
  * Reads from the `site_analytics` Firestore collection (admin-only read).
- * Tracking is written from index.html (includes browser, os, device, lang).
+ * Tracking is written from index.html (includes browser, os, device, lang, ip, city, country).
  */
 
 import {
@@ -30,7 +30,6 @@ export function initAnalytics(db) {
         });
     }
 
-    // Auto-load if the analytics tab is already active on init
     if (document.getElementById('app-analytics')?.classList.contains('active')) {
         _fetchAndRender();
     }
@@ -72,6 +71,8 @@ function _render(visits) {
     const browserCnts = {};
     const osCnts      = {};
     const deviceCnts  = { desktop: 0, mobile: 0, tablet: 0 };
+    const countryCnts = {};
+    const cityCnts    = {};
 
     visits.forEach(v => {
         const ms = v.ts?.toDate?.()?.getTime() ?? 0;
@@ -79,14 +80,12 @@ function _render(visits) {
         if (ms >= week7Ms)   week7Cnt++;
         if (ms >= month30Ms) month30Cnt++;
 
-        // 7-day bar chart buckets
         if (ms >= week7Ms) {
             const d   = new Date(ms);
             const key = `${d.getFullYear()}-${_p(d.getMonth()+1)}-${_p(d.getDate())}`;
             dayBuckets[key] = (dayBuckets[key] || 0) + 1;
         }
 
-        // Referrers
         const rawRef = (v.ref || '').trim();
         if (rawRef) {
             let host = rawRef;
@@ -94,21 +93,26 @@ function _render(visits) {
             refCounts[host] = (refCounts[host] || 0) + 1;
         }
 
-        // Browser breakdown (use stored field, fall back to UA parse)
         const br = v.browser || _browserFromUA(v.ua || '');
         browserCnts[br] = (browserCnts[br] || 0) + 1;
 
-        // OS breakdown
         const os = v.os || _osFromUA(v.ua || '');
         osCnts[os] = (osCnts[os] || 0) + 1;
 
-        // Device breakdown
         const dev = v.device || _deviceFromUA(v.ua || '');
         if (dev in deviceCnts) deviceCnts[dev]++;
         else deviceCnts.desktop++;
+
+        /* Location */
+        if (v.country) {
+            countryCnts[v.country] = (countryCnts[v.country] || 0) + 1;
+        }
+        if (v.city && v.country) {
+            const loc = `${v.city}, ${v.country}`;
+            cityCnts[loc] = (cityCnts[loc] || 0) + 1;
+        }
     });
 
-    // 7-day bar chart
     const days7 = [];
     for (let i = 6; i >= 0; i--) {
         const d   = new Date(now - i * 86_400_000);
@@ -117,11 +121,13 @@ function _render(visits) {
     }
     const maxDay = Math.max(...days7.map(d => d.count), 1);
 
-    const topRefs    = Object.entries(refCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    const topBrowsers= Object.entries(browserCnts).sort((a, b) => b[1] - a[1]);
-    const topOS      = Object.entries(osCnts).sort((a, b) => b[1] - a[1]);
-    const recent20   = visits.slice(0, 20);
-    const allCount   = visits.length >= 2000 ? '2000+' : visits.length;
+    const topRefs     = Object.entries(refCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const topBrowsers = Object.entries(browserCnts).sort((a, b) => b[1] - a[1]);
+    const topOS       = Object.entries(osCnts).sort((a, b) => b[1] - a[1]);
+    const topCountries= Object.entries(countryCnts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const topCities   = Object.entries(cityCnts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const recent20    = visits.slice(0, 20);
+    const allCount    = visits.length >= 2000 ? '2000+' : visits.length;
 
     body.innerHTML = `
         <div class="an-stats">
@@ -197,6 +203,32 @@ function _render(visits) {
                     `).join('')}
                 </div>
             </div>
+
+            ${topCountries.length ? `
+            <div class="an-section an-breakdown-col">
+                <div class="an-section-label">Countries</div>
+                <div class="an-pills">
+                    ${topCountries.map(([c, cnt]) => `
+                        <div class="an-pill">
+                            <span class="an-pill-name">${_esc(c)}</span>
+                            <span class="an-pill-cnt">${cnt}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>` : ''}
+
+            ${topCities.length ? `
+            <div class="an-section an-breakdown-col">
+                <div class="an-section-label">Cities</div>
+                <div class="an-pills">
+                    ${topCities.map(([c, cnt]) => `
+                        <div class="an-pill">
+                            <span class="an-pill-name">${_esc(c)}</span>
+                            <span class="an-pill-cnt">${cnt}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>` : ''}
         </div>
 
         ${topRefs.length ? `
@@ -216,13 +248,14 @@ function _render(visits) {
             <div class="an-section-label">Recent visits</div>
             ${recent20.length === 0
                 ? '<p class="ws-placeholder">No visits recorded yet.</p>'
-                : `<div class="an-recent">
+                : `<div class="an-recent an-recent--geo">
                     <div class="an-recent-hdr">
                         <span>Time</span>
                         <span>Referrer</span>
-                        <span>Browser</span>
-                        <span>OS</span>
+                        <span>Browser / OS</span>
                         <span>Device</span>
+                        <span>Location</span>
+                        <span>IP</span>
                         <span></span>
                     </div>
                     ${recent20.map(v => {
@@ -231,12 +264,17 @@ function _render(visits) {
                         const browser = v.browser || _browserFromUA(v.ua || '');
                         const os      = v.os      || _osFromUA(v.ua || '');
                         const device  = v.device  || _deviceFromUA(v.ua || '');
+                        const location = v.city && v.country
+                            ? `${v.city}, ${v.country}`
+                            : (v.country || '—');
+                        const ip = v.ip || '—';
                         return `<div class="an-recent-row" data-id="${_esc(v.id)}">
                             <span class="an-recent-time">${_esc(ts ? ts.toLocaleString() : '—')}</span>
                             <span class="an-recent-ref">${_esc(ref)}</span>
-                            <span>${_esc(browser)}</span>
-                            <span>${_esc(os)}</span>
+                            <span class="an-recent-browser">${_esc(browser)} / ${_esc(os)}</span>
                             <span class="an-recent-device">${_esc(device)}</span>
+                            <span class="an-recent-loc">${_esc(location)}</span>
+                            <span class="an-recent-ip">${_esc(ip)}</span>
                             <button class="an-del-btn" title="Delete">&#x2715;</button>
                         </div>`;
                     }).join('')}
@@ -261,7 +299,7 @@ function _render(visits) {
     });
 }
 
-/* ── UA fallbacks (for older visits without stored fields) ── */
+/* ── UA fallbacks ── */
 function _browserFromUA(ua) {
     if (/Edg\//.test(ua))           return 'Edge';
     if (/OPR\//.test(ua))            return 'Opera';
@@ -271,7 +309,6 @@ function _browserFromUA(ua) {
     if (/Safari\//.test(ua))         return 'Safari';
     return 'Other';
 }
-
 function _osFromUA(ua) {
     if (/Windows/.test(ua))          return 'Windows';
     if (/Android/.test(ua))          return 'Android';
@@ -280,20 +317,16 @@ function _osFromUA(ua) {
     if (/Linux/.test(ua))            return 'Linux';
     return 'Other';
 }
-
 function _deviceFromUA(ua) {
     if (/Mobi|Android|iPhone|BlackBerry|IEMobile|Opera Mini/.test(ua)) return 'mobile';
     if (/iPad|Tablet/.test(ua)) return 'tablet';
     return 'desktop';
 }
-
 function _refHost(raw) {
     if (!raw.trim()) return 'direct';
     try { return new URL(raw).hostname.replace(/^www\./, '') || raw; } catch { return raw; }
 }
-
 function _p(n) { return String(n).padStart(2, '0'); }
-
 function _esc(s) {
     return String(s ?? '')
         .replace(/&/g, '&amp;').replace(/</g, '&lt;')
