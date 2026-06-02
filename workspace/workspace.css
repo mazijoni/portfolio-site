@@ -13085,7 +13085,7 @@ body[data-hub-app="sheet"] .ws-fab { display: none !important; }
 }
 .an-recent--geo .an-recent-hdr,
 .an-recent--geo .an-recent-row {
-    grid-template-columns: 140px 120px 130px 65px 170px 120px 24px;
+    grid-template-columns: 140px 120px 130px 65px 170px 120px 1fr;
     min-width: 780px;
 }
 
@@ -13098,6 +13098,7 @@ body[data-hub-app="sheet"] .ws-fab { display: none !important; }
     padding: 2px 4px;
     border-radius: 3px;
     line-height: 1;
+    justify-self: end;
     transition: color var(--transition), background var(--transition);
 }
 .an-del-btn:hover { color: var(--danger); background: rgba(224,85,85,0.12); }

@@ -44,9 +44,17 @@ async function _fetchAndRender() {
 
     try {
         const snap = await getDocs(
-            query(collection(_db, 'site_analytics'), orderBy('ts', 'desc'), limit(2000))
+            query(collection(_db, 'site_analytics'), orderBy('ts', 'desc'), limit(200))
         );
-        _render(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+
+        const allDocs = snap.docs;
+        const toDelete = allDocs.slice(10);
+        if (toDelete.length > 0) {
+            await Promise.all(toDelete.map(d => deleteDoc(doc(_db, 'site_analytics', d.id))));
+        }
+
+        const visits = allDocs.slice(0, 10).map(d => ({ id: d.id, ...d.data() }));
+        _render(visits);
     } catch (err) {
         const msg = err.code === 'permission-denied'
             ? 'Access denied — admin only.'
@@ -59,13 +67,9 @@ function _render(visits) {
     const body = document.getElementById('analytics-body');
     if (!body) return;
 
-    const now        = Date.now();
-    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    const todayMs    = todayStart.getTime();
-    const week7Ms    = now - 7  * 86_400_000;
-    const month30Ms  = now - 30 * 86_400_000;
+    const now     = Date.now();
+    const week7Ms = now - 7 * 86_400_000;
 
-    let todayCnt = 0, week7Cnt = 0, month30Cnt = 0;
     const dayBuckets  = {};
     const refCounts   = {};
     const browserCnts = {};
@@ -76,9 +80,6 @@ function _render(visits) {
 
     visits.forEach(v => {
         const ms = v.ts?.toDate?.()?.getTime() ?? 0;
-        if (ms >= todayMs)   todayCnt++;
-        if (ms >= week7Ms)   week7Cnt++;
-        if (ms >= month30Ms) month30Cnt++;
 
         if (ms >= week7Ms) {
             const d   = new Date(ms);
@@ -126,29 +127,9 @@ function _render(visits) {
     const topOS       = Object.entries(osCnts).sort((a, b) => b[1] - a[1]);
     const topCountries= Object.entries(countryCnts).sort((a, b) => b[1] - a[1]).slice(0, 8);
     const topCities   = Object.entries(cityCnts).sort((a, b) => b[1] - a[1]).slice(0, 8);
-    const recent20    = visits.slice(0, 20);
-    const allCount    = visits.length >= 2000 ? '2000+' : visits.length;
+    const recent10 = visits.slice(0, 10);
 
     body.innerHTML = `
-        <div class="an-stats">
-            <div class="an-stat">
-                <div class="an-stat-num">${todayCnt}</div>
-                <div class="an-stat-label">Today</div>
-            </div>
-            <div class="an-stat">
-                <div class="an-stat-num">${week7Cnt}</div>
-                <div class="an-stat-label">7 days</div>
-            </div>
-            <div class="an-stat">
-                <div class="an-stat-num">${month30Cnt}</div>
-                <div class="an-stat-label">30 days</div>
-            </div>
-            <div class="an-stat an-stat--accent">
-                <div class="an-stat-num">${allCount}</div>
-                <div class="an-stat-label">All time</div>
-            </div>
-        </div>
-
         <div class="an-section">
             <div class="an-section-label">Last 7 days</div>
             <div class="an-chart">
@@ -246,7 +227,7 @@ function _render(visits) {
 
         <div class="an-section">
             <div class="an-section-label">Recent visits</div>
-            ${recent20.length === 0
+            ${recent10.length === 0
                 ? '<p class="ws-placeholder">No visits recorded yet.</p>'
                 : `<div class="an-recent an-recent--geo">
                     <div class="an-recent-hdr">
@@ -258,7 +239,7 @@ function _render(visits) {
                         <span>IP</span>
                         <span></span>
                     </div>
-                    ${recent20.map(v => {
+                    ${recent10.map(v => {
                         const ts      = v.ts?.toDate?.();
                         const ref     = _refHost(v.ref || '');
                         const browser = v.browser || _browserFromUA(v.ua || '');
