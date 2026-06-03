@@ -448,7 +448,7 @@ async function _pushReadme(owner, repo, content, pat) {
     // base64-encode with full Unicode support
     const encoded = btoa(unescape(encodeURIComponent(content)));
     const body = {
-        message: 'Update README.md from joni.no',
+        message: 'Update README.md from maze-development.com',
         content: encoded,
     };
     if (_readmeSha) body.sha = _readmeSha;
