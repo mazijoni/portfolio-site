@@ -1,5 +1,5 @@
 ﻿/* =================================================================
-   WORKSPACE.CSS � Full workspace page styles for joni.no
+   WORKSPACE.CSS � Full workspace page styles for maze-development.com
    Scoped under #ws-shell to avoid polluting other pages
    ================================================================= */
 
@@ -5625,7 +5625,17 @@ body.sidebar-collapsed .ws-mobile-menu-btn {
     display: flex;
 }
 
-/* -- Sidebar toggle icon rotation -- */
+/* -- Sidebar toggle: lives outside the sidebar so it stays visible when collapsed -- */
+#ws-sidebar-toggle {
+    position: absolute;
+    top: 14px;
+    left: calc(var(--sidebar-w) - 28px);
+    z-index: 20;
+    transition: left 0.22s ease;
+}
+body.sidebar-collapsed #ws-sidebar-toggle {
+    left: 6px;
+}
 #ws-sidebar-toggle svg { transition: transform 0.22s ease; }
 #ws-sidebar-toggle.rotated svg { transform: rotate(180deg); }
 
