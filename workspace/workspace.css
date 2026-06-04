@@ -1031,40 +1031,51 @@ body[data-hub-app="gmail"] .ws-fab { display: none !important; }
 /* -- Task lists -- */
 .readme-preview .task-list-item {
     list-style: none;
-    margin-left: -1rem;
+    margin: 0.25rem 0;
+    padding-left: 1.3rem;
     display: flex;
-    align-items: flex-start;
-    gap: 0.45em;
+    align-items: center;
+    gap: 0.5rem;
 }
 .readme-preview input[type="checkbox"] {
     -webkit-appearance: none;
     appearance: none;
-    width: 14px;
-    height: 14px;
-    min-width: 14px;
-    margin-top: 0.22em;
-    border: 1.5px solid var(--border);
-    border-radius: 3px;
-    background: var(--bg-input);
-    position: relative;
-    cursor: default;
+    width: 1em;
+    height: 1em;
+    min-width: 1em;
+    margin-top: 0;
+    border: 1px solid var(--border);
+    border-radius: 0.25em;
+    background: transparent;
+    cursor: pointer;
     flex-shrink: 0;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    position: relative;
 }
 .readme-preview input[type="checkbox"]:checked {
     background: var(--accent);
     border-color: var(--accent);
 }
+.readme-preview input[type="checkbox"]::after {
+    content: 'done';
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Material Symbols Outlined';
+    font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+    font-size: 0.9em;
+    color: transparent;
+    transition: color 0.15s ease;
+}
 .readme-preview input[type="checkbox"]:checked::after {
-    content: '';
-    position: absolute;
-    left: 2px;
-    top: 1px;
-    width: 8px;
-    height: 4px;
-    border-left: 2px solid #fff;
-    border-bottom: 2px solid #fff;
-    transform: rotate(-45deg);
+    color: #fff;
+}
+.readme-preview input[type="checkbox"]:focus {
+    outline: 2px solid rgba(100, 180, 255, 0.95);
+    outline-offset: 2px;
 }
 
 /* -- <kbd> -- */
