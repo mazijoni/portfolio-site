@@ -140,6 +140,9 @@ let _unsub      = null;
 let _readmeSha  = null;   // current blob SHA from GitHub (needed for PUT)
 let _readmeFrom = null;   // "github" | null
 let _readmeMode = "preview"; // "edit" | "preview"
+let _lastSavedNotes = "";
+let _previewTaskLines = [];
+const _PENDING_README_KEY = "overview-readme-pending";
 
 export function init() {
     window.addEventListener("projectSelected", onProjectSelected);
@@ -154,6 +157,14 @@ export function init() {
         .addEventListener("click", () => _setReadmeMode("edit"));
     document.getElementById("readme-tab-preview")
         .addEventListener("click", () => _setReadmeMode("preview"));
+
+    document.getElementById("readme-preview")
+        .addEventListener("change", _onPreviewCheckboxChange);
+
+    window.addEventListener("pagehide", _storePendingReadmeIfNeeded);
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden) _storePendingReadmeIfNeeded();
+    });
 
     // Ctrl+S in the textarea saves without leaving
     document.getElementById("overview-notes")
@@ -171,7 +182,7 @@ function onProjectSelected() {
     _loadOverview();
 }
 
-function _loadOverview() {
+async function _loadOverview() {
     if (!currentProject) return;
     const p = currentProject;
 
@@ -200,11 +211,13 @@ function _loadOverview() {
     }
 
     document.getElementById("overview-notes").value = p.notes || "";
+    _lastSavedNotes = p.notes || "";
     _renderPreview(p.notes || "");
     _applyReadmeMode(_readmeMode);
 
+    const restored = await _restorePendingReadme(p);
     _loadGithubInfo(p.githubRepo || "");
-    if (p.githubRepo) _loadReadme(p.githubRepo);
+    if (p.githubRepo && !restored) _loadReadme(p.githubRepo);
     _loadStats();
 }
 
@@ -218,6 +231,66 @@ const LANG_COLORS = {
     Clojure:"#db5855", "F#":"#b845fc", Vue:"#41b883", GLSL:"#5686a5",
     GDScript:"#355570", Makefile:"#427819",
 };
+
+function _pendingReadmeStorageKey(projectId) {
+    return `${_PENDING_README_KEY}:${projectId}`;
+}
+
+function _storePendingReadmeIfNeeded() {
+    if (!currentProjectId) return;
+    const textarea = document.getElementById("overview-notes");
+    if (!textarea) return;
+    const content = textarea.value;
+    if (content === _lastSavedNotes) {
+        localStorage.removeItem(_pendingReadmeStorageKey(currentProjectId));
+        return;
+    }
+    try {
+        localStorage.setItem(
+            _pendingReadmeStorageKey(currentProjectId),
+            JSON.stringify({ content, ts: Date.now() })
+        );
+    } catch {
+        // Ignore localStorage write failures
+    }
+}
+
+async function _restorePendingReadme(project) {
+    if (!currentProjectId) return false;
+    const stored = localStorage.getItem(_pendingReadmeStorageKey(currentProjectId));
+    if (!stored) return false;
+
+    let pending;
+    try {
+        pending = JSON.parse(stored);
+    } catch {
+        localStorage.removeItem(_pendingReadmeStorageKey(currentProjectId));
+        return false;
+    }
+
+    const content = typeof pending.content === "string" ? pending.content : null;
+    if (content == null || content === _lastSavedNotes) {
+        localStorage.removeItem(_pendingReadmeStorageKey(currentProjectId));
+        return false;
+    }
+
+    const textarea = document.getElementById("overview-notes");
+    if (!textarea) return false;
+
+    textarea.value = content;
+    _renderPreview(content);
+    _applyReadmeMode(_readmeMode);
+
+    if (project.githubRepo && canCurrentUserEdit()) {
+        _setReadmeStatus("Restoring unsaved README…");
+        await saveNotes();
+        return true;
+    }
+
+    _setReadmeStatus("Restored unsaved README locally", false, true);
+    setTimeout(() => _setReadmeStatus(""), 3000);
+    return true;
+}
 
 function _ghParseRepo(url) {
     try {
@@ -361,6 +434,8 @@ async function saveNotes() {
     // Always save to Firestore
     try {
         await updateDoc(refs.project(db, uid, currentProjectId), { notes: content });
+        _lastSavedNotes = content;
+        localStorage.removeItem(_pendingReadmeStorageKey(currentProjectId));
     } catch (err) {
         console.error(err);
         toast("Error saving notes", "error");
@@ -506,13 +581,51 @@ function _applyReadmeMode(mode) {
     }
 }
 
+function _findTaskListLineIndices(md) {
+    const lines = (md || "").split(/\r?\n/);
+    const taskRe = /^(\s*(?:[-*+]|\d+\.)\s+)\[([ xX])\]/;
+    const indices = [];
+    for (let i = 0; i < lines.length; i++) {
+        if (taskRe.test(lines[i])) indices.push(i);
+    }
+    return indices;
+}
+
 function _renderPreview(md) {
     const preview = document.getElementById("readme-preview");
     if (!preview) return;
     const src  = _mdPreprocess(md || '*No content yet.*');
     let   html = marked.parse(src);
     html = _emojiReplace(html);
+
     preview.innerHTML = html;
+    _previewTaskLines = _findTaskListLineIndices(md || "");
+    preview.querySelectorAll('input[type="checkbox"]').forEach((checkbox, index) => {
+        checkbox.removeAttribute('disabled');
+        checkbox.dataset.taskIndex = String(index + 1);
+        checkbox.tabIndex = 0;
+        checkbox.style.cursor = 'pointer';
+    });
+}
+
+function _onPreviewCheckboxChange(e) {
+    const checkbox = e.target;
+    if (!(checkbox instanceof HTMLInputElement) || checkbox.type !== "checkbox") return;
+    const idx = parseInt(checkbox.dataset.taskIndex, 10) - 1;
+    if (Number.isNaN(idx) || idx < 0 || idx >= _previewTaskLines.length) return;
+
+    const textEl = document.getElementById("overview-notes");
+    if (!textEl) return;
+    const lines = textEl.value.split(/\r?\n/);
+    const lineIdx = _previewTaskLines[idx];
+    const taskLine = lines[lineIdx];
+    if (taskLine == null) return;
+
+    lines[lineIdx] = taskLine.replace(/^(\s*(?:[-*+]|\d+\.)\s+)\[([ xX])\]/, (match, prefix) => `${prefix}[${checkbox.checked ? 'x' : ' '}]`);
+    const updated = lines.join("\n");
+    textEl.value = updated;
+    _renderPreview(updated);
+    _storePendingReadmeIfNeeded();
 }
 
 /** Update the small status line under the textarea. */
