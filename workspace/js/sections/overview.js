@@ -281,12 +281,6 @@ async function _restorePendingReadme(project) {
     _renderPreview(content);
     _applyReadmeMode(_readmeMode);
 
-    if (project.githubRepo && canCurrentUserEdit()) {
-        _setReadmeStatus("Restoring unsaved README…");
-        await saveNotes();
-        return true;
-    }
-
     _setReadmeStatus("Restored unsaved README locally", false, true);
     setTimeout(() => _setReadmeStatus(""), 3000);
     return true;
