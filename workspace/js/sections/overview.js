@@ -520,6 +520,19 @@ async function _loadReadme(repoUrl) {
 
 /** Push textarea content to GitHub as README.md. */
 async function _pushReadme(owner, repo, content, pat) {
+    // Fetch current SHA if we don't have it — required by GitHub API for existing files
+    if (!_readmeSha) {
+        const getResp = await fetch(
+            `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/README.md`,
+            { headers: { "Authorization": `Bearer ${pat}`, "Accept": "application/vnd.github+json" } }
+        );
+        if (getResp.ok) {
+            const existing = await getResp.json();
+            _readmeSha = existing.sha || null;
+        }
+        // 404 = file doesn't exist yet, sha stays null — that's fine
+    }
+
     // base64-encode with full Unicode support
     const encoded = btoa(unescape(encodeURIComponent(content)));
     const body = {
