@@ -14,10 +14,13 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Shared project read access for members
+    // Shared project read access for members; contributors may update notes
     match /users/{ownerUid}/projects/{pid} {
       allow read: if request.auth != null &&
                      resource.data.members[request.auth.uid] != null;
+      allow update: if request.auth != null &&
+                       resource.data.members[request.auth.uid].role == "contributor" &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['notes']);
     }
     match /users/{ownerUid}/projects/{pid}/{sub}/{docId} {
       allow read, write: if request.auth != null &&
