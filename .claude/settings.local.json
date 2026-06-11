@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"g:\\\\My Drive\\\\Code\\\\portfolio-site\" -Recurse -Directory -Depth 2)",
+      "Bash(Select-Object FullName)",
+      "Bash(xargs grep -l \"upload\\\\|Upload\")",
+      "Bash(Get-ChildItem -Path \"g:\\\\My Drive\\\\Code\\\\portfolio-site\" -Recurse -Force)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(Sort-Object FullName)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(grep -E \"\\\\.\\(json|yml|yaml|xml\\)$\")",
+      "Bash(Get-ChildItem -Path \"g:\\\\My Drive\\\\Code\\\\portfolio-site\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(Get-ChildItem -Path \"g:\\\\My Drive\\\\Code\\\\portfolio-site\" -Filter \"*.json\" -File)",
+      "PowerShell(ls -Recurse g:\\\\My\\\\ Drive\\\\Code\\\\portfolio-site\\\\orbit, g:\\\\My\\\\ Drive\\\\Code\\\\portfolio-site\\\\portfolio, g:\\\\My\\\\ Drive\\\\Code\\\\portfolio-site\\\\workspace, g:\\\\My\\\\ Drive\\\\Code\\\\portfolio-site\\\\3d -File -ErrorAction SilentlyContinue | Select-Object Name, @{N='RelPath';E={$_.FullName.Replace\\('g:\\\\My Drive\\\\Code\\\\portfolio-site\\\\', ''\\)}} | Sort-Object RelPath | head -50)",
+      "Bash(Select-Object Name, Mode)",
+      "PowerShell(head -30)",
+      "Bash(ls \"C:/Users/jonat/.claude/projects/g--My-Drive-Code-portfolio-site/memory/\" 2>/dev/null && echo \"exists\" || echo \"not found\")",
+      "Read(//c/Users/jonat/.claude/projects/g--My-Drive-Code-portfolio-site/memory/**)",
+      "Bash(python3 -c ' *)",
+      "Bash(firebase deploy *)"
+    ]
+  }
+}
