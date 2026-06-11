@@ -1734,7 +1734,7 @@ function _mghVideoCard(link) {
     let mediaHtml, isThumb = false, isLink = false;
     if (embed) {
         if (embed.type === "direct") {
-            mediaHtml = `<video src="${escHtml(embed.src)}" controls style="position:absolute;inset:0;width:100%;height:100%;background:#000" preload="metadata"></video>`;
+            mediaHtml = `<video src="${escHtml(embed.src)}"${link.thumbUrl ? ` poster="${escHtml(link.thumbUrl)}"` : ""} controls style="position:absolute;inset:0;width:100%;height:100%;background:#000" preload="metadata"></video>`;
         } else {
             mediaHtml = `<iframe src="${escHtml(embed.src)}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" loading="lazy"></iframe>`;
         }
@@ -1755,7 +1755,7 @@ function _mghVideoCard(link) {
         <div class="video-card-body">
             <span class="video-type-badge">${badge}</span>
             <span class="video-card-name">${escHtml(link.title || "")}</span>
-            ${link.url ? `<a class="card-source-link" href="${escHtml(link.url)}" target="_blank" rel="noopener noreferrer" title="Go to source" onclick="event.stopPropagation()"><svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M5.5 1H9v3.5M9 1L4 6M2 3.5H1v5.5h5.5V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>` : ""}
+            ${link.sourceUrl ? `<a class="card-source-link" href="${escHtml(link.sourceUrl)}" target="_blank" rel="noopener noreferrer" title="Go to source" onclick="event.stopPropagation()"><svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M5.5 1H9v3.5M9 1L4 6M2 3.5H1v5.5h5.5V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>` : ""}
         </div>
         ${creator ? `<div class="image-card-creator" title="Creator: ${escHtml(creator.title || "")}"><svg width="10" height="10" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2.761 2.686-5 6-5s6 2.239 6 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg><span>${escHtml(creator.title || "")}</span></div>` : ""}
         ${persons.length ? `<div class="image-card-person"><svg width="10" height="10" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="2.5" stroke="#55ccbb" stroke-width="1.3"/><path d="M1 13c0-2.761 2.686-5 6-5s6 2.239 6 5" stroke="#55ccbb" stroke-width="1.3" stroke-linecap="round"/></svg><span class="image-card-person-name">${escHtml(persons.map(p => p.title).join(", "))}</span></div>` : ""}`;
@@ -1766,7 +1766,7 @@ function _mghVideoCard(link) {
         card.querySelector(".video-thumb-play-overlay")?.addEventListener("click", openLb);
         card.querySelector(".video-iframe-wrap img")?.addEventListener("click", openLb);
     }
-    // For direct video embeds: fall back to thumbnail (or link) on error (403, CORS, etc.)
+    // For direct video embeds without thumbnail: fall back to thumbnail (or link) on error (403, CORS, etc.)
     const _inlineVid = card.querySelector(".video-iframe-wrap video");
     if (_inlineVid) {
         _inlineVid.addEventListener("error", () => {
@@ -3749,7 +3749,7 @@ function _updateTypeHint(type) {
     if (urlLabel)    urlLabel.textContent    = isImage ? "Image URL *" : "URL *";
     if (thumbGroup)  thumbGroup.style.display  = (isCreator || isPerson || isVideo || isImage || isVideoGroup) ? "" : "none";
     if (thumbLabel)  thumbLabel.textContent  = (isCreator || isPerson) ? "Avatar URL" : "Thumbnail URL";
-    if (sourceGroup) sourceGroup.style.display = (isImage || isImageGroup) ? "" : "none";
+    if (sourceGroup) sourceGroup.style.display = (isImage || isImageGroup || isVideo) ? "" : "none";
     if (badgeGroup)  badgeGroup.style.display  = (isCreator) ? "" : "none";
     if (descGroup)   descGroup.style.display   = (isCreator || isPerson) ? "" : "none";
     if (attrGroup)   attrGroup.style.display   = (isImage || isVideo || isImageGroup || isVideoGroup) ? "" : "none";
@@ -4116,7 +4116,7 @@ async function _onFormSubmit(e) {
             }
         }
     }
-    if (isImage) {
+    if (isImage || isVideo) {
         const sv = _safeUrl(document.getElementById("link-source-field")?.value);
         if (sv) data.sourceUrl = sv;
     }
