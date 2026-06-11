@@ -1570,7 +1570,12 @@ function _openMghFeed(allMedia) {
     closeBtn.className = "mgh-feed-fs-close";
     closeBtn.setAttribute("aria-label", "Close feed");
     closeBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-    const _close = () => { ol.remove(); document.body.classList.remove("mgh-feed-open"); };
+    const _close = () => {
+        observer.disconnect();
+        grid.querySelectorAll(".feed-card-video").forEach(v => v.pause());
+        ol.remove();
+        document.body.classList.remove("mgh-feed-open");
+    };
     closeBtn.addEventListener("click", _close);
 
     const shuffled = [...allMedia].sort(() => Math.random() - 0.5);
@@ -1585,6 +1590,50 @@ function _openMghFeed(allMedia) {
     ol.appendChild(grid);
     document.body.appendChild(ol);
     document.body.classList.add("mgh-feed-open");
+
+    // ── Auto-play/pause via IntersectionObserver ──
+    const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            const vid = entry.target.querySelector(".feed-card-video");
+            if (!vid) return;
+            if (entry.intersectionRatio >= 0.7) {
+                vid.play().catch(() => {});
+            } else {
+                vid.pause();
+            }
+        });
+    }, { root: grid, threshold: 0.7 });
+    grid.querySelectorAll(".feed-card").forEach(card => observer.observe(card));
+
+    // ── One-card-per-swipe touch handling ──
+    let _touchStartY = 0;
+    let _swipeLocked = false;
+    grid.addEventListener("touchstart", e => {
+        _touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    grid.addEventListener("touchend", e => {
+        if (_swipeLocked) return;
+        const dy = _touchStartY - e.changedTouches[0].clientY;
+        if (Math.abs(dy) < 40) return; // ignore tiny swipes
+        _swipeLocked = true;
+        const cards = Array.from(grid.querySelectorAll(".feed-card"));
+        const visible = cards.find(c => {
+            const r = c.getBoundingClientRect();
+            const gr = grid.getBoundingClientRect();
+            return r.top >= gr.top - 20 && r.top <= gr.top + 20;
+        }) || cards.find(c => {
+            const r = c.getBoundingClientRect();
+            const gr = grid.getBoundingClientRect();
+            const mid = r.top + r.height / 2;
+            return mid >= gr.top && mid <= gr.bottom;
+        });
+        if (visible) {
+            const idx = cards.indexOf(visible);
+            const target = dy > 0 ? cards[idx + 1] : cards[idx - 1];
+            if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        setTimeout(() => { _swipeLocked = false; }, 600);
+    }, { passive: true });
 
     const escH = e => {
         if (e.key === "Escape") { _close(); document.removeEventListener("keydown", escH); }
@@ -2065,13 +2114,16 @@ function _mghFeedCard(link) {
     card.className = "feed-card";
     card.dataset.id = link.id;
 
-    // Media fill
     let mediaHtml = "";
+    let isDirectVideo = false;
+    let directSrc = "";
     if (isVideo) {
         const embed = _mghEmbed(link.url);
         if (embed) {
             if (embed.type === "direct") {
-                mediaHtml = `<video class="feed-card-media" src="${escHtml(embed.src)}" controls preload="metadata" playsinline></video>`;
+                isDirectVideo = true;
+                directSrc = embed.src;
+                mediaHtml = `<video class="feed-card-media feed-card-video" src="${escHtml(embed.src)}"${link.thumbUrl ? ` poster="${escHtml(link.thumbUrl)}"` : ""} playsinline preload="metadata"></video>`;
             } else {
                 const apiSrc = embed.src + (embed.src.includes("?") ? "&" : "?") + "enablejsapi=1";
                 mediaHtml = `<iframe class="feed-card-media" src="${escHtml(apiSrc)}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" loading="lazy"></iframe>`;
@@ -2083,11 +2135,9 @@ function _mghFeedCard(link) {
         }
     } else {
         const src = link.thumbUrl || link.url;
-        if (src) {
-            mediaHtml = `<img class="feed-card-media" src="${escHtml(src)}" alt="${escHtml(link.title || "")}">`;
-        } else {
-            mediaHtml = `<div class="feed-card-placeholder"></div>`;
-        }
+        mediaHtml = src
+            ? `<img class="feed-card-media" src="${escHtml(src)}" alt="${escHtml(link.title || "")}">`
+            : `<div class="feed-card-placeholder"></div>`;
     }
 
     const avatarHtml = creator?.thumbUrl
@@ -2104,9 +2154,11 @@ function _mghFeedCard(link) {
             </div>
         </div>`;
 
-    if (isVideo && link.thumbUrl && link.url)
+    if (isDirectVideo) {
+        _attachFeedVideoControls(card);
+    } else if (isVideo && link.thumbUrl && link.url) {
         card.querySelector(".feed-card-play-btn")?.addEventListener("click", e => { e.stopPropagation(); window.open(link.url, "_blank", "noopener"); });
-    if (!isVideo && (link.thumbUrl || link.url)) {
+    } else if (!isVideo && (link.thumbUrl || link.url)) {
         const _feedImgEl = card.querySelector(".feed-card-media");
         const _feedWrap  = card.querySelector(".feed-card-media-wrap");
         if (_feedImgEl) _feedImgEl.addEventListener("click", e => {
@@ -2119,6 +2171,125 @@ function _mghFeedCard(link) {
     card.querySelectorAll(".feed-card-person-tag").forEach((el, i) => el.addEventListener("click", e => { e.stopPropagation(); if (persons[i]) _mghOpenCreatorPanel(persons[i]); }));
     card.appendChild(_mghCardActions(link));
     return card;
+}
+
+function _attachFeedVideoControls(card) {
+    const vid = card.querySelector(".feed-card-video");
+    const wrap = card.querySelector(".feed-card-media-wrap");
+    if (!vid || !wrap) return;
+
+    // ── Controls container ──
+    const ctrl = document.createElement("div");
+    ctrl.className = "feed-card-video-ctrl";
+
+    // Tap zone (top area — single/double tap)
+    const tapZone = document.createElement("div");
+    tapZone.className = "feed-card-tap-zone";
+    const tapL = document.createElement("div"); tapL.className = "feed-card-tap-left";
+    const tapR = document.createElement("div"); tapR.className = "feed-card-tap-right";
+    tapZone.appendChild(tapL);
+    tapZone.appendChild(tapR);
+    ctrl.appendChild(tapZone);
+
+    // Seek flash — left
+    const flashL = document.createElement("div");
+    flashL.className = "feed-card-seek-flash feed-card-seek-flash--left";
+    flashL.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg><span>5s</span>`;
+
+    // Seek flash — right
+    const flashR = document.createElement("div");
+    flashR.className = "feed-card-seek-flash feed-card-seek-flash--right";
+    flashR.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg><span>5s</span>`;
+    ctrl.appendChild(flashL);
+    ctrl.appendChild(flashR);
+
+    // Pause icon (center, shown briefly on single tap)
+    const pauseIcon = document.createElement("div");
+    pauseIcon.className = "feed-card-pause-icon";
+    pauseIcon.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`;
+    ctrl.appendChild(pauseIcon);
+
+    // Bottom bar: progress + mute
+    const bottom = document.createElement("div");
+    bottom.className = "feed-card-video-bottom";
+
+    const progressWrap = document.createElement("div");
+    progressWrap.className = "feed-card-progress-wrap";
+    const progressBar = document.createElement("div");
+    progressBar.className = "feed-card-progress-bar";
+    progressWrap.appendChild(progressBar);
+
+    let _muted = false;
+    const _muteHtml = () => _muted
+        ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>`
+        : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`;
+    const muteBtn = document.createElement("button");
+    muteBtn.className = "feed-card-mute-btn";
+    muteBtn.setAttribute("aria-label", "Toggle mute");
+    muteBtn.innerHTML = _muteHtml();
+    muteBtn.addEventListener("click", e => {
+        e.stopPropagation();
+        _muted = !_muted;
+        vid.muted = _muted;
+        muteBtn.innerHTML = _muteHtml();
+    });
+
+    bottom.appendChild(progressWrap);
+    bottom.appendChild(muteBtn);
+    ctrl.appendChild(bottom);
+    wrap.appendChild(ctrl);
+
+    // ── Progress bar update ──
+    vid.addEventListener("timeupdate", () => {
+        if (vid.duration) progressBar.style.width = `${(vid.currentTime / vid.duration) * 100}%`;
+    });
+    // Seek on progress bar click
+    progressWrap.addEventListener("click", e => {
+        e.stopPropagation();
+        const r = progressWrap.getBoundingClientRect();
+        if (vid.duration) vid.currentTime = ((e.clientX - r.left) / r.width) * vid.duration;
+    });
+
+    // ── Tap helpers ──
+    let _tapTimer = null;
+    let _tapCount = 0;
+    const _flashSeek = (dir) => {
+        const el = dir === "left" ? flashL : flashR;
+        el.classList.add("active");
+        setTimeout(() => el.classList.remove("active"), 650);
+    };
+    const _flashPause = (paused) => {
+        pauseIcon.innerHTML = paused
+            ? `<svg width="22" height="22" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`
+            : `<svg width="22" height="22" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+        pauseIcon.classList.add("visible");
+        setTimeout(() => pauseIcon.classList.remove("visible"), 550);
+    };
+
+    const _handleTap = (side) => {
+        _tapCount++;
+        if (_tapTimer) { clearTimeout(_tapTimer); _tapTimer = null; }
+        if (_tapCount >= 2) {
+            _tapCount = 0;
+            if (side === "left") {
+                vid.currentTime = Math.max(0, vid.currentTime - 5);
+                _flashSeek("left");
+            } else {
+                vid.currentTime = Math.min(vid.duration || 0, vid.currentTime + 5);
+                _flashSeek("right");
+            }
+        } else {
+            _tapTimer = setTimeout(() => {
+                _tapCount = 0;
+                _tapTimer = null;
+                if (vid.paused) { vid.play().catch(() => {}); _flashPause(false); }
+                else { vid.pause(); _flashPause(true); }
+            }, 230);
+        }
+    };
+
+    tapL.addEventListener("click", e => { e.stopPropagation(); _handleTap("left"); });
+    tapR.addEventListener("click", e => { e.stopPropagation(); _handleTap("right"); });
 }
 
 /* ── Image-group feed card (TikTok slideshow) ── */
