@@ -998,19 +998,22 @@ function _mghFindCreatorFor(link) {
                   link.type !== "3d-model" && link.type !== "youtube-video" &&
                   link.type !== "youtube-playlist" && link.type !== "video")) return null;
     if (link.creatorId) return _links.find(l => l.id === link.creatorId) ?? null;
-    if (!link.url) return null;
-    for (const c of _links.filter(l => l.type === "creator" || l.type === "youtube-channel")) {
-        if (!c.url && !c.profileUrl) continue;
-        const _cUrl = c.url || c.profileUrl;
-        try {
-            const cu = new URL(_cUrl); const mu = new URL(link.url);
-            if (cu.hostname === mu.hostname) {
-                const cp = cu.pathname.replace(/\/$/, ""); const mp = mu.pathname.replace(/\/$/, "");
-                if (cp && (mp === cp || mp.startsWith(cp + "/"))) return c;
-            }
-        } catch { /* noop */ }
-    }
-    return null;
+    const _matchUrl = (testUrl) => {
+        if (!testUrl) return null;
+        for (const c of _links.filter(l => l.type === "creator" || l.type === "youtube-channel")) {
+            if (!c.url && !c.profileUrl) continue;
+            const _cUrl = c.url || c.profileUrl;
+            try {
+                const cu = new URL(_cUrl); const mu = new URL(testUrl);
+                if (cu.hostname === mu.hostname) {
+                    const cp = cu.pathname.replace(/\/$/, ""); const mp = mu.pathname.replace(/\/$/, "");
+                    if (cp && (mp === cp || mp.startsWith(cp + "/"))) return c;
+                }
+            } catch { /* noop */ }
+        }
+        return null;
+    };
+    return _matchUrl(link.url) ?? _matchUrl(link.sourceUrl) ?? null;
 }
 function _mghMatchLinked(creator) {
     return _links.filter(l => {
