@@ -7529,6 +7529,102 @@ body.mgh-feed-open { overflow: hidden; }
 .feed-card-slide-prev { left: 0; }
 .feed-card-slide-next { right: 0; }
 
+/* ── Feed: custom direct-video controls ── */
+.feed-card-video-ctrl {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+}
+.feed-card-tap-zone {
+    flex: 1;
+    display: flex;
+}
+.feed-card-tap-left,
+.feed-card-tap-right {
+    flex: 1;
+    cursor: pointer;
+}
+.feed-card-seek-flash {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    color: #fff;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s;
+    text-shadow: 0 1px 5px rgba(0,0,0,0.9);
+}
+.feed-card-seek-flash.active { opacity: 1; }
+.feed-card-seek-flash--left  { left: 12%; }
+.feed-card-seek-flash--right { right: 12%; }
+.feed-card-pause-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 54px;
+    height: 54px;
+    background: rgba(0,0,0,0.48);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s;
+}
+.feed-card-pause-icon.visible { opacity: 1; }
+.feed-card-video-bottom {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0.55rem 0.7rem 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    background: linear-gradient(transparent, rgba(0,0,0,0.55));
+    z-index: 5;
+    pointer-events: all;
+}
+.feed-card-progress-wrap {
+    flex: 1;
+    height: 3px;
+    background: rgba(255,255,255,0.28);
+    border-radius: 2px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: height 0.15s;
+}
+.feed-card-progress-wrap:hover { height: 5px; }
+.feed-card-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: #fff;
+    border-radius: 2px;
+    pointer-events: none;
+}
+.feed-card-mute-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 3px;
+    color: #fff;
+    opacity: 0.82;
+    line-height: 0;
+    flex-shrink: 0;
+}
+.feed-card-mute-btn:hover { opacity: 1; }
+
 /* ==================== LINKS APP — MOBILE IMPROVEMENTS ==================== */
 @media (max-width: 480px) {
     /* Tighter mgh-body padding */
