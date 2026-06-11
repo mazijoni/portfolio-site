@@ -4292,7 +4292,7 @@ async function _onFormSubmit(e) {
     }
     if (isImage || isVideo) {
         const sv = _safeUrl(document.getElementById("link-source-field")?.value);
-        if (sv) data.sourceUrl = sv;
+        data.sourceUrl = sv || deleteField();
     }
     if (isImage || isVideo) {
         // Creator attribution
@@ -4303,42 +4303,40 @@ async function _onFormSubmit(e) {
         data.personIds = pSel ? Array.from(pSel.selectedOptions).map(o => o.value).filter(Boolean) : [];
         data.personId  = data.personIds[0] || null; // back-compat
 
-        // Auto-detect creator — for images use sourceUrl (the page the image came from),
-        // for videos use the video URL itself (same logic as workspace media)
+        // Auto-detect creator — for images use sourceUrl; for videos try url then sourceUrl
         if (!data.creatorId) {
-            const sourceUrl = isVideo ? url : (data.sourceUrl || "");
-            if (sourceUrl) {
-                const parsed = _mghParseCreatorUrl(sourceUrl);
-                if (parsed && parsed.platform !== "other" && parsed.username) {
-                    const existing = _links.find(l =>
-                        (l.type === "creator" || l.type === "youtube-channel") &&
-                        (l.username || "").toLowerCase() === parsed.username.toLowerCase() &&
-                        (l.platform || _mghParseCreatorUrl(l.url || "")?.platform) === parsed.platform
-                    );
-                    if (existing) {
-                        data.creatorId = existing.id;
-                    } else {
-                        const _profileUrls = {
-                            youtube:   `https://www.youtube.com/@${parsed.username}`,
-                            twitter:   `https://x.com/${parsed.username}`,
-                            instagram: `https://www.instagram.com/${parsed.username}`,
-                            tiktok:    `https://www.tiktok.com/@${parsed.username}`,
-                            twitch:    `https://www.twitch.tv/${parsed.username}`,
-                        };
-                        const profileUrl = _profileUrls[parsed.platform] || sourceUrl;
-                        const avatarUrl  = await _mghCreatorAvatar(parsed.platform, parsed.username, profileUrl);
-                        const cData = {
-                            title: parsed.username, url: profileUrl, type: "creator",
-                            category: data.category, username: parsed.username,
-                            platform: parsed.platform, thumbUrl: avatarUrl,
-                            badgeLabel: "", badgeColor: "", createdAt: serverTimestamp(),
-                        };
-                        const docRef = await addDoc(refs.galleryLinks(_db, _uid()), cData);
-                        data.creatorId = docRef.id;
-                        toast(`Creator @${parsed.username} auto-added.`);
-                    }
-                }
-            }
+            const sourceUrl = isVideo ? (url || (typeof data.sourceUrl === "string" ? data.sourceUrl : "")) : (typeof data.sourceUrl === "string" ? data.sourceUrl : "");
+            const altUrl   = isVideo ? (typeof data.sourceUrl === "string" ? data.sourceUrl : "") : "";
+            const _tryAutoCreator = async (tryUrl) => {
+                if (!tryUrl) return false;
+                const parsed = _mghParseCreatorUrl(tryUrl);
+                if (!parsed || parsed.platform === "other" || !parsed.username) return false;
+                const existing = _links.find(l =>
+                    (l.type === "creator" || l.type === "youtube-channel") &&
+                    (l.username === parsed.username || _mghParseCreatorUrl(l.url || "")?.username === parsed.username) &&
+                    (l.platform || _mghParseCreatorUrl(l.url || "")?.platform) === parsed.platform
+                );
+                if (existing) { data.creatorId = existing.id; return true; }
+                const _profileUrls = {
+                    youtube:   `https://www.youtube.com/@${parsed.username}`,
+                    twitter:   `https://twitter.com/${parsed.username}`,
+                    instagram: `https://instagram.com/${parsed.username}`,
+                    tiktok:    `https://www.tiktok.com/@${parsed.username}`,
+                    twitch:    `https://www.twitch.tv/${parsed.username}`,
+                };
+                const profileUrl = _profileUrls[parsed.platform] || tryUrl;
+                const avatarUrl  = await _mghCreatorAvatar(parsed.platform, parsed.username, profileUrl);
+                const cData = {
+                    title: parsed.username, url: profileUrl, type: "creator",
+                    thumbUrl: avatarUrl || "", username: parsed.username, platform: parsed.platform,
+                    badgeLabel: "", badgeColor: "", createdAt: serverTimestamp(),
+                };
+                const docRef = await addDoc(refs.galleryLinks(_db, _uid()), cData);
+                data.creatorId = docRef.id;
+                toast(`Creator @${parsed.username} auto-added.`);
+                return true;
+            };
+            await _tryAutoCreator(sourceUrl) || await _tryAutoCreator(altUrl);
         }
 
         // Auto-detect person from title — exact port of workspace logic:
