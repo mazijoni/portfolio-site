@@ -93,4 +93,8 @@ export const refs = {
     /** users/{uid}/settings/features — per-user feature flags (written by admin) */
     featuresSettings: (db, uid) =>
         doc(db, "users", uid, "settings", "features"),
+
+    /** admin/serviceConfig — global admin-managed service domain settings */
+    serviceConfig: (db) =>
+        doc(db, "admin", "serviceConfig"),
 };
