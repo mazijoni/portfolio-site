@@ -721,6 +721,9 @@
 <!-- ── APP: LINKS ── -->
 <div id="app-links" class="hub-app">
     <div class="links-header">
+        <button id="btn-links-sb-toggle" class="ws-btn ws-btn-ghost ws-btn-icon links-sb-toggle-btn" title="Toggle sidebar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
         <div class="links-header-title">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
             <span>Link Gallery</span>
@@ -731,13 +734,15 @@
         </button>
         <div class="links-toolbar-right">
             <input type="text" id="links-search" class="links-search-input" placeholder="Search&#8230;" autocomplete="off">
-            <select id="links-sort-select" class="links-sort-select" title="Sort order">
+            <!-- Sort select kept in DOM for JS listeners, controlled via settings -->
+            <select id="links-sort-select" class="links-sort-select" style="display:none">
                 <option value="manual">Manual</option>
                 <option value="a-z">A → Z</option>
                 <option value="z-a">Z → A</option>
                 <option value="newest">Newest</option>
                 <option value="oldest">Oldest</option>
             </select>
+            <!-- Select-mode button in toolbar -->
             <button id="btn-links-select-mode" class="ws-btn ws-btn-ghost" title="Select items to bulk delete">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 <span class="btn-label">Select</span>
@@ -750,6 +755,7 @@
     <div id="links-cat-bar" class="links-cats">
         <!-- category buttons rendered by JS -->
     </div>
+    <div id="links-cat-overlay" class="links-cat-overlay"></div>
     <select id="links-cat-select" class="links-cat-select">
         <!-- populated by JS -->
     </select>
@@ -2237,17 +2243,68 @@
     </div>
 </div>
 
-<!-- Link Gallery: Add / Edit modal -->
+<!-- Link Gallery: Settings modal -->
 <div id="modal-links-settings" class="ws-modal-overlay hidden">
-    <div class="ws-modal" style="max-width:480px">
+    <div class="ws-modal" style="max-width:460px">
         <div class="ws-modal-header">
             <h2>Gallery Settings</h2>
             <button class="ws-modal-close" data-modal="modal-links-settings"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
-        <div class="ws-modal-body" style="padding:1.2rem">
-            <div class="form-group">
-                <label style="font-size:0.82rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em">Avatar placeholder style</label>
-                <p style="font-size:0.75rem;color:var(--text-muted);margin:4px 0 12px">Used when a creator has no profile image set.</p>
+        <!-- Category context chip -->
+        <div id="lgs-cat-context" class="lgs-cat-context" style="display:none">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+            <span>Settings for category:</span>
+            <strong class="lgs-cat-ctx-name"></strong>
+            <button id="lgs-cat-reset" class="lgs-cat-reset-btn" title="Reset to global defaults" style="display:none">Reset</button>
+        </div>
+        <div class="ws-modal-body lgs-modal-body">
+            <!-- Layout + Sort side by side -->
+            <div class="lgs-row">
+                <div class="lgs-section lgs-section--half">
+                    <div class="lgs-section-label">View</div>
+                    <div class="lgs-view-btns lgs-btn-group" id="lgs-view-btns">
+                        <button class="lgs-view-btn" data-layout="grid" title="Grid">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                            Grid
+                        </button>
+                        <button class="lgs-view-btn" data-layout="tiles" title="Tiles (square grid)">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="4"/><rect x="10" y="3" width="4" height="4"/><rect x="17" y="3" width="4" height="4"/><rect x="3" y="10" width="4" height="4"/><rect x="10" y="10" width="4" height="4"/><rect x="17" y="10" width="4" height="4"/><rect x="3" y="17" width="4" height="4"/><rect x="10" y="17" width="4" height="4"/><rect x="17" y="17" width="4" height="4"/></svg>
+                            Tiles
+                        </button>
+                        <button class="lgs-view-btn" data-layout="compact" title="Compact">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="4"/><rect x="10" y="3" width="4" height="4"/><rect x="17" y="3" width="4" height="4"/><rect x="3" y="10" width="4" height="4"/><rect x="10" y="10" width="4" height="4"/><rect x="17" y="10" width="4" height="4"/><rect x="3" y="17" width="4" height="4"/><rect x="10" y="17" width="4" height="4"/><rect x="17" y="17" width="4" height="4"/></svg>
+                            Compact
+                        </button>
+                        <button class="lgs-view-btn" data-layout="list" title="List">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                            List
+                        </button>
+                        <button class="lgs-view-btn" data-layout="rows" title="Rows">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                            Rows
+                        </button>
+                        <button class="lgs-view-btn" data-layout="feed" title="Feed (shuffled fullscreen)">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="9" height="13" rx="1"/><rect x="13" y="2" width="9" height="8" rx="1"/><rect x="2" y="17" width="9" height="5" rx="1"/><rect x="13" y="12" width="9" height="10" rx="1"/></svg>
+                            Feed
+                        </button>
+                    </div>
+                </div>
+                <div class="lgs-section lgs-section--half">
+                    <div class="lgs-section-label">Sort By</div>
+                    <div class="lgs-sort-btns lgs-btn-group" id="lgs-sort-btns">
+                        <button class="lgs-sort-btn active" data-sort="manual">Manual</button>
+                        <button class="lgs-sort-btn" data-sort="a-z">A → Z</button>
+                        <button class="lgs-sort-btn" data-sort="z-a">Z → A</button>
+                        <button class="lgs-sort-btn" data-sort="newest">Newest</button>
+                        <button class="lgs-sort-btn" data-sort="oldest">Oldest</button>
+                    </div>
+                </div>
+            </div>
+            <div class="lgs-divider"></div>
+            <!-- Avatar style -->
+            <div class="lgs-section">
+                <div class="lgs-section-label">Creator avatar style</div>
+                <p style="font-size:0.72rem;color:var(--text-muted);margin:2px 0 10px">Used when a creator has no profile image set.</p>
                 <div id="links-dicebear-grid" class="links-dicebear-grid"></div>
             </div>
         </div>
