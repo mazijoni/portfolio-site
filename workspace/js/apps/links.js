@@ -51,6 +51,7 @@ const MGH_PERSON_ALIASES = {
 let _db, _user, _unsub;
 let _settingsUnsub  = null;
 let _adminOwnerUid  = null;  // when set, all reads/writes target this uid (admin browse mode)
+let _serviceDomains = {}; // serviceName → override hostname (set by admin)
 
 /** Returns the effective uid for all Firestore operations. */
 function _uid() { return _adminOwnerUid || _user?.uid; }
@@ -310,6 +311,14 @@ export function initLinks(db, user) {
     try { const _sc = sessionStorage.getItem("links_active_cat"); if (_sc) _activeCat = _sc; } catch {}
     // Clear all saved section orderings so the new default applies
     try { Object.keys(localStorage).filter(k => k.startsWith("mghOrder_")).forEach(k => localStorage.removeItem(k)); } catch {}
+
+    // Load admin-configured service domain overrides
+    getDoc(refs.serviceConfig(db)).then(snap => {
+        if (snap.exists() && snap.data().serviceDomains) {
+            _serviceDomains = snap.data().serviceDomains;
+        }
+    }).catch(() => {});
+
     _loadCats();
 
     _startSubscriptions();
@@ -449,6 +458,16 @@ export function setLinksAdminOwner(uid) {
     if (searchEl) searchEl.value = "";
     _loadCats();
     _startSubscriptions();
+}
+
+/** Called by admin panel to apply service domain overrides without a page reload. */
+export function setServiceDomains(domains) {
+    _serviceDomains = domains && typeof domains === "object" ? { ...domains } : {};
+}
+
+/** Returns the known streaming services list (for admin panel display). */
+export function getKnownServices() {
+    return _KNOWN_STREAM_SERVICES.map(s => ({ ...s }));
 }
 
 
@@ -943,8 +962,12 @@ function _mghPretty(url) {
     try { const u = new URL(url); return (u.hostname + u.pathname).replace(/\/$/, ""); }
     catch { return url || ""; }
 }
+// Hosts that block cross-origin video embedding via CORP — skip embed, open in new tab instead.
+const _CORP_VIDEO_HOSTS = new Set(["video.twimg.com"]);
+
 function _mghEmbed(url) {
     if (!url) return null;
+    try { if (_CORP_VIDEO_HOSTS.has(new URL(url).hostname)) return null; } catch {}
     if (/\.(mp4|webm|ogg|mov|m4v)(\?|$)/i.test(url)) return { type: "direct", src: url };
     try {
         const u = new URL(url);
@@ -962,6 +985,8 @@ function _mghEmbed(url) {
             const id = u.pathname.split("/").filter(Boolean).pop();
             if (id) return { type: "vimeo", src: `https://player.vimeo.com/video/${id}` };
         }
+        // Pornhub embed URL — use as iframe src directly (no autoplay param added)
+        if (h === "pornhub.com" && u.pathname.includes("/embed/")) return { type: "iframe", src: url };
     } catch { /* noop */ }
     return null;
 }
@@ -1490,19 +1515,14 @@ function _mghRenderViewer() {
 
     if (item.type === "image") {
         stage.innerHTML = `<img class="wslb-img" src="${escHtml(item.src)}" alt="${escHtml(item.name)}">`;
-    } else if (item.type === "thumb-video") {
-        stage.innerHTML = `
-            <div class="wslb-thumb-wrap">
-                <img class="wslb-img" src="${escHtml(item.src)}" alt="${escHtml(item.name)}">
-                ${item.url ? `<a class="wslb-play-btn" href="${escHtml(item.url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${_playSvg(52)}</a>` : ""}
-            </div>`;
-    } else if (item.type === "video") {
+    } else if (item.type === "video" || item.type === "thumb-video") {
         stage.innerHTML = "";
+        const thumbSrc = item.thumb || item.src || "";
         const embed = _mghEmbed(item.url);
         const _showThumbFallback = () => {
             stage.innerHTML = "";
             const wrap = document.createElement("div"); wrap.className = "wslb-thumb-wrap";
-            if (item.thumb) { const img = document.createElement("img"); img.className = "wslb-img"; img.src = item.thumb; img.alt = item.name || ""; wrap.appendChild(img); }
+            if (thumbSrc) { const img = document.createElement("img"); img.className = "wslb-img"; img.src = thumbSrc; img.alt = item.name || ""; wrap.appendChild(img); }
             if (item.url) {
                 const a = document.createElement("a"); a.className = "wslb-play-btn"; a.href = item.url; a.target = "_blank"; a.rel = "noopener noreferrer";
                 a.addEventListener("click", e => e.stopPropagation());
@@ -1514,13 +1534,16 @@ function _mghRenderViewer() {
         if (embed?.type === "direct") {
             const vid = document.createElement("video");
             vid.src = embed.src; vid.controls = true; vid.autoplay = true; vid.playsInline = true;
+            if (thumbSrc) vid.poster = thumbSrc;
             vid.style.cssText = "max-width:100%;max-height:100%;";
             vid.addEventListener("error", _showThumbFallback, { once: true });
             stage.appendChild(vid);
         } else if (embed) {
             const wrap = document.createElement("div"); wrap.className = "wslb-video-wrap";
             const iframe = document.createElement("iframe");
-            iframe.src = embed.src + (embed.src.includes("?") ? "&" : "?") + "autoplay=1";
+            iframe.src = embed.type === "iframe"
+                ? embed.src
+                : embed.src + (embed.src.includes("?") ? "&" : "?") + "autoplay=1";
             iframe.allowFullscreen = true; iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
             wrap.appendChild(iframe); stage.appendChild(wrap);
         } else {
@@ -1744,33 +1767,27 @@ function _mghOpenCreatorPanel(creator) {
 /* ── Site card ── */
 function _mghSiteCard(link) {
     const card = document.createElement("div"); card.className = "db-site-card";
-    const fav = _mghFav(link.url);
+    const fav   = _mghFav(link.url);
+    const fav64 = fav.replace("sz=32", "sz=64");
     /* Only use thumbUrls that are user-supplied or og:image captures.
        Skip thum.io and unavatar.io: those services return HTML for blocked/adult content
        which triggers browser OpaqueResponseBlocking errors. */
     const _rawThumb = link.thumbUrl || "";
     const thumb = (_rawThumb && !_rawThumb.includes("thum.io") && !_rawThumb.includes("unavatar.io"))
         ? _rawThumb : "";
-    const label = link.title || _mghPretty(link.url); const fbId = "mgh_fb_" + link.id;
+    const label = link.title || _mghPretty(link.url);
+    const iconHtml = thumb
+        ? `<div class="db-site-icon db-site-icon--thumb">
+               <img class="db-site-thumb-img" src="${escHtml(thumb)}" alt="" onerror="this.classList.add('db-site-thumb-img--err')">
+               <img class="db-site-fav-badge" src="${escHtml(fav)}" alt="" onerror="this.style.display='none'">
+           </div>`
+        : `<div class="db-site-icon">
+               <img class="db-site-fav-lg" src="${escHtml(fav64)}" alt="" onerror="this.style.opacity='0'">
+           </div>`;
     card.innerHTML = `
         <a class="db-site-link" href="${escHtml(link.url || "#")}" target="_blank" rel="noopener noreferrer">
-            <div class="db-site-thumb">
-                ${thumb
-                    ? `<img class="db-site-thumb-img" src="${escHtml(thumb)}" alt=""
-                           onerror="this.style.display='none';document.getElementById('${fbId}').style.display='flex'">
-                       <div class="db-site-thumb-fb" id="${fbId}" style="display:none">
-                           <img src="${escHtml(fav)}" alt="" onerror="this.style.display='none'">
-                           <span>${escHtml(label)}</span>
-                       </div>`
-                    : `<div class="db-site-thumb-fb" id="${fbId}">
-                           <img src="${escHtml(fav)}" alt="" onerror="this.style.display='none'">
-                           <span>${escHtml(label)}</span>
-                       </div>`}
-            </div>
-            <div class="db-site-body">
-                <div class="db-site-name">${escHtml(label)}</div>
-                <div class="db-site-url">${escHtml(_mghPretty(link.url))}</div>
-            </div>
+            ${iconHtml}
+            <div class="db-site-name">${escHtml(label)}</div>
         </a>`;
     card.appendChild(_mghCardActions(link));
     return card;
@@ -1812,11 +1829,19 @@ function _mghVideoCard(link) {
         ${creator ? `<div class="image-card-creator" title="Creator: ${escHtml(creator.title || "")}"><svg width="10" height="10" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2.761 2.686-5 6-5s6 2.239 6 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg><span>${escHtml(creator.title || "")}</span></div>` : ""}
         ${persons.length ? `<div class="image-card-person"><svg width="10" height="10" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="2.5" stroke="#55ccbb" stroke-width="1.3"/><path d="M1 13c0-2.761 2.686-5 6-5s6 2.239 6 5" stroke="#55ccbb" stroke-width="1.3" stroke-linecap="round"/></svg><span class="image-card-person-name">${escHtml(persons.map(p => p.title).join(", "))}</span></div>` : ""}`;
     if (isThumb && link.url) {
-        const _vi = _mghViewItems.length;
-        _mghViewItems.push({ type: "thumb-video", src: link.thumbUrl || "", name: link.title || "", url: link.url });
-        const openLb = e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], _vi); };
-        card.querySelector(".video-thumb-play-overlay")?.addEventListener("click", openLb);
-        card.querySelector(".video-iframe-wrap img")?.addEventListener("click", openLb);
+        let _isCorpHost = false;
+        try { _isCorpHost = _CORP_VIDEO_HOSTS.has(new URL(link.url).hostname); } catch {}
+        if (_isCorpHost) {
+            const openNew = e => { e.stopPropagation(); window.open(link.url, "_blank", "noopener,noreferrer"); };
+            card.querySelector(".video-thumb-play-overlay")?.addEventListener("click", openNew);
+            card.querySelector(".video-iframe-wrap img")?.addEventListener("click", openNew);
+        } else {
+            const _vi = _mghViewItems.length;
+            _mghViewItems.push({ type: "thumb-video", src: link.thumbUrl || "", name: link.title || "", url: link.url });
+            const openLb = e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], _vi); };
+            card.querySelector(".video-thumb-play-overlay")?.addEventListener("click", openLb);
+            card.querySelector(".video-iframe-wrap img")?.addEventListener("click", openLb);
+        }
     }
     // For direct video embeds without thumbnail: fall back to thumbnail (or link) on error (403, CORS, etc.)
     const _inlineVid = card.querySelector(".video-iframe-wrap video");
@@ -1828,23 +1853,44 @@ function _mghVideoCard(link) {
                 wrap.className = "video-iframe-wrap video-iframe-wrap--thumb";
                 wrap.innerHTML = `<img src="${escHtml(link.thumbUrl)}" alt="${escHtml(link.title || "")}" style="width:100%;height:auto;display:block"><div class="video-thumb-play-overlay">${_playSvg(40)}</div>`;
                 if (link.url) {
-                    const _vi2 = _mghViewItems.length;
-                    _mghViewItems.push({ type: "thumb-video", src: link.thumbUrl, name: link.title || "", url: link.url });
-                    const openLb2 = e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], _vi2); };
-                    wrap.querySelector(".video-thumb-play-overlay")?.addEventListener("click", openLb2);
-                    wrap.querySelector("img")?.addEventListener("click", openLb2);
+                    let _isCorpHost2 = false;
+                    try { _isCorpHost2 = _CORP_VIDEO_HOSTS.has(new URL(link.url).hostname); } catch {}
+                    if (_isCorpHost2) {
+                        const openNew2 = e => { e.stopPropagation(); window.open(link.url, "_blank", "noopener,noreferrer"); };
+                        wrap.querySelector(".video-thumb-play-overlay")?.addEventListener("click", openNew2);
+                        wrap.querySelector("img")?.addEventListener("click", openNew2);
+                    } else {
+                        const _vi2 = _mghViewItems.length;
+                        _mghViewItems.push({ type: "thumb-video", src: link.thumbUrl, name: link.title || "", url: link.url });
+                        const openLb2 = e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], _vi2); };
+                        wrap.querySelector(".video-thumb-play-overlay")?.addEventListener("click", openLb2);
+                        wrap.querySelector("img")?.addEventListener("click", openLb2);
+                    }
                 }
             } else if (link.url) {
                 wrap.className = "video-iframe-wrap";
                 wrap.innerHTML = `<div class="video-link-placeholder">${_playSvg(36)}<span class="video-link-domain">${escHtml(_domain(link.url))}</span></div>`;
-                wrap.querySelector(".video-link-placeholder")?.addEventListener("click", e => { e.stopPropagation(); window.open(link.url, "_blank", "noopener"); });
+                const _vi2 = _mghViewItems.length;
+                _mghViewItems.push({ type: "video", url: link.url, thumb: "", name: link.title || "" });
+                wrap.querySelector(".video-link-placeholder")?.addEventListener("click", e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], _vi2); });
             }
         }, { once: true });
     }
     if (isLink && link.url) {
-        const _vi = _mghViewItems.length;
-        _mghViewItems.push({ type: "link-video", src: "", name: link.title || "", url: link.url });
-        card.querySelector(".video-link-placeholder")?.addEventListener("click", e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], _vi); });
+        try {
+            if (_CORP_VIDEO_HOSTS.has(new URL(link.url).hostname)) {
+                // CORP-blocked CDN: one click → open directly in new tab, skip the viewer
+                card.querySelector(".video-link-placeholder")?.addEventListener("click", e => { e.stopPropagation(); window.open(link.url, "_blank", "noopener,noreferrer"); });
+            } else {
+                const _vi = _mghViewItems.length;
+                _mghViewItems.push({ type: "link-video", src: "", name: link.title || "", url: link.url });
+                card.querySelector(".video-link-placeholder")?.addEventListener("click", e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], _vi); });
+            }
+        } catch {
+            const _vi = _mghViewItems.length;
+            _mghViewItems.push({ type: "link-video", src: "", name: link.title || "", url: link.url });
+            card.querySelector(".video-link-placeholder")?.addEventListener("click", e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], _vi); });
+        }
     }
     card.querySelector(".image-card-creator")?.addEventListener("click", e => { e.stopPropagation(); _mghOpenCreatorPanel(creator); });
     card.querySelector(".image-card-person")?.addEventListener("click", e => { e.stopPropagation(); if (persons[0]) _mghOpenCreatorPanel(persons[0]); });
@@ -2382,8 +2428,9 @@ function _mghVideoGroupCard(link) {
     const vids  = Array.isArray(link.videos) ? link.videos.filter(v => v?.url) : [];
     const count = vids.length;
     if (!count) {
+        const _vgSrc0 = link.sourceUrl || link.url || "";
         card.innerHTML = `<div style="background:#111;min-height:80px;display:flex;align-items:center;justify-content:center;color:#444;font-size:0.72rem">No videos</div>
-            <div class="image-card-body"><span class="image-type-badge">VIDEO GROUP</span><span class="image-card-name">${escHtml(link.title || "")}</span></div>`;
+            <div class="image-card-body"><span class="image-type-badge">VIDEO GROUP</span><span class="image-card-name">${escHtml(link.title || "")}</span>${_vgSrc0 ? `<a class="card-source-link" href="${escHtml(_vgSrc0)}" target="_blank" rel="noopener noreferrer" title="Go to source" onclick="event.stopPropagation()"><svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M5.5 1H9v3.5M9 1L4 6M2 3.5H1v5.5h5.5V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>` : ""}</div>`;
         card.appendChild(_mghCardActions(link));
         return card;
     }
@@ -2478,7 +2525,8 @@ function _mghVideoGroupCard(link) {
             .observe(document.body, { childList: true, subtree: true });
     }
     const body = document.createElement("div"); body.className = "image-card-body";
-    body.innerHTML = `<span class="image-type-badge">VIDEO GROUP</span><span class="image-card-name">${escHtml(link.title || `${count} video${count !== 1 ? "s" : ""}`)}</span>${link.sourceUrl ? `<a class="card-source-link" href="${escHtml(link.sourceUrl)}" target="_blank" rel="noopener noreferrer" title="Go to source" onclick="event.stopPropagation()"><svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M5.5 1H9v3.5M9 1L4 6M2 3.5H1v5.5h5.5V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>` : ""}`;
+    const _vgSrc = link.sourceUrl || link.url || "";
+    body.innerHTML = `<span class="image-type-badge">VIDEO GROUP</span><span class="image-card-name">${escHtml(link.title || `${count} video${count !== 1 ? "s" : ""}`)}</span>${_vgSrc ? `<a class="card-source-link" href="${escHtml(_vgSrc)}" target="_blank" rel="noopener noreferrer" title="${link.sourceUrl ? "Go to source" : "Go to URL"}" onclick="event.stopPropagation()"><svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M5.5 1H9v3.5M9 1L4 6M2 3.5H1v5.5h5.5V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>` : ""}`;
     card.appendChild(body);
     if (creator) { const el = document.createElement("div"); el.className = "image-card-creator"; el.title = `Creator: ${creator.title||""}`; el.innerHTML = `<svg width="10" height="10" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2.761 2.686-5 6-5s6 2.239 6 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg><span>${escHtml(creator.title||"")}</span>`; el.addEventListener("click", e=>{e.stopPropagation();_mghOpenCreatorPanel(creator);}); card.appendChild(el); }
     if (persons.length) { const el = document.createElement("div"); el.className = "image-card-person"; el.innerHTML = `<svg width="10" height="10" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="2.5" stroke="#55ccbb" stroke-width="1.3"/><path d="M1 13c0-2.761 2.686-5 6-5s6 2.239 6 5" stroke="#55ccbb" stroke-width="1.3" stroke-linecap="round"/></svg><span class="image-card-person-name">${escHtml(persons.map(p=>p.title).join(", "))}</span>`; el.addEventListener("click", e=>{e.stopPropagation();if(persons[0])_mghOpenCreatorPanel(persons[0]);}); card.appendChild(el); }
@@ -3921,9 +3969,9 @@ function _updateTypeHint(type) {
     }
 
     if (urlLabel)    urlLabel.textContent    = isImage ? "Image URL *" : "URL *";
-    if (thumbGroup)  thumbGroup.style.display  = (isCreator || isPerson || isVideo || isImage || isVideoGroup) ? "" : "none";
+    if (thumbGroup)  thumbGroup.style.display  = (isCreator || isPerson || isVideo || isImage) ? "" : "none";
     if (thumbLabel)  thumbLabel.textContent  = (isCreator || isPerson) ? "Avatar URL" : "Thumbnail URL";
-    if (sourceGroup) sourceGroup.style.display = (isImage || isImageGroup || isVideo) ? "" : "none";
+    if (sourceGroup) sourceGroup.style.display = (isImage || isImageGroup || isVideo || isVideoGroup) ? "" : "none";
     if (badgeGroup)  badgeGroup.style.display  = (isCreator) ? "" : "none";
     if (descGroup)   descGroup.style.display   = (isCreator || isPerson) ? "" : "none";
     if (attrGroup)   attrGroup.style.display   = (isImage || isVideo || isImageGroup || isVideoGroup) ? "" : "none";
@@ -5426,9 +5474,10 @@ function _openServicePicker(cat) {
             );
             if (alreadyAdded) { toast(`${svc.name} is already added`, "info"); return; }
             try {
+                const url = _applyOverrideDomain(svc);
                 await addDoc(refs.galleryLinks(_db, _uid()), {
                     title:     svc.name,
-                    url:       svc.url,
+                    url,
                     type:      "streaming-service",
                     category:  _pickerCat.name,
                     createdAt: serverTimestamp(),
@@ -5501,13 +5550,14 @@ function _ensureStreamingDrawer() {
     el.querySelector(".sd-overlay").addEventListener("click", _closeLibrary);
     document.getElementById("sd-close-btn").addEventListener("click", _closeLibrary);
 
-    // Domain-group link interception: rewrite to first reachable domain before navigating
-    el.addEventListener("click", async e => {
+    // Service domain rewrite: swap stored URL to admin-configured domain if an override exists
+    el.addEventListener("click", e => {
         const a = e.target.closest("a[target='_blank']");
-        if (!a || !a.href || !_findDomainGroup(a.href)) return;
+        if (!a || !a.href) return;
+        const rewritten = _rewriteServiceUrl(a.href);
+        if (rewritten === null) return;
         e.preventDefault();
-        const resolved = await _resolveServiceUrl(a.href);
-        window.open(resolved, "_blank", "noopener,noreferrer");
+        window.open(rewritten, "_blank", "noopener,noreferrer");
     });
     document.getElementById("sd-tabs").addEventListener("click", e => {
         const tab = e.target.closest("[data-sd-tab]");
@@ -5728,59 +5778,37 @@ function _ensureStreamingDrawer() {
 
 /* ══════════ LIBRARY OPEN / CLOSE / RENDER ══════════ */
 
-// Multi-domain groups: domains listed in priority order (first = preferred)
-// When a stored URL uses any domain in the group, the system tries them in
-// order and rewrites the URL to the first reachable one before navigating.
-const _SD_DOMAIN_GROUPS = {
-    "pstream": ["pstream.net", "pstream.to", "pstream.org", "pstream.com"],
-};
-
-function _findDomainGroup(url) {
+// Returns the URL to use when adding a service from the picker (applies override if set).
+function _applyOverrideDomain(svc) {
+    const override = _serviceDomains[svc.name];
+    if (!override) return svc.url;
     try {
-        const hostname = new URL(url).hostname.replace(/^www\./, "");
-        for (const [, domains] of Object.entries(_SD_DOMAIN_GROUPS)) {
-            if (domains.some(d => hostname === d || hostname.endsWith("." + d))) {
-                return domains;
+        const u = new URL(svc.url);
+        u.hostname = override;
+        return u.toString();
+    } catch { return svc.url; }
+}
+
+// Rewrites a stored service URL to the admin-configured domain if an override exists.
+// Returns null if no rewrite is needed.
+function _rewriteServiceUrl(url) {
+    if (!Object.keys(_serviceDomains).length) return null;
+    try {
+        const h = new URL(url).hostname.replace(/^www\./, "");
+        for (const svc of _KNOWN_STREAM_SERVICES) {
+            const override = _serviceDomains[svc.name];
+            if (!override) continue;
+            const defHost = new URL(svc.url).hostname.replace(/^www\./, "");
+            const ovrHost = override.replace(/^www\./, "");
+            if (h === defHost || h === ovrHost) {
+                if (h === ovrHost) return null; // already on the right domain
+                const u = new URL(url);
+                u.hostname = override;
+                return u.toString();
             }
         }
-    } catch { /* noop */ }
+    } catch {}
     return null;
-}
-
-async function _isDomainReachable(domain) {
-    const key = `sd_domain_ok_${domain}`;
-    const cached = localStorage.getItem(key);
-    if (cached) {
-        try {
-            const { ok, ts } = JSON.parse(cached);
-            if (Date.now() - ts < 3_600_000) return ok;
-        } catch { /* stale */ }
-    }
-    try {
-        await fetch(`https://${domain}/`, { method: "HEAD", mode: "no-cors", signal: AbortSignal.timeout(5000) });
-        localStorage.setItem(key, JSON.stringify({ ok: true, ts: Date.now() }));
-        return true;
-    } catch {
-        localStorage.setItem(key, JSON.stringify({ ok: false, ts: Date.now() }));
-        return false;
-    }
-}
-
-function _swapDomain(url, newDomain) {
-    try {
-        const u = new URL(url);
-        u.hostname = newDomain;
-        return u.toString();
-    } catch { return url; }
-}
-
-async function _resolveServiceUrl(url) {
-    const domains = _findDomainGroup(url);
-    if (!domains) return url;
-    for (const domain of domains) {
-        if (await _isDomainReachable(domain)) return _swapDomain(url, domain);
-    }
-    return url; // all domains unreachable, return original
 }
 
 const _SD_BRAND_COLORS = {
@@ -5811,15 +5839,25 @@ const _SD_BRAND_COLORS = {
     "areena.yle.fi":         "#494949",
     "plex.tv":               "#e5a00d",
     "pstream.net":           "#8288fe",
-    "pstream.to":            "#8288fe",
 };
 
 function _sdBrandColor(url) {
     if (!url) return null;
     try {
         const h = new URL(url).hostname.replace(/^www\./, "");
+        // Check static brand colors first
         for (const [k, v] of Object.entries(_SD_BRAND_COLORS)) {
             if (h === k || h.endsWith("." + k)) return v;
+        }
+        // If URL uses an override domain, look up the color for the service's default URL
+        for (const svc of _KNOWN_STREAM_SERVICES) {
+            const override = _serviceDomains[svc.name];
+            if (override && h === override.replace(/^www\./, "")) {
+                const defHost = new URL(svc.url).hostname.replace(/^www\./, "");
+                for (const [k, v] of Object.entries(_SD_BRAND_COLORS)) {
+                    if (defHost === k || defHost.endsWith("." + k)) return v;
+                }
+            }
         }
     } catch { /* noop */ }
     return null;

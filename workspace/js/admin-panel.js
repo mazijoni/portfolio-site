@@ -12,8 +12,11 @@ import {
     collection, doc,
 } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
-import { toast, escHtml }         from "./ui.js";
-import { setLinksAdminOwner }     from "./apps/links.js";
+import { refs }                        from "./db.js";
+import { toast, escHtml }              from "./ui.js";
+import { setLinksAdminOwner,
+         setServiceDomains,
+         getKnownServices }            from "./apps/links.js";
 
 /* ── Feature flag metadata (Material Symbols icon names, no emojis) ── */
 const FEATURE_META = {
@@ -43,12 +46,86 @@ export function initAdminPanel(db) {
 
     _buildUsersShell(root);
     _loadUsers();
+    _loadServiceConfig();
+}
+
+/* ══════════════════════════════════════════════════════════
+   SERVICE CONFIG — admin-managed domain settings
+   ══════════════════════════════════════════════════════════ */
+
+async function _loadServiceConfig() {
+    try {
+        const snap = await getDoc(refs.serviceConfig(_db));
+        const cfg  = snap.exists() ? snap.data() : {};
+        _renderServiceConfig(cfg);
+    } catch (err) {
+        console.error("Admin: failed to load service config", err);
+        _renderServiceConfig({});
+    }
+}
+
+function _renderServiceConfig(cfg) {
+    const el = document.getElementById("adm-service-config");
+    if (!el) return;
+    const overrides  = cfg.serviceDomains || {};
+    const services   = getKnownServices();
+
+    const rows = services.map(svc => {
+        const defHost = (() => { try { return new URL(svc.url).hostname; } catch { return svc.url; } })();
+        const cur = overrides[svc.name] || "";
+        return `<tr>
+          <td class="adm-svc-name-cell">${escHtml(svc.name)}</td>
+          <td class="adm-svc-def-cell">${escHtml(defHost)}</td>
+          <td class="adm-svc-inp-cell">
+            <input class="adm-svc-input adm-svc-override" data-svc="${escHtml(svc.name)}"
+                   type="text" value="${escHtml(cur)}" placeholder="${escHtml(defHost)}"
+                   autocomplete="off" spellcheck="false">
+          </td>
+        </tr>`;
+    }).join("");
+
+    el.innerHTML = `
+      <div class="adm-svc-table-wrap">
+        <table class="adm-svc-table">
+          <thead><tr>
+            <th>Service</th>
+            <th>Default domain</th>
+            <th>Override domain (leave blank to use default)</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div class="adm-svc-footer">
+        <button id="adm-svc-save-btn" class="ws-btn ws-btn-primary ws-btn-sm">Save all</button>
+      </div>`;
+
+    document.getElementById("adm-svc-save-btn").addEventListener("click", async () => {
+        const serviceDomains = {};
+        el.querySelectorAll(".adm-svc-override").forEach(inp => {
+            const val = inp.value.trim();
+            if (val) serviceDomains[inp.dataset.svc] = val;
+        });
+        try {
+            await setDoc(refs.serviceConfig(_db), { serviceDomains }, { merge: false });
+            setServiceDomains(serviceDomains);
+            toast("Service domains saved", "success");
+        } catch (err) {
+            console.error(err);
+            toast("Error saving service config", "error");
+        }
+    });
 }
 
 /* ── Users panel shell ── */
 function _buildUsersShell(root) {
     root.innerHTML = `
     <div class="adm-panel-wrap">
+      <div class="adm-svc-config">
+        <span class="adm-toolbar-title">Service Settings</span>
+        <div id="adm-service-config" class="adm-svc-body">
+          <div class="ws-placeholder">Loading…</div>
+        </div>
+      </div>
       <div class="adm-toolbar">
         <span class="adm-toolbar-title">All Users</span>
         <input type="text" id="adm-user-search" class="adm-search-input" placeholder="Search by name or email…" autocomplete="off">
