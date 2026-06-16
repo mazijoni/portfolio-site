@@ -962,8 +962,7 @@ function _mghPretty(url) {
     try { const u = new URL(url); return (u.hostname + u.pathname).replace(/\/$/, ""); }
     catch { return url || ""; }
 }
-// Hosts that block cross-origin video embedding via CORP — skip embed, open in new tab instead.
-const _CORP_VIDEO_HOSTS = new Set(["video.twimg.com"]);
+const _CORP_VIDEO_HOSTS = new Set([]);
 
 function _mghEmbed(url) {
     if (!url) return null;
@@ -1803,7 +1802,7 @@ function _mghVideoCard(link) {
     let mediaHtml, isThumb = false, isLink = false;
     if (embed) {
         if (embed.type === "direct") {
-            mediaHtml = `<video src="${escHtml(embed.src)}"${link.thumbUrl ? ` poster="${escHtml(link.thumbUrl)}"` : ""} controls style="position:absolute;inset:0;width:100%;height:100%;background:#000" preload="metadata"></video>`;
+            mediaHtml = `<video src="${escHtml(embed.src)}"${link.thumbUrl ? ` poster="${escHtml(link.thumbUrl)}"` : ""} controls style="position:absolute;inset:0;width:100%;height:100%;background:#000" preload="none"></video>`;
         } else {
             mediaHtml = `<iframe src="${escHtml(embed.src)}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" loading="lazy"></iframe>`;
         }
@@ -2172,7 +2171,7 @@ function _mghFeedCard(link) {
             if (embed.type === "direct") {
                 isDirectVideo = true;
                 directSrc = embed.src;
-                mediaHtml = `<video class="feed-card-media feed-card-video" src="${escHtml(embed.src)}"${link.thumbUrl ? ` poster="${escHtml(link.thumbUrl)}"` : ""} playsinline preload="metadata"></video>`;
+                mediaHtml = `<video class="feed-card-media feed-card-video" src="${escHtml(embed.src)}"${link.thumbUrl ? ` poster="${escHtml(link.thumbUrl)}"` : ""} playsinline preload="none"></video>`;
             } else {
                 const apiSrc = embed.src + (embed.src.includes("?") ? "&" : "?") + "enablejsapi=1";
                 mediaHtml = `<iframe class="feed-card-media" src="${escHtml(apiSrc)}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" loading="lazy"></iframe>`;
@@ -2795,7 +2794,14 @@ function _addVgVideoField(urlVal = "", thumbVal = "") {
 
 function _renderMediaHub(body, cat) {
     body.innerHTML = "";
-    const catLinks = _links.filter(l => l.category === cat.name);
+    const catLinks = _links.filter(l => {
+        if (l.category === cat.name) return true;
+        // Auto-created creators may be missing their category field — include them
+        // if they are referenced by an item that IS in this category.
+        if (!l.category && (l.type === "creator" || l.type === "youtube-channel"))
+            return _links.some(m => m.category === cat.name && m.creatorId === l.id);
+        return false;
+    });
 
     // Per-hub persisted state
     let _mghLayout = localStorage.getItem(`mghLayout_${cat.id}`) || "grid";
@@ -4376,6 +4382,7 @@ async function _onFormSubmit(e) {
                 const avatarUrl  = await _mghCreatorAvatar(parsed.platform, parsed.username, profileUrl);
                 const cData = {
                     title: parsed.username, url: profileUrl, type: "creator",
+                    category: data.category,
                     thumbUrl: avatarUrl || "", username: parsed.username, platform: parsed.platform,
                     badgeLabel: "", badgeColor: "", createdAt: serverTimestamp(),
                 };
