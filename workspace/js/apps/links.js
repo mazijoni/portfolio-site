@@ -58,10 +58,14 @@ function _uid() { return _adminOwnerUid || _user?.uid; }
 let _links          = [];
 let _search         = "";
 let _activeCat      = "all";   // "all" | category name | "_uncat"
-let _sortMode       = "manual";
+let _sortMode       = localStorage.getItem("links_sort_mode") || "manual";
 let _editId         = null;
 let _editCatId      = null;
 let _dragId         = null;
+let _layout         = localStorage.getItem("links_layout") || "grid"; // "grid" | "compact" | "list"
+let _catPrefs       = (() => { try { return JSON.parse(localStorage.getItem("links_cat_prefs") || "{}"); } catch { return {}; } })();
+let _showThumbs     = localStorage.getItem("links_show_thumbs") !== "0";
+let _showDesc       = localStorage.getItem("links_show_desc") !== "0";
 let _settingsLoaded = false;   // true after first Firestore settings snapshot
 
 /* ── Drag auto-scroll state ── */
@@ -330,13 +334,46 @@ export function initLinks(db, user) {
     if (_linksBody) _initBoxSelect(_linksBody);
 
     document.getElementById("btn-add-link")
-        .addEventListener("click", () => _openForm(null));
+        .addEventListener("click", () => {
+            if (_activeCat === "all" && !_search) _openCatForm(null);
+            else _openForm(null);
+        });
     document.getElementById("btn-links-settings")
         ?.addEventListener("click", () => _openLinksSettings());
+
+    // Sidebar collapse / mobile drawer toggle
+    const _sbToggleBtn = document.getElementById("btn-links-sb-toggle");
+    const _isLinksMobile = () => window.matchMedia("(max-width: 768px)").matches;
+    const _closeLinksDrawer = () => {
+        document.getElementById("app-links")?.classList.remove("links-sidebar-mobile-open");
+    };
+    if (_sbToggleBtn) {
+        const _applyCollapse = (collapsed) => {
+            document.getElementById("app-links")?.classList.toggle("links-sidebar-collapsed", collapsed);
+            _sbToggleBtn.classList.toggle("rotated", collapsed);
+            try { localStorage.setItem("links_sidebar_collapsed", collapsed ? "1" : ""); } catch {}
+        };
+        _sbToggleBtn.addEventListener("click", () => {
+            const appLinks = document.getElementById("app-links");
+            if (_isLinksMobile()) {
+                // Mobile: toggle off-canvas drawer
+                appLinks?.classList.toggle("links-sidebar-mobile-open");
+            } else {
+                // Desktop: collapse sidebar width
+                _applyCollapse(!appLinks?.classList.contains("links-sidebar-collapsed"));
+            }
+        });
+        if (localStorage.getItem("links_sidebar_collapsed") === "1") _applyCollapse(true);
+    }
+    // Overlay click closes the mobile drawer
+    document.getElementById("links-cat-overlay")?.addEventListener("click", _closeLinksDrawer);
     document.getElementById("links-search")
         .addEventListener("input", e => { _search = e.target.value.toLowerCase(); _render(); });
-    document.getElementById("links-sort-select")
-        .addEventListener("change", e => { _sortMode = e.target.value; _render(); });
+    const _sortSel = document.getElementById("links-sort-select");
+    if (_sortSel) {
+        _sortSel.value = _sortMode;
+        _sortSel.addEventListener("change", e => { _sortMode = e.target.value; _render(); });
+    }
 
     document.getElementById("links-cat-select")
         ?.addEventListener("change", e => { _switchCat(e.target.value); });
@@ -346,7 +383,7 @@ export function initLinks(db, user) {
             const addBtn = e.target.closest("[data-cat-action='add-cat']");
             if (addBtn) { _openCatForm(null); return; }
             const catBtn = e.target.closest("[data-cat-name]");
-            if (catBtn) { _switchCat(catBtn.dataset.catName); }
+            if (catBtn) { _switchCat(catBtn.dataset.catName); if (_isLinksMobile()) _closeLinksDrawer(); }
         });
 
     document.getElementById("links-body")
@@ -494,9 +531,18 @@ const TYPE_ORDER = {
     "creator":           9,
 };
 
+function _activeCatPref(key) {
+    if (_activeCat === "all") return null;
+    return _catPrefs[_activeCat]?.[key] ?? null;
+}
+function _activeLayout() { return _activeCatPref("layout") || _layout; }
+function _activeSort()   { return _activeCatPref("sort")   || _sortMode; }
+function _saveCatPrefs() { try { localStorage.setItem("links_cat_prefs", JSON.stringify(_catPrefs)); } catch {} }
+
 function _sorted(list) {
     const arr = [...list];
-    switch (_sortMode) {
+    const sort = _activeSort();
+    switch (sort) {
         case "a-z":    return arr.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
         case "z-a":    return arr.sort((a, b) => (b.title || "").localeCompare(a.title || ""));
         case "newest": return arr.sort((a, b) => ((b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
@@ -1793,14 +1839,32 @@ function _mghSiteCard(link) {
 }
 
 /* ── Video card ── */
-function _mghVideoCard(link) {
+function _mghVideoCard(link, opts = {}) {
     const card = document.createElement("div"); card.className = "video-card";
     const embed = _mghEmbed(link.url);
     const creator = _mghFindCreatorFor(link);
     const personIds = link.personIds || (link.personId ? [link.personId] : []);
     const persons = personIds.map(id => _links.find(l => l.id === id)).filter(Boolean);
+    // Effective static thumbnail (used in tiles view so we don't embed many iframes/videos)
+    let _effThumb = link.thumbUrl || "";
+    if (!_effThumb && embed?.type === "youtube") {
+        const ytId = embed.src.split("/embed/")[1]?.split("?")[0];
+        if (ytId) _effThumb = `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg`;
+    }
     let mediaHtml, isThumb = false, isLink = false;
-    if (embed) {
+    if (opts.thumbnailOnly) {
+        // Force a static thumbnail instead of an embed/iframe
+        if (_effThumb) {
+            isThumb = true;
+            mediaHtml = `<img src="${escHtml(_effThumb)}" alt="${escHtml(link.title || "")}" style="width:100%;height:auto;display:block">
+                <div class="video-thumb-play-overlay">${_playSvg(40)}</div>`;
+        } else if (link.url) {
+            isLink = true;
+            mediaHtml = `<div class="video-link-placeholder">${_playSvg(36)}<span class="video-link-domain">${escHtml(_domain(link.url))}</span></div>`;
+        } else {
+            mediaHtml = `<div style="display:flex;align-items:center;justify-content:center;height:100%;min-height:80px;color:#555;font-size:0.8rem">No video</div>`;
+        }
+    } else if (embed) {
         if (embed.type === "direct") {
             mediaHtml = `<video src="${escHtml(embed.src)}"${link.thumbUrl ? ` poster="${escHtml(link.thumbUrl)}"` : ""} controls style="position:absolute;inset:0;width:100%;height:100%;background:#000" preload="none"></video>`;
         } else {
@@ -1836,7 +1900,7 @@ function _mghVideoCard(link) {
             card.querySelector(".video-iframe-wrap img")?.addEventListener("click", openNew);
         } else {
             const _vi = _mghViewItems.length;
-            _mghViewItems.push({ type: "thumb-video", src: link.thumbUrl || "", name: link.title || "", url: link.url });
+            _mghViewItems.push({ type: "thumb-video", src: _effThumb || "", name: link.title || "", url: link.url });
             const openLb = e => { e.stopPropagation(); _mghOpenViewer([..._mghViewItems], _vi); };
             card.querySelector(".video-thumb-play-overlay")?.addEventListener("click", openLb);
             card.querySelector(".video-iframe-wrap img")?.addEventListener("click", openLb);
@@ -2712,6 +2776,98 @@ function _initImageGroupForm() {
 }
 
 function _openLinksSettings() {
+    const inCat = _activeCat !== "all";
+    const catName = inCat ? _activeCat : null;
+    const cat = inCat ? _cats.find(c => c.name === catName) : null;
+    const isMediaHub = cat?.prefab === "media";
+
+    // ── Category context chip ──
+    const ctxEl = document.getElementById("lgs-cat-context");
+    const ctxReset = document.getElementById("lgs-cat-reset");
+    if (ctxEl) {
+        ctxEl.style.display = inCat ? "flex" : "none";
+        ctxEl.querySelector(".lgs-cat-ctx-name").textContent = catName || "";
+    }
+    function _hasCatOverride() {
+        return inCat && (_catPrefs[catName]?.layout || _catPrefs[catName]?.sort);
+    }
+    if (ctxReset) {
+        ctxReset.style.display = _hasCatOverride() ? "" : "none";
+        ctxReset.onclick = () => {
+            if (inCat) {
+                delete _catPrefs[catName];
+                _saveCatPrefs();
+            }
+            ctxReset.style.display = "none";
+            _applyLayout();
+            document.querySelectorAll(".lgs-view-btn").forEach(b =>
+                b.classList.toggle("active", b.dataset.layout === _activeLayout()));
+            document.querySelectorAll(".lgs-sort-btn").forEach(b =>
+                b.classList.toggle("active", b.dataset.sort === _activeSort()));
+            _render();
+        };
+    }
+
+    // ── View mode buttons ──
+    // Media hubs support grid/list/feed; normal categories support grid/compact/list/rows.
+    const MEDIA_MODES  = ["grid", "tiles", "list", "feed"];
+    const NORMAL_MODES = ["grid", "compact", "list", "rows"];
+    const currentMghLayout = isMediaHub && cat?.id ? (localStorage.getItem(`mghLayout_${cat.id}`) || "grid") : null;
+    const currentLayout = isMediaHub ? currentMghLayout : _activeLayout();
+    document.querySelectorAll(".lgs-view-btn").forEach(btn => {
+        const mode = btn.dataset.layout;
+        const allowed = isMediaHub ? MEDIA_MODES : NORMAL_MODES;
+        btn.style.display = allowed.includes(mode) ? "" : "none";
+        // "feed" is a transient fullscreen action, never the persisted active state
+        btn.classList.toggle("active", mode !== "feed" && mode === currentLayout);
+        btn.onclick = () => {
+            if (isMediaHub && cat?.id) {
+                if (mode === "feed") {
+                    // Open shuffled fullscreen feed (doesn't persist as a layout)
+                    const MEDIA_TYPES = ["image","3d-model","image-group","youtube-video","youtube-playlist","video","video-group"];
+                    const allMedia = _links.filter(l => l.category === cat.name && MEDIA_TYPES.includes(l.type));
+                    if (!allMedia.length) { toast("No images or videos to show in feed.", "info"); return; }
+                    closeModal("modal-links-settings");
+                    _openMghFeed(allMedia);
+                    return;
+                }
+                localStorage.setItem(`mghLayout_${cat.id}`, mode);
+            } else if (inCat) {
+                _catPrefs[catName] = { ..._catPrefs[catName], layout: mode };
+                _saveCatPrefs();
+            } else {
+                _layout = mode;
+                try { localStorage.setItem("links_layout", _layout); } catch {}
+            }
+            if (ctxReset) ctxReset.style.display = _hasCatOverride() ? "" : "none";
+            document.querySelectorAll(".lgs-view-btn").forEach(b => b.classList.toggle("active", b === btn));
+            _applyLayout();
+            _render();
+        };
+    });
+
+    // ── Sort buttons ──
+    document.querySelectorAll(".lgs-sort-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.sort === _activeSort());
+        btn.onclick = () => {
+            if (inCat) {
+                _catPrefs[catName] = { ..._catPrefs[catName], sort: btn.dataset.sort };
+                _saveCatPrefs();
+            } else {
+                _sortMode = btn.dataset.sort;
+                try { localStorage.setItem("links_sort_mode", _sortMode); } catch {}
+                // Sync hidden select element
+                const sel = document.getElementById("links-sort-select");
+                if (sel) sel.value = _sortMode;
+            }
+            if (ctxReset) ctxReset.style.display = _hasCatOverride() ? "" : "none";
+            document.querySelectorAll(".lgs-sort-btn").forEach(b =>
+                b.classList.toggle("active", b.dataset.sort === _activeSort()));
+            _render();
+        };
+    });
+
+    // ── DiceBear avatar style grid ──
     const grid = document.getElementById("links-dicebear-grid");
     if (grid) {
         grid.innerHTML = "";
@@ -2727,9 +2883,7 @@ function _openLinksSettings() {
                 try { localStorage.setItem("links_dicebear_style", s.id); } catch {}
                 grid.querySelectorAll(".dicebear-style-btn").forEach(b => b.classList.toggle("active", b.dataset.style === s.id));
                 if (!_db || !_user?.uid || _adminOwnerUid) return;
-                // Save style preference
                 setDoc(refs.linkSettings(_db, _uid()), { dicebearStyle: s.id }, { merge: true }).catch(console.error);
-                // Clear any stored DiceBear URLs — they should never be in the database
                 const toClean = _links.filter(l => (l.thumbUrl || "").includes("dicebear.com"));
                 if (!toClean.length) return;
                 const batch = writeBatch(_db);
@@ -2805,7 +2959,8 @@ function _renderMediaHub(body, cat) {
 
     // Per-hub persisted state
     let _mghLayout = localStorage.getItem(`mghLayout_${cat.id}`) || "grid";
-    let _mghSearch = "";
+    let _mghGridScale = parseInt(localStorage.getItem(`mghGridScale_${cat.id}`) || "200", 10);
+    let _mghSearch = _search || "";
     let _mghSectionOrder = (() => { try { return JSON.parse(localStorage.getItem(`mghOrder_${cat.id}`) || "null") || null; } catch { return null; } })();
     let _mghFeedIds = null; // stable shuffled ID list for feed mode
 
@@ -2829,24 +2984,22 @@ function _renderMediaHub(body, cat) {
             <span class="material-symbols-outlined">perm_media</span>
             ${escHtml(cat.name)}
         </span>
-        <div class="mgh-search-wrap" id="mgh-search-wrap" style="display:none">
-            <input class="mgh-search-input" id="mgh-search-input" placeholder="Search…" autocomplete="off">
-            <button class="mgh-search-close" id="mgh-search-close" title="Close">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-        </div>
         <div class="mgh-toolbar-actions">
-            <button class="ws-btn ws-btn-ghost ws-btn-icon mgh-layout-btn ${_mghLayout === "grid" ? "active" : ""}" id="mgh-layout-grid" title="Grid" data-layout="grid">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            <label class="mgh-scale-wrap" title="Grid size" ${["grid","tiles"].includes(_mghLayout) ? "" : 'style="display:none"'}>
+                <span class="material-symbols-outlined">photo_size_select_large</span>
+                <input type="range" class="mgh-scale-slider" min="130" max="340" step="10" value="${_mghGridScale}">
+            </label>
+            <button class="ws-btn ws-btn-ghost ws-btn-icon mgh-layout-btn ${_mghLayout === "grid" ? "active" : ""}" title="Grid" data-layout="grid">
+                <span class="material-symbols-outlined">dashboard</span>
             </button>
-            <button class="ws-btn ws-btn-ghost ws-btn-icon mgh-layout-btn ${_mghLayout === "list" ? "active" : ""}" id="mgh-layout-list" title="List" data-layout="list">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            <button class="ws-btn ws-btn-ghost ws-btn-icon mgh-layout-btn ${_mghLayout === "tiles" ? "active" : ""}" title="Tiles (square grid)" data-layout="tiles">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="4"/><rect x="10" y="3" width="4" height="4"/><rect x="17" y="3" width="4" height="4"/><rect x="3" y="10" width="4" height="4"/><rect x="10" y="10" width="4" height="4"/><rect x="17" y="10" width="4" height="4"/><rect x="3" y="17" width="4" height="4"/><rect x="10" y="17" width="4" height="4"/><rect x="17" y="17" width="4" height="4"/></svg>
             </button>
-            <button class="ws-btn ws-btn-ghost ws-btn-icon mgh-layout-btn ${_mghLayout === "feed" ? "active" : ""}" id="mgh-layout-feed" title="Feed (shuffled)" data-layout="feed">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="9" height="13" rx="1"/><rect x="13" y="2" width="9" height="8" rx="1"/><rect x="2" y="17" width="9" height="5" rx="1"/><rect x="13" y="12" width="9" height="10" rx="1"/></svg>
+            <button class="ws-btn ws-btn-ghost ws-btn-icon mgh-layout-btn ${_mghLayout === "list" ? "active" : ""}" title="List" data-layout="list">
+                <span class="material-symbols-outlined">menu</span>
             </button>
-            <button class="ws-btn ws-btn-ghost ws-btn-icon" id="mgh-btn-search" title="Search">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <button class="ws-btn ws-btn-ghost ws-btn-icon mgh-layout-btn ${_mghLayout === "feed" ? "active" : ""}" title="Feed (shuffled)" data-layout="feed">
+                <span class="material-symbols-outlined">smartphone</span>
             </button>
         </div>`;
     const addBtn = document.createElement("button"); addBtn.className = "ws-btn ws-btn-accent"; addBtn.textContent = "+ Add";
@@ -2860,40 +3013,36 @@ function _renderMediaHub(body, cat) {
     toolbar.appendChild(addBtn);
     hub.appendChild(toolbar);
 
-    const mghBody = document.createElement("div"); mghBody.className = `mgh-body media-body${_mghLayout === "list" ? " layout-list" : ""}${_mghLayout === "feed" ? " layout-feed" : ""}`;  
+    const mghBody = document.createElement("div"); mghBody.className = `mgh-body media-body${_mghLayout === "list" ? " layout-list" : ""}${_mghLayout === "tiles" ? " layout-tiles" : ""}${_mghLayout === "feed" ? " layout-feed" : ""}`;
+    mghBody.style.setProperty("--mgh-grid-col", `${_mghGridScale}px`);
     hub.appendChild(mghBody);
     body.appendChild(hub);
 
-    // Layout toggle
+    // Grid-size slider (only meaningful in grid view)
+    const scaleWrap = toolbar.querySelector(".mgh-scale-wrap");
+    toolbar.querySelector(".mgh-scale-slider")?.addEventListener("input", e => {
+        _mghGridScale = parseInt(e.target.value, 10);
+        mghBody.style.setProperty("--mgh-grid-col", `${_mghGridScale}px`);
+        localStorage.setItem(`mghGridScale_${cat.id}`, String(_mghGridScale));
+    });
+
+    // Layout toggle buttons
     toolbar.querySelectorAll(".mgh-layout-btn").forEach(btn => btn.addEventListener("click", () => {
         if (btn.dataset.layout === "feed") {
-            const visible = _mghSearch
-                ? catLinks.filter(l => (l.title||"").toLowerCase().includes(_mghSearch) || (l.url||"").toLowerCase().includes(_mghSearch))
-                : catLinks;
-            const allMedia = visible.filter(l => [...IMAGE_TYPES, ...VIDEO_TYPES].includes(l.type));
+            const allMedia = catLinks.filter(l => [...["image","3d-model","image-group"], ...["youtube-video","youtube-playlist","video","video-group"]].includes(l.type));
             if (!allMedia.length) { toast("No images or videos to show in feed.", "info"); return; }
             _openMghFeed(allMedia);
             return;
         }
         _mghLayout = btn.dataset.layout;
         localStorage.setItem(`mghLayout_${cat.id}`, _mghLayout);
-        mghBody.classList.toggle("layout-list", _mghLayout === "list");
+        mghBody.classList.toggle("layout-list",  _mghLayout === "list");
+        mghBody.classList.toggle("layout-tiles", _mghLayout === "tiles");
         mghBody.classList.toggle("layout-feed", false);
+        if (scaleWrap) scaleWrap.style.display = ["grid","tiles"].includes(_mghLayout) ? "" : "none";
         toolbar.querySelectorAll(".mgh-layout-btn").forEach(b => b.classList.toggle("active", b === btn));
         _renderSections();
     }));
-
-    // Search
-    toolbar.querySelector("#mgh-btn-search").addEventListener("click", () => {
-        const sw = toolbar.querySelector("#mgh-search-wrap"); sw.style.display = "";
-        toolbar.querySelector("#mgh-search-input").focus();
-    });
-    toolbar.querySelector("#mgh-search-close").addEventListener("click", () => {
-        toolbar.querySelector("#mgh-search-wrap").style.display = "none";
-        toolbar.querySelector("#mgh-search-input").value = "";
-        _mghSearch = ""; _renderSections();
-    });
-    toolbar.querySelector("#mgh-search-input").addEventListener("input", e => { _mghSearch = e.target.value.trim().toLowerCase(); _renderSections(); });
 
     // Empty state
     if (!catLinks.length) {
@@ -2927,9 +3076,10 @@ function _renderMediaHub(body, cat) {
         mghBody.innerHTML = "";
         _mghViewItems = [];
         const search = _mghSearch;
-        const visible = search
+        const filtered = search
             ? catLinks.filter(l => (l.title || "").toLowerCase().includes(search) || (l.url || "").toLowerCase().includes(search) || (l.description || "").toLowerCase().includes(search))
             : catLinks;
+        const visible = _sorted(filtered);
 
         if (!visible.length && search) { mghBody.innerHTML = `<div class="ws-placeholder">No matches.</div>`; return; }
 
@@ -2966,12 +3116,27 @@ function _renderMediaHub(body, cat) {
             return;
         }
 
+        const isTiles = _mghLayout === "tiles";
+
+        // In tiles view, explode groups into individual image/video tiles (shown one after another)
+        let imageItems = images, videoItems = videos;
+        if (isTiles) {
+            imageItems = images.flatMap(l => l.type === "image-group"
+                ? (Array.isArray(l.images) ? l.images : []).filter(i => i?.url).map((img, idx) =>
+                    ({ ...l, type: "image", url: img.url, sourceUrl: l.sourceUrl, title: img.name || l.title || "", _fromGroup: l.id, _gi: idx }))
+                : [l]);
+            videoItems = videos.flatMap(l => l.type === "video-group"
+                ? (Array.isArray(l.videos) ? l.videos : []).filter(v => v?.url).map((v, idx) =>
+                    ({ ...l, type: "video", url: v.url, thumbUrl: v.thumb || "", title: l.title || "", _fromGroup: l.id, _gi: idx }))
+                : [l]);
+        }
+
         const SECS = {
-            creator: { label: "Creators",        items: creators, gridClass: "creators-grid", buildCard: _mghCreatorCard },
-            person:  { label: "Persons & Chars",  items: persons,  gridClass: "creators-grid", buildCard: _mghCreatorCard },
-            image:   { label: "Images & 3D",      items: images,   gridClass: "media-grid",    buildCard: l => l.type === "image-group" ? _mghImageGroupCard(l) : _mghImageCard(l) },
-            video:   { label: "Videos",           items: videos,   gridClass: "media-grid",    buildCard: l => l.type === "video-group" ? _mghVideoGroupCard(l) : _mghVideoCard(l) },
-            site:    { label: "Sites & Files",    items: sites,    gridClass: "db-sites-grid", buildCard: _mghSiteCard },
+            creator: { label: "Creators",        items: creators,   gridClass: "creators-grid", buildCard: _mghCreatorCard },
+            person:  { label: "Persons & Chars",  items: persons,    gridClass: "creators-grid", buildCard: _mghCreatorCard },
+            image:   { label: "Images & 3D",      items: imageItems, gridClass: "media-grid",    buildCard: l => l.type === "image-group" ? _mghImageGroupCard(l) : _mghImageCard(l) },
+            video:   { label: "Videos",           items: videoItems, gridClass: "media-grid",    buildCard: l => l.type === "video-group" ? _mghVideoGroupCard(l) : _mghVideoCard(l, { thumbnailOnly: isTiles }) },
+            site:    { label: "Sites & Files",    items: sites,      gridClass: "db-sites-grid", buildCard: _mghSiteCard },
         };
 
         _order.forEach(key => {
@@ -3161,6 +3326,21 @@ async function _doWorkspaceImport(cat, projId, skipDup) {
     toast(`Imported ${count} item${count !== 1 ? "s" : ""} into "${cat.name}".`, "success");
 }
 
+function _applyLayout() {
+    const layout = _activeLayout();
+    const body = document.getElementById("links-body");
+    if (body) {
+        body.classList.toggle("layout-list",    layout === "list");
+        body.classList.toggle("layout-compact", layout === "compact");
+        body.classList.toggle("layout-grid",    layout === "grid");
+        body.classList.toggle("layout-rows",    layout === "rows");
+    }
+    // Sync settings modal view buttons if open
+    document.querySelectorAll(".lgs-view-btn").forEach(b =>
+        b.classList.toggle("active", b.dataset.layout === layout)
+    );
+}
+
 function _render() {
     _syncCatsFromLinks();
     _renderCatBar();
@@ -3173,6 +3353,13 @@ function _render() {
     const _appEl = document.getElementById("app-links");
     const _activePrefab = _cats.find(c => c.name === _activeCat)?.prefab ?? null;
     _appEl?.setAttribute("data-prefab", _activePrefab ?? "");
+
+    // Set data-view for context-aware header state
+    const _isAll = _activeCat === "all" && !_search;
+    _appEl?.setAttribute("data-view", _isAll ? "all" : "cat");
+    const _addLbl = document.getElementById("btn-add-link")?.querySelector(".btn-label");
+    if (_addLbl) _addLbl.textContent = _isAll ? "New Category" : "Add Link";
+    _applyLayout();
 
     // Global search while on All tab: show matching links flat
     if (_activeCat === "all" && _search) {
@@ -3253,9 +3440,9 @@ function _card(link) {
     const _cardType = link.type || "website";
     el.className = "link-card" + (link.pinned ? " link-card--pinned" : "") + ((_cardType === "image" || _cardType === "3d-model") ? " link-card--media" : "");
     el.dataset.id = link.id;
-    el.draggable = _sortMode === "manual";
+    el.draggable = _activeSort() === "manual";
 
-    if (_sortMode === "manual") {
+    if (_activeSort() === "manual") {
         el.addEventListener("dragstart", e => {
             _dragId = link.id;
             el.classList.add("dragging");
@@ -3302,15 +3489,13 @@ function _card(link) {
         <div class="link-card-drag-handle" title="Drag to reorder">
             <svg width="10" height="14" viewBox="0 0 10 16" fill="currentColor"><circle cx="2.5" cy="2.5" r="1.5"/><circle cx="7.5" cy="2.5" r="1.5"/><circle cx="2.5" cy="8" r="1.5"/><circle cx="7.5" cy="8" r="1.5"/><circle cx="2.5" cy="13.5" r="1.5"/><circle cx="7.5" cy="13.5" r="1.5"/></svg>
         </div>
-        <a class="link-card-banner" href="${safeHref}" target="_blank" rel="noopener noreferrer">
-            ${bannerContent}
-        </a>
+        ${_showThumbs ? `<a class="link-card-banner" href="${safeHref}" target="_blank" rel="noopener noreferrer">${bannerContent}</a>` : ""}
         <a class="link-card-main link-card-main--compact" href="${safeHref}" target="_blank" rel="noopener noreferrer">
             <div class="link-card-favicon-wrap">${faviconHtml}</div>
             <div class="link-card-info">
                 <div class="link-card-title">${escHtml(link.title || domain || link.url)}</div>
                 <div class="link-card-url">${escHtml(_shortUrl(link.url))}</div>
-                ${link.description ? `<div class="link-card-desc">${escHtml(link.description)}</div>` : ""}
+                ${_showDesc && link.description ? `<div class="link-card-desc">${escHtml(link.description)}</div>` : ""}
             </div>
             <span class="material-symbols-outlined link-type-badge link-type-badge--${escHtml(type)}" title="${typeInfo.label}">${typeInfo.icon}</span>
         </a>
@@ -3350,7 +3535,7 @@ function _card(link) {
             <div class="link-card-info">
                 <div class="link-card-title">${escHtml(link.title || domain || link.url)}</div>
                 <div class="link-card-url">${escHtml(_shortUrl(link.url))}</div>
-                ${link.description ? `<div class="link-card-desc">${escHtml(link.description)}</div>` : ""}
+                ${_showDesc && link.description ? `<div class="link-card-desc">${escHtml(link.description)}</div>` : ""}
             </div>
             <span class="material-symbols-outlined link-type-badge link-type-badge--${escHtml(type)}" title="${typeInfo.label}">${typeInfo.icon}</span>
         </a>
@@ -3975,7 +4160,7 @@ function _updateTypeHint(type) {
     }
 
     if (urlLabel)    urlLabel.textContent    = isImage ? "Image URL *" : "URL *";
-    if (thumbGroup)  thumbGroup.style.display  = (isCreator || isPerson || isVideo || isImage) ? "" : "none";
+    if (thumbGroup)  thumbGroup.style.display  = (isCreator || isPerson || isVideo || type === "3d-model") ? "" : "none";
     if (thumbLabel)  thumbLabel.textContent  = (isCreator || isPerson) ? "Avatar URL" : "Thumbnail URL";
     if (sourceGroup) sourceGroup.style.display = (isImage || isImageGroup || isVideo || isVideoGroup) ? "" : "none";
     if (badgeGroup)  badgeGroup.style.display  = (isCreator) ? "" : "none";

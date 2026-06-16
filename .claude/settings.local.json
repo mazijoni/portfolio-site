@@ -18,7 +18,8 @@
       "Bash(ls \"C:/Users/jonat/.claude/projects/g--My-Drive-Code-portfolio-site/memory/\" 2>/dev/null && echo \"exists\" || echo \"not found\")",
       "Read(//c/Users/jonat/.claude/projects/g--My-Drive-Code-portfolio-site/memory/**)",
       "Bash(python3 -c ' *)",
-      "Bash(firebase deploy *)"
+      "Bash(firebase deploy *)",
+      "Bash(node --check workspace/js/apps/links.js)"
     ]
   }
 }
