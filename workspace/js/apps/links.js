@@ -1012,22 +1012,38 @@ const _CORP_VIDEO_HOSTS = new Set([]);
 function _mghEmbed(url) {
     if (!url) return null;
     try { if (_CORP_VIDEO_HOSTS.has(new URL(url).hostname)) return null; } catch {}
-    if (/\.(mp4|webm|ogg|mov|m4v)(\?|$)/i.test(url)) return { type: "direct", src: url };
+    if (/\.(mp4|webm|ogg|ogv|mov|m4v)(\?|#|$)/i.test(url)) return { type: "direct", src: url };
     try {
         const u = new URL(url);
         const h = u.hostname.replace(/^www\./, "");
-        if (h === "youtube.com" || h === "m.youtube.com") {
+        // Any YouTube host (youtube.com, m./music./gaming.youtube.com, youtube-nocookie.com)
+        if (h === "youtube.com" || h.endsWith(".youtube.com") || h === "youtube-nocookie.com") {
             if (u.searchParams.has("v")) return { type: "youtube", src: `https://www.youtube-nocookie.com/embed/${u.searchParams.get("v")}` };
-            const m = u.pathname.match(/\/(shorts|embed|live)\/([\w-]{11})/);
+            const m = u.pathname.match(/\/(shorts|embed|live|v)\/([\w-]{11})/);
             if (m) return { type: "youtube", src: `https://www.youtube-nocookie.com/embed/${m[2]}` };
+            // Playlist URL (no single video) → embed the playlist
+            const list = u.searchParams.get("list");
+            if (list) return { type: "youtube", src: `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(list)}` };
         }
         if (h === "youtu.be") {
             const id = u.pathname.slice(1).split("/")[0];
             if (id) return { type: "youtube", src: `https://www.youtube-nocookie.com/embed/${id}` };
         }
-        if (h === "vimeo.com") {
-            const id = u.pathname.split("/").filter(Boolean).pop();
+        if (h === "vimeo.com" || h === "player.vimeo.com") {
+            const id = u.pathname.split("/").filter(Boolean).find(seg => /^\d+$/.test(seg));
             if (id) return { type: "vimeo", src: `https://player.vimeo.com/video/${id}` };
+        }
+        if (h === "dailymotion.com") {
+            const id = u.pathname.match(/\/video\/([^/?#_]+)/)?.[1];
+            if (id) return { type: "iframe", src: `https://www.dailymotion.com/embed/video/${id}` };
+        }
+        if (h === "dai.ly") {
+            const id = u.pathname.slice(1).split("/")[0];
+            if (id) return { type: "iframe", src: `https://www.dailymotion.com/embed/video/${id}` };
+        }
+        if (h === "streamable.com") {
+            const id = u.pathname.replace(/^\/(e\/)?/, "").split("/")[0];
+            if (id) return { type: "iframe", src: `https://streamable.com/e/${id}` };
         }
         // Pornhub embed URL — use as iframe src directly (no autoplay param added)
         if (h === "pornhub.com" && u.pathname.includes("/embed/")) return { type: "iframe", src: url };
@@ -3698,9 +3714,15 @@ function _applyLayout() {
         body.classList.toggle("layout-grid",    layout === "grid");
         body.classList.toggle("layout-rows",    layout === "rows");
     }
-    // Sync settings modal view buttons if open
+    // Sync settings modal view buttons if open.
+    // Media-hub categories store their layout separately (mghLayout_<id>), so the
+    // active highlight must follow that, not the normal-category _activeLayout().
+    const _activeCatObj = _cats.find(c => c.name === _activeCat);
+    const _modalLayout = (_activeCatObj?.prefab === "media" && _activeCatObj.id)
+        ? (localStorage.getItem(`mghLayout_${_activeCatObj.id}`) || "grid")
+        : layout;
     document.querySelectorAll(".lgs-view-btn").forEach(b =>
-        b.classList.toggle("active", b.dataset.layout === layout)
+        b.classList.toggle("active", b.dataset.layout === _modalLayout)
     );
 }
 
@@ -4453,13 +4475,18 @@ function _detectTypeFromUrl(rawUrl) {
         (url.includes("youtube.com/watch") && url.includes("list="))) {
         return "youtube-playlist";
     }
-    if (url.includes("youtube.com/watch") || url.includes("youtu.be/")) {
+    if (url.includes("youtube.com/watch") || url.includes("youtu.be/") ||
+        url.includes("youtube.com/shorts/") || url.includes("youtube.com/live/")) {
         return "youtube-video";
     }
     if (_STREAMING_DOMAINS.some(d => url.includes(d))) {
         return "streaming-service";
     }
     if (/\.(mp4|webm|ogg|ogv|mov|m4v)(\?|#|$)/.test(url)) {
+        return "video";
+    }
+    // Other recognised video hosts → generic video (so they get video-card styling)
+    if (/(?:^|\/\/|\.)(?:vimeo\.com|player\.vimeo\.com|dailymotion\.com|dai\.ly|streamable\.com)\//.test(url)) {
         return "video";
     }
     if (/\.(jpg|jpeg|png|gif|webp|svg|avif|bmp)(\?|#|$)/.test(url)) {
@@ -4830,7 +4857,7 @@ async function _onFormSubmit(e) {
             title:     document.getElementById("link-title-field").value.trim(),
             category:  document.getElementById("link-cat-field").value.trim(),
             videos:    vids,
-            sourceUrl: _vgSrc || deleteField(),
+            ...(_vgSrc ? { sourceUrl: _vgSrc } : editId ? { sourceUrl: deleteField() } : {}),
             creatorId: _vgCVal,
             personIds: _vgPIds,
             personId:  _vgPIds[0] || null,
@@ -4897,7 +4924,10 @@ async function _onFormSubmit(e) {
     }
     if (isImage || isVideo) {
         const sv = _safeUrl(document.getElementById("link-source-field")?.value);
-        data.sourceUrl = sv || deleteField();
+        // deleteField() is only valid on updateDoc — never on addDoc. For new docs
+        // we simply omit an empty sourceUrl instead of trying to delete it.
+        if (sv) data.sourceUrl = sv;
+        else if (editId) data.sourceUrl = deleteField();
     }
     if (isImage || isVideo) {
         // Creator attribution

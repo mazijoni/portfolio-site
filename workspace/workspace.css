@@ -6095,6 +6095,36 @@ body.sidebar-collapsed #ws-sidebar-toggle {
         max-height: calc(100vh - 2rem);
     }
 
+    /* -- Mobile editing: stop iOS auto-zoom on focus (any input < 16px zooms) -- */
+    .form-group input,
+    .form-group textarea,
+    .form-group select,
+    .link-ig-url,
+    .link-ig-name,
+    .link-vg-row input { font-size: 16px; }
+
+    /* Roomier tap targets + breathing room in the link/image edit form */
+    .ws-modal-form { padding: 1rem 1rem 0; gap: 0.9rem; }
+    .form-group input,
+    .form-group select,
+    .link-thumb-row input { padding: 0.6rem 0.7rem; }
+    .link-ig-url, .link-ig-name { padding: 0.55rem 0.7rem; }
+
+    /* Image-group rows: stack url/caption with a clear, large remove button */
+    .link-vg-row { gap: 8px; align-items: stretch; }
+    .link-vg-remove { width: 36px; min-height: 36px; }
+    .link-crop-btn { min-height: 36px; }
+
+    /* Keep Save/Cancel reachable without scrolling the whole form away */
+    .ws-modal-form .ws-modal-footer {
+        position: sticky;
+        bottom: 0;
+        background: var(--bg-secondary);
+        padding: 0.75rem 0 0.85rem;
+        margin: 0.4rem -0.1rem 0;
+    }
+    .ws-modal-footer .ws-btn { padding: 0.6rem 1rem; }
+
     /* Section padding */
     .section-body { padding: 0.75rem; }
     .ws-section-body { padding: 0.75rem; }
