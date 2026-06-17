@@ -1254,6 +1254,49 @@ function _mghCardActions(link) {
     return wrap;
 }
 
+/* ══════════ SortableJS per-item ordering (media-hub grids) ══════════ */
+
+let _Sortable = null;
+async function _getSortable() {
+    if (_Sortable) return _Sortable;
+    const mod = await import("https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/modular/sortable.esm.js");
+    _Sortable = mod.Sortable;
+    return _Sortable;
+}
+
+/* Small grip handle shown on each draggable card (manual sort only) */
+function _mghSortHandle() {
+    const h = document.createElement("div");
+    h.className = "sortable-handle";
+    h.title = "Drag to reorder";
+    h.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1" fill="currentColor"/><circle cx="15" cy="5" r="1" fill="currentColor"/><circle cx="9" cy="12" r="1" fill="currentColor"/><circle cx="15" cy="12" r="1" fill="currentColor"/><circle cx="9" cy="19" r="1" fill="currentColor"/><circle cx="15" cy="19" r="1" fill="currentColor"/></svg>`;
+    return h;
+}
+
+/* Make a media-hub section grid drag-sortable. Persists `sortOrder` per item
+   to gallery-links. Only active under manual sort (handles are otherwise hidden). */
+async function _mghMakeSortable(grid) {
+    const Sortable = await _getSortable();
+    Sortable.create(grid, {
+        animation:   150,
+        handle:      ".sortable-handle",
+        draggable:   "[data-id]",
+        ghostClass:  "sortable-ghost",
+        chosenClass: "sortable-chosen",
+        onEnd: () => {
+            const ids = [...grid.querySelectorAll("[data-id]")].map(el => el.dataset.id);
+            if (!ids.length || !_db || !_uid?.()) return;
+            const batch = writeBatch(_db);
+            ids.forEach((id, i) => {
+                const link = _links.find(l => l.id === id);
+                if (link) link.sortOrder = i;        // keep local cache in sync
+                batch.update(doc(_db, "users", _uid(), "gallery-links", id), { sortOrder: i });
+            });
+            batch.commit().catch(err => { console.error("[links] reorder error:", err); toast("Could not save new order.", "error"); });
+        }
+    });
+}
+
 /* ══════════ AVATAR CROP MODAL ══════════ */
 
 export function initAvatarCrop() {
@@ -1813,7 +1856,7 @@ function _mghOpenCreatorPanel(creator) {
 
 /* ── Site card ── */
 function _mghSiteCard(link) {
-    const card = document.createElement("div"); card.className = "db-site-card";
+    const card = document.createElement("div"); card.className = "db-site-card"; card.dataset.id = link.id;
     const fav   = _mghFav(link.url);
     const fav64 = fav.replace("sz=32", "sz=128");
     /* Only use thumbUrls that are user-supplied or og:image captures.
@@ -1842,7 +1885,7 @@ function _mghSiteCard(link) {
 
 /* ── Video card ── */
 function _mghVideoCard(link, opts = {}) {
-    const card = document.createElement("div"); card.className = "video-card";
+    const card = document.createElement("div"); card.className = "video-card"; card.dataset.id = link.id;
     const embed = _mghEmbed(link.url);
     const creator = _mghFindCreatorFor(link);
     const personIds = link.personIds || (link.personId ? [link.personId] : []);
@@ -1966,7 +2009,7 @@ function _mghVideoCard(link, opts = {}) {
 
 /* ── Image card ── */
 function _mghImageCard(link) {
-    const card = document.createElement("div"); card.className = "image-card";
+    const card = document.createElement("div"); card.className = "image-card"; card.dataset.id = link.id;
     const src = link.url || link.thumbUrl || "";
     const creator = _mghFindCreatorFor(link);
     const personIds = link.personIds || (link.personId ? [link.personId] : []);
@@ -1997,7 +2040,7 @@ function _mghImageCard(link) {
 
 /* ── Image group card ── */
 function _mghImageGroupCard(link) {
-    const card = document.createElement("div"); card.className = "image-group-card";
+    const card = document.createElement("div"); card.className = "image-group-card"; card.dataset.id = link.id;
     const imgs = Array.isArray(link.images) ? link.images.filter(i => i?.url) : [];
     const count = imgs.length;
     const fallback = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 3'%3E%3Crect fill='%231a1a1a' width='4' height='3'/%3E%3C/svg%3E";
@@ -2112,7 +2155,7 @@ function _mghImageGroupCard(link) {
 
 /* ── Creator card ── */
 function _mghCreatorCard(link) {
-    const card = document.createElement("div"); card.className = "creator-card";
+    const card = document.createElement("div"); card.className = "creator-card"; card.dataset.id = link.id;
     const isChar = link.type === "person";
 
     /* Determine avatar to display synchronously:
@@ -2536,7 +2579,7 @@ function _mghImageGroupFeedCard(link) {
 
 /* Grid card — shows thumbnails/count for a video collection */
 function _mghVideoGroupCard(link) {
-    const card  = document.createElement("div"); card.className = "image-group-card";
+    const card  = document.createElement("div"); card.className = "image-group-card"; card.dataset.id = link.id;
     const vids  = Array.isArray(link.videos) ? link.videos.filter(v => v?.url) : [];
     const count = vids.length;
     if (!count) {
@@ -2944,6 +2987,109 @@ function _openLinksSettings() {
             grid.appendChild(btn);
         });
     }
+
+    // ── Section order (media hubs only) ──
+    const soWrap    = document.getElementById("lgs-section-order-wrap");
+    const soDivider = document.getElementById("lgs-section-order-divider");
+    const soList    = document.getElementById("lgs-section-order");
+    if (soWrap && soDivider && soList) {
+        const show = isMediaHub && cat?.id;
+        soWrap.style.display    = show ? "" : "none";
+        soDivider.style.display = show ? "" : "none";
+        if (show) {
+            const _soCatId = cat.id;
+            const SECTION_LABELS = {
+                site: "Sites & Files", image: "Images & 3D", video: "Videos", people: "Creators & Characters",
+            };
+            const DEFAULT_ORDER = ["site", "image", "video", "people"];
+            let order = (() => { try { return JSON.parse(localStorage.getItem(`mghOrder_${_soCatId}`) || "null"); } catch { return null; } })();
+            if (!Array.isArray(order) || !order.length) order = DEFAULT_ORDER;
+            order = order.map(k => (k === "creator" || k === "person") ? "people" : k);   // migrate legacy keys
+            order = [...new Set([...order, ...DEFAULT_ORDER])];   // ensure all keys present
+
+            const hidden = (() => { try { return new Set(JSON.parse(localStorage.getItem(`mghHidden_${_soCatId}`) || "[]")); } catch { return new Set(); } })();
+            const _saveHidden = () => localStorage.setItem(`mghHidden_${_soCatId}`, JSON.stringify([...hidden]));
+
+            let peopleOrder = (() => {
+                try { const a = JSON.parse(localStorage.getItem(`mghPeopleOrder_${_soCatId}`) || "null");
+                    return (Array.isArray(a) && a.length === 2 && a.includes("creator") && a.includes("person")) ? a : ["creator", "person"];
+                } catch { return ["creator", "person"]; }
+            })();
+            const _savePeopleOrder = () => localStorage.setItem(`mghPeopleOrder_${_soCatId}`, JSON.stringify(peopleOrder));
+
+            const PEOPLE_LABELS = { creator: "Creators", person: "Characters" };
+            const _eyeSvg = isHidden => isHidden
+                ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`
+                : `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+            const _toggleHidden = (k, paint) => () => {
+                if (hidden.has(k)) hidden.delete(k); else hidden.add(k);
+                _saveHidden(); paint(); _render();
+            };
+
+            soList.innerHTML = "";
+            order.forEach(key => {
+                const isPeople = key === "people";
+                const row = document.createElement("div");
+                row.className = "lgs-so-row" + (hidden.has(key) ? " lgs-so-row--hidden" : "");
+                row.dataset.key = key;
+                row.innerHTML = `
+                    <div class="lgs-so-main">
+                        <span class="lgs-so-grip"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1" fill="currentColor"/><circle cx="15" cy="5" r="1" fill="currentColor"/><circle cx="9" cy="12" r="1" fill="currentColor"/><circle cx="15" cy="12" r="1" fill="currentColor"/><circle cx="9" cy="19" r="1" fill="currentColor"/><circle cx="15" cy="19" r="1" fill="currentColor"/></svg></span>
+                        <span class="lgs-so-name">${escHtml(SECTION_LABELS[key] || key)}</span>
+                        <button class="lgs-so-eye" type="button" title="Show or hide"></button>
+                    </div>
+                    ${isPeople ? `<div class="lgs-so-people"></div>` : ""}`;
+
+                const eyeBtn = row.querySelector(".lgs-so-eye");
+                const paintEye = () => { row.classList.toggle("lgs-so-row--hidden", hidden.has(key)); eyeBtn.innerHTML = _eyeSvg(hidden.has(key)); };
+                paintEye();
+                eyeBtn.addEventListener("click", _toggleHidden(key, paintEye));
+
+                if (isPeople) {
+                    const sub = row.querySelector(".lgs-so-people");
+                    const renderChips = () => {
+                        sub.innerHTML = "";
+                        const swap = document.createElement("button");
+                        swap.className = "lgs-pc-swap"; swap.type = "button"; swap.title = "Swap which side is first";
+                        swap.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
+                        swap.addEventListener("click", () => { peopleOrder = [...peopleOrder].reverse(); _savePeopleOrder(); renderChips(); _render(); });
+                        sub.appendChild(swap);
+                        peopleOrder.forEach(pk => {
+                            const chip = document.createElement("div");
+                            chip.className = "lgs-pc-chip" + (hidden.has(pk) ? " lgs-pc-chip--hidden" : "");
+                            chip.innerHTML = `<span class="lgs-pc-name">${PEOPLE_LABELS[pk]}</span><button class="lgs-pc-eye" type="button" title="Show or hide"></button>`;
+                            const pcEye = chip.querySelector(".lgs-pc-eye");
+                            const paintPc = () => { chip.classList.toggle("lgs-pc-chip--hidden", hidden.has(pk)); pcEye.innerHTML = _eyeSvg(hidden.has(pk)); };
+                            paintPc();
+                            pcEye.addEventListener("click", _toggleHidden(pk, paintPc));
+                            sub.appendChild(chip);
+                        });
+                    };
+                    renderChips();
+                }
+
+                soList.appendChild(row);
+            });
+
+            _getSortable().then(Sortable => {
+                // Recreate each open so the onEnd closure targets the current hub
+                if (soList._sortable) { try { soList._sortable.destroy(); } catch {} }
+                soList._sortable = Sortable.create(soList, {
+                    animation: 150,
+                    handle: ".lgs-so-grip",
+                    draggable: ".lgs-so-row",
+                    ghostClass: "sortable-ghost",
+                    chosenClass: "sortable-chosen",
+                    onEnd: () => {
+                        const newOrder = [...soList.querySelectorAll(".lgs-so-row")].map(r => r.dataset.key);
+                        localStorage.setItem(`mghOrder_${_soCatId}`, JSON.stringify(newOrder));
+                        _render();
+                    }
+                });
+            });
+        }
+    }
+
     openModal("modal-links-settings");
 }
 
@@ -3039,16 +3185,13 @@ function _renderMediaHub(body, cat) {
                 <input type="range" class="mgh-scale-slider" min="130" max="340" step="10" value="${_mghGridScale}">
             </label>
             <button class="ws-btn ws-btn-ghost ws-btn-icon mgh-layout-btn ${_mghLayout === "grid" ? "active" : ""}" title="Grid" data-layout="grid">
-                <span class="material-symbols-outlined">dashboard</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>
             </button>
-            <button class="ws-btn ws-btn-ghost ws-btn-icon mgh-layout-btn ${_mghLayout === "tiles" ? "active" : ""}" title="Tiles (square grid)" data-layout="tiles">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="4"/><rect x="10" y="3" width="4" height="4"/><rect x="17" y="3" width="4" height="4"/><rect x="3" y="10" width="4" height="4"/><rect x="10" y="10" width="4" height="4"/><rect x="17" y="10" width="4" height="4"/><rect x="3" y="17" width="4" height="4"/><rect x="10" y="17" width="4" height="4"/><rect x="17" y="17" width="4" height="4"/></svg>
+            <button class="ws-btn ws-btn-ghost ws-btn-icon mgh-layout-btn ${_mghLayout === "tiles" ? "active" : ""}" title="Tiles" data-layout="tiles">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="16" y="2" width="6" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/><rect x="16" y="9" width="6" height="5" rx="1"/><rect x="2" y="16" width="5" height="6" rx="1"/><rect x="9" y="16" width="5" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/></svg>
             </button>
             <button class="ws-btn ws-btn-ghost ws-btn-icon mgh-layout-btn ${_mghLayout === "list" ? "active" : ""}" title="List" data-layout="list">
-                <span class="material-symbols-outlined">menu</span>
-            </button>
-            <button class="ws-btn ws-btn-ghost ws-btn-icon mgh-layout-btn ${_mghLayout === "feed" ? "active" : ""}" title="Feed (shuffled)" data-layout="feed">
-                <span class="material-symbols-outlined">smartphone</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="6" height="5" rx="1"/><line x1="11" y1="6" x2="22" y2="6"/><line x1="11" y1="8" x2="18" y2="8"/><rect x="2" y="12" width="6" height="5" rx="1"/><line x1="11" y1="14" x2="22" y2="14"/><line x1="11" y1="16" x2="18" y2="16"/></svg>
             </button>
         </div>`;
     const addBtn = document.createElement("button"); addBtn.className = "ws-btn ws-btn-accent"; addBtn.textContent = "+ Add";
@@ -3072,6 +3215,53 @@ function _renderMediaHub(body, cat) {
     const mghBody = document.createElement("div"); mghBody.className = `mgh-body media-body${_mghLayout === "list" ? " layout-list" : ""}${_mghLayout === "tiles" ? " layout-tiles" : ""}${_mghLayout === "feed" ? " layout-feed" : ""}`;
     mghBody.style.setProperty("--mgh-grid-col", `${_mghGridScale}px`);
     hub.appendChild(mghBody);
+
+    /* ── Mobile speed-dial FAB ──
+       On phones the toolbar action buttons get cut off, so they collapse into
+       this expanding circle. Items just re-trigger the real (hidden) controls. */
+    const fabWrap = document.createElement("div");
+    fabWrap.className = "mgh-fab-wrap";
+    fabWrap.innerHTML = `
+        <div class="mgh-fab-menu" role="menu">
+            <button class="mgh-fab-item" data-act="grid" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg><span>Grid view</span></button>
+            <button class="mgh-fab-item" data-act="tiles" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="16" y="2" width="6" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/><rect x="16" y="9" width="6" height="5" rx="1"/><rect x="2" y="16" width="5" height="6" rx="1"/><rect x="9" y="16" width="5" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/></svg><span>Tiles view</span></button>
+            <button class="mgh-fab-item" data-act="list" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="6" height="5" rx="1"/><line x1="11" y1="6" x2="22" y2="6"/><line x1="11" y1="8" x2="18" y2="8"/><rect x="2" y="12" width="6" height="5" rx="1"/><line x1="11" y1="14" x2="22" y2="14"/><line x1="11" y1="16" x2="18" y2="16"/></svg><span>List view</span></button>
+            <button class="mgh-fab-item" data-act="feed" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="10" y1="18" x2="14" y2="18"/></svg><span>Phone view</span></button>
+            <div class="mgh-fab-sep"></div>
+            <button class="mgh-fab-item" data-act="autolink" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Auto-link all</span></button>
+            <button class="mgh-fab-item" data-act="import" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="21" x2="12" y2="7"/><line x1="4" y1="4" x2="20" y2="4"/></svg><span>Import</span></button>
+            <button class="mgh-fab-item mgh-fab-item--accent" data-act="add" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Add media</span></button>
+        </div>
+        <button class="mgh-fab" aria-label="Hub actions" aria-expanded="false">
+            <svg class="mgh-fab-plus" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>`;
+    hub.appendChild(fabWrap);
+
+    const fabBtn = fabWrap.querySelector(".mgh-fab");
+    fabBtn.addEventListener("click", () => {
+        const open = fabWrap.classList.toggle("open");
+        fabBtn.setAttribute("aria-expanded", String(open));
+    });
+    const _fabOutside = e => {
+        if (!fabWrap.contains(e.target)) { fabWrap.classList.remove("open"); fabBtn.setAttribute("aria-expanded", "false"); }
+    };
+    document.addEventListener("click", _fabOutside);
+    hub.addEventListener("ws:destroy", () => document.removeEventListener("click", _fabOutside), { once: true });
+
+    fabWrap.querySelectorAll(".mgh-fab-item").forEach(item => item.addEventListener("click", () => {
+        const act = item.dataset.act;
+        fabWrap.classList.remove("open"); fabBtn.setAttribute("aria-expanded", "false");
+        if (act === "grid" || act === "tiles" || act === "list") {
+            toolbar.querySelector(`.mgh-layout-btn[data-layout="${act}"]`)?.click();
+        } else if (act === "feed") {
+            const allMedia = catLinks.filter(l => [...IMAGE_TYPES, ...VIDEO_TYPES].includes(l.type));
+            if (!allMedia.length) { toast("No images or videos to show in feed.", "info"); return; }
+            _openMghFeed(allMedia);
+        } else if (act === "autolink") { autoLinkAllBtn.click(); }
+        else if (act === "import")   { importBtn.click(); }
+        else if (act === "add")      { addBtn.click(); }
+    }));
+
     body.appendChild(hub);
 
     // Grid-size slider (only meaningful in grid view)
@@ -3109,9 +3299,20 @@ function _renderMediaHub(body, cat) {
         return;
     }
 
-    const DEFAULT_ORDER = ["site", "image", "video", "person", "creator"];
+    const DEFAULT_ORDER = ["site", "image", "video", "people"];
     let _order = _mghSectionOrder || DEFAULT_ORDER;
-    _order = [...new Set([..._order, ...DEFAULT_ORDER])]; // ensure all keys present
+    // Collapse the old split creator/person keys into the merged "people" section
+    _order = _order.map(k => (k === "creator" || k === "person") ? "people" : k);
+    _order = [...new Set([..._order, ...DEFAULT_ORDER])]; // ensure all keys present, dedupe
+
+    // Sections the user has chosen to hide for this hub ("people"/"creator"/"person"/...)
+    let _mghHidden = (() => { try { return new Set(JSON.parse(localStorage.getItem(`mghHidden_${cat.id}`) || "[]")); } catch { return new Set(); } })();
+    // Which side comes first inside the merged people section
+    let _mghPeopleOrder = (() => {
+        try { const a = JSON.parse(localStorage.getItem(`mghPeopleOrder_${cat.id}`) || "null");
+            return (Array.isArray(a) && a.length === 2 && a.includes("creator") && a.includes("person")) ? a : ["creator", "person"];
+        } catch { return ["creator", "person"]; }
+    })();
 
     const _scrollKey = `mgh_scroll_${cat.id || cat.name}`;
     // Persist scroll position continuously
@@ -3188,17 +3389,100 @@ function _renderMediaHub(body, cat) {
         }
 
         const SECS = {
-            creator: { label: "Creators",        items: creators,   gridClass: "creators-grid", buildCard: _mghCreatorCard },
-            person:  { label: "Persons & Chars",  items: persons,    gridClass: "creators-grid", buildCard: _mghCreatorCard },
-            image:   { label: "Images & 3D",      items: imageItems, gridClass: "media-grid",    buildCard: l => l.type === "image-group" ? _mghImageGroupCard(l) : _mghImageCard(l) },
-            video:   { label: "Videos",           items: videoItems, gridClass: "media-grid",    buildCard: l => l.type === "video-group" ? _mghVideoGroupCard(l) : _mghVideoCard(l, { thumbnailOnly: isTiles }) },
-            site:    { label: "Sites & Files",    items: sites,      gridClass: "db-sites-grid", buildCard: _mghSiteCard },
+            image:   { label: "Images & 3D",   items: imageItems, gridClass: "media-grid",    buildCard: l => l.type === "image-group" ? _mghImageGroupCard(l) : _mghImageCard(l) },
+            video:   { label: "Videos",        items: videoItems, gridClass: "media-grid",    buildCard: l => l.type === "video-group" ? _mghVideoGroupCard(l) : _mghVideoCard(l, { thumbnailOnly: isTiles }) },
+            site:    { label: "Sites & Files", items: sites,      gridClass: "db-sites-grid", buildCard: _mghSiteCard },
         };
 
         _order.forEach(key => {
+            if (_mghHidden.has(key)) return;
+            if (key === "people") {
+                const sec = _makeMghPeopleSection(creators, persons);
+                if (sec) mghBody.appendChild(sec);
+                return;
+            }
             const sec = SECS[key]; if (!sec || !sec.items.length) return;
             mghBody.appendChild(_makeMghSubGroup(key, sec.label, sec.items, sec.gridClass, sec.buildCard));
         });
+    }
+
+    /* Apply crop to the small 34px circle avatar using object-fit/position/transform.
+       This is safer than _acmApplyToClip's pixel math for a tiny fixed-size clip. */
+    function _applyPeopleAvatarCrop(cardEl, link) {
+        const raw = link.thumbUrl || "";
+        const isBroken = raw.includes("unavatar.io") || raw.includes("ui-avatars.com") || raw.includes("dicebear.com");
+        if (!raw || isBroken) return;
+        const cx   = link.thumbCropCx   ?? 50;
+        const cy   = link.thumbCropCy   ?? 50;
+        const zoom = link.thumbCropZoom ?? 1;
+        const imgEl = cardEl.querySelector(".creator-avatar");
+        if (!imgEl) return;
+        const apply = () => {
+            imgEl.style.position       = "absolute";
+            imgEl.style.top            = "0";
+            imgEl.style.left           = "0";
+            imgEl.style.width          = "100%";
+            imgEl.style.height         = "100%";
+            imgEl.style.maxWidth       = "none";
+            imgEl.style.maxHeight      = "none";
+            imgEl.style.objectFit      = "cover";
+            imgEl.style.objectPosition = `${cx}% ${cy}%`;
+            imgEl.style.transform      = zoom !== 1 ? `scale(${zoom})` : "";
+            imgEl.style.transformOrigin = `${cx}% ${cy}%`;
+        };
+        apply();
+        if (!imgEl.complete) imgEl.addEventListener("load", apply, { once: true });
+    }
+
+    /* Build one creators-grid (with drag handles + sortable under manual sort) */
+    function _buildPeopleGrid(items) {
+        const grid = document.createElement("div"); grid.className = "creators-grid mgh-people-grid";
+        const manual = _activeSort() === "manual";
+        items.forEach(l => {
+            const c = _mghCreatorCard(l);
+            _applyPeopleAvatarCrop(c, l);
+            if (manual) c.appendChild(_mghSortHandle());
+            grid.appendChild(c);
+        });
+        if (manual) { grid.classList.add("mgh-sortable"); _mghMakeSortable(grid); }
+        return grid;
+    }
+
+    /* Merged Creators + Characters section. Column order follows _mghPeopleOrder
+       and each side can be hidden individually ("creator" / "person" in _mghHidden). */
+    function _makeMghPeopleSection(creators, persons) {
+        const map = {
+            creator: { key: "creator", title: "Creators",   items: creators },
+            person:  { key: "person",  title: "Characters", items: persons  },
+        };
+        const cols = _mghPeopleOrder.map(k => map[k]).filter(c => c && !_mghHidden.has(c.key));
+        if (!cols.length) return null;
+        if (!cols.some(c => c.items.length)) return null;
+
+        const total = cols.reduce((n, c) => n + c.items.length, 0);
+        const label = cols.length === 2 ? "Creators &amp; Characters"
+                    : (cols[0].key === "creator" ? "Creators" : "Characters");
+
+        const sg = document.createElement("div"); sg.className = "db-sub-group mgh-section"; sg.dataset.typeKey = "people";
+        const hdr = document.createElement("div"); hdr.className = "db-sub-header"; hdr.style.cursor = "grab"; hdr.title = "Drag to reorder";
+        hdr.innerHTML = `<span class="db-sub-label">${label}</span><div class="db-sub-line"></div><span class="mgh-section-count">${total}</span>`;
+        sg.appendChild(hdr);
+
+        const split = document.createElement("div"); split.className = "mgh-people-split";
+        split.style.gridTemplateColumns = cols.length === 2 ? "1fr 1fr" : "1fr";
+        const mkCol = (title, items) => {
+            const col = document.createElement("div"); col.className = "mgh-people-col";
+            const h = document.createElement("div"); h.className = "mgh-people-col-head"; h.textContent = title;
+            col.appendChild(h);
+            if (items.length) col.appendChild(_buildPeopleGrid(items));
+            else { const e = document.createElement("div"); e.className = "mgh-people-empty"; e.textContent = "Nothing here yet"; col.appendChild(e); }
+            return col;
+        };
+        cols.forEach(c => split.appendChild(mkCol(c.title, c.items)));
+        sg.appendChild(split);
+
+        _wireSectionDrag(sg, hdr);
+        return sg;
     }
 
     function _makeMghSubGroup(key, label, items, gridClass, buildCard) {
@@ -3207,9 +3491,26 @@ function _renderMediaHub(body, cat) {
         hdr.innerHTML = `<span class="db-sub-label">${label}</span><div class="db-sub-line"></div><span class="mgh-section-count">${items.length}</span>`;
         sg.appendChild(hdr);
         const grid = document.createElement("div"); grid.className = gridClass;
-        items.forEach(l => grid.appendChild(buildCard(l)));
+        const manual = _activeSort() === "manual";
+        items.forEach(l => {
+            const c = buildCard(l);
+            if (manual) c.appendChild(_mghSortHandle());
+            grid.appendChild(c);
+        });
         sg.appendChild(grid);
 
+        // Per-item drag-to-reorder (manual sort only)
+        if (manual) {
+            grid.classList.add("mgh-sortable");
+            _mghMakeSortable(grid);
+        }
+
+        _wireSectionDrag(sg, hdr);
+        return sg;
+    }
+
+    /* Section header drag-to-reorder wiring (shared by all section types) */
+    function _wireSectionDrag(sg, hdr) {
         hdr.addEventListener("mousedown", () => sg.setAttribute("draggable", "true"));
         sg.addEventListener("mouseleave", () => sg.setAttribute("draggable", "false"));
         sg.addEventListener("mouseup", () => sg.setAttribute("draggable", "false"));
@@ -3229,12 +3530,13 @@ function _renderMediaHub(body, cat) {
             sg.setAttribute("draggable", "false"); sg.style.opacity = "1"; _asStop();
             if (window._mghDragSg) {
                 window._mghDragSg = null;
-                _order = [...mghBody.querySelectorAll(".db-sub-group")].map(el => el.dataset.typeKey);
+                const domKeys = [...mghBody.querySelectorAll(".db-sub-group")].map(el => el.dataset.typeKey);
+                // Keep hidden / non-rendered sections (not in the DOM) at the end of the order
+                _order = [...domKeys, ..._order.filter(k => !domKeys.includes(k))];
                 _mghSectionOrder = _order;
                 localStorage.setItem(`mghOrder_${cat.id}`, JSON.stringify(_order));
             }
         });
-        return sg;
     }
 
     _renderSections();

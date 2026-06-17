@@ -19,7 +19,9 @@
       "Read(//c/Users/jonat/.claude/projects/g--My-Drive-Code-portfolio-site/memory/**)",
       "Bash(python3 -c ' *)",
       "Bash(firebase deploy *)",
-      "Bash(node --check workspace/js/apps/links.js)"
+      "Bash(node --check workspace/js/apps/links.js)",
+      "Bash(node --check workspace/js/sections/media.js)",
+      "Bash(node --check \"g:/My Drive/Code/portfolio-site/workspace/js/apps/links.js\")"
     ]
   }
 }
