@@ -21,7 +21,12 @@
       "Bash(firebase deploy *)",
       "Bash(node --check workspace/js/apps/links.js)",
       "Bash(node --check workspace/js/sections/media.js)",
-      "Bash(node --check \"g:/My Drive/Code/portfolio-site/workspace/js/apps/links.js\")"
+      "Bash(node --check \"g:/My Drive/Code/portfolio-site/workspace/js/apps/links.js\")",
+      "Bash(node --check links.js)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(node --check apps/links.js)",
+      "Bash(node --check features.js)",
+      "Bash(node --check admin-panel.js)"
     ]
   }
 }

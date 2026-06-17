@@ -17,6 +17,8 @@ import { toast, escHtml }              from "./ui.js";
 import { setLinksAdminOwner,
          setServiceDomains,
          getKnownServices }            from "./apps/links.js";
+import { GALLERY_FEATURES,
+         galleryDefaults }            from "./features.js";
 
 /* ── Feature flag metadata (Material Symbols icon names, no emojis) ── */
 const FEATURE_META = {
@@ -28,6 +30,16 @@ const FEATURE_META = {
 };
 
 const FEATURE_DEFAULTS = { links: true, gmail: true, analytics: true, bluemap: true, sheet: true };
+const GALLERY_DEFAULTS = galleryDefaults();
+
+/* Gallery sub-features grouped for the expandable per-user detail panel. */
+const GALLERY_GROUPS = (() => {
+    const groups = {};
+    for (const [key, m] of Object.entries(GALLERY_FEATURES)) {
+        (groups[m.group] ||= []).push({ key, ...m });
+    }
+    return groups;
+})();
 
 /* ── Module state ── */
 let _db       = null;
@@ -37,6 +49,7 @@ let _stats    = {};   // uid → { projects, links }
 
 /* Admin links-bar state */
 let _linksOwnerId = null;   // uid of user being browsed (null = own links)
+let _selectedUid  = null;   // user currently open in the master-detail pane
 
 /* ── Init ── */
 export function initAdminPanel(db) {
@@ -116,7 +129,7 @@ function _renderServiceConfig(cfg) {
     });
 }
 
-/* ── Users panel shell ── */
+/* ── Users panel shell (master-detail layout) ── */
 function _buildUsersShell(root) {
     root.innerHTML = `
     <div class="adm-panel-wrap">
@@ -126,16 +139,31 @@ function _buildUsersShell(root) {
           <div class="ws-placeholder">Loading…</div>
         </div>
       </div>
-      <div class="adm-toolbar">
-        <span class="adm-toolbar-title">All Users</span>
-        <input type="text" id="adm-user-search" class="adm-search-input" placeholder="Search by name or email…" autocomplete="off">
-        <button id="adm-refresh-btn" class="ws-btn ws-btn-ghost ws-btn-sm">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-          Refresh
-        </button>
-      </div>
-      <div id="adm-users-list" class="adm-users-list">
-        <div class="ws-placeholder">Loading users…</div>
+      <div class="adm-md">
+        <aside class="adm-md-list">
+          <div class="adm-md-list-head">
+            <div class="adm-md-search-wrap">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="adm-user-search" class="adm-md-search" placeholder="Search users…" autocomplete="off">
+            </div>
+            <button id="adm-refresh-btn" class="adm-md-refresh" title="Refresh">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            </button>
+          </div>
+          <div class="adm-md-list-sub">
+            <span class="adm-toolbar-title">Users</span>
+            <span id="adm-user-count" class="adm-user-count"></span>
+          </div>
+          <div id="adm-users-list" class="adm-md-users">
+            <div class="ws-placeholder">Loading users…</div>
+          </div>
+        </aside>
+        <section id="adm-md-detail" class="adm-md-detail">
+          <div class="adm-md-empty">
+            <span class="material-symbols-outlined">manage_accounts</span>
+            <p>Select a user to manage their features</p>
+          </div>
+        </section>
       </div>
     </div>`;
 
@@ -155,8 +183,10 @@ async function _loadUsers() {
         await Promise.all(_users.map(async (u) => {
             try {
                 const fSnap = await getDoc(doc(_db, "users", u.uid, "settings", "features"));
-                _features[u.uid] = fSnap.exists() ? { ...FEATURE_DEFAULTS, ...fSnap.data() } : { ...FEATURE_DEFAULTS };
-            } catch { _features[u.uid] = { ...FEATURE_DEFAULTS }; }
+                const data = fSnap.exists() ? fSnap.data() : {};
+                _features[u.uid] = { ...FEATURE_DEFAULTS, ...data };
+                _features[u.uid].gallery = { ...GALLERY_DEFAULTS, ...(data.gallery || {}) };
+            } catch { _features[u.uid] = { ...FEATURE_DEFAULTS, gallery: { ...GALLERY_DEFAULTS } }; }
 
             try {
                 const [pSnap, lSnap] = await Promise.all([
@@ -175,7 +205,7 @@ async function _loadUsers() {
     }
 }
 
-/* ── Render user table ── */
+/* ── Render the left-hand user list (master pane) ── */
 function _renderUserTable(search) {
     const list = document.getElementById("adm-users-list");
     if (!list) return;
@@ -185,86 +215,165 @@ function _renderUserTable(search) {
         ? _users.filter(u => (u.email || "").toLowerCase().includes(term) || (u.displayName || "").toLowerCase().includes(term))
         : _users;
 
+    const countEl = document.getElementById("adm-user-count");
+    if (countEl) countEl.textContent = `${filtered.length}`;
+
     if (!filtered.length) {
         list.innerHTML = `<div class="ws-placeholder">No users found.</div>`;
+        _renderUserDetail(null);
         return;
     }
 
-    const featureHeaderCells = Object.entries(FEATURE_META).map(([, m]) =>
-        `<th class="adm-feat-hdr" title="${m.label}"><span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">${m.icon}</span></th>`
-    ).join("");
-
-    list.innerHTML = `
-      <div class="adm-table-wrap">
-        <table class="adm-table">
-          <thead>
-            <tr>
-              <th class="adm-th-user">User</th>
-              <th class="adm-th-num" title="Projects"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:-2px">grid_view</span></th>
-              <th class="adm-th-num" title="Links"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:-2px">link</span></th>
-              <th class="adm-th-features" colspan="${Object.keys(FEATURE_META).length}">Feature Flags</th>
-            </tr>
-            <tr class="adm-feat-label-row">
-              <th></th><th></th><th></th>
-              ${featureHeaderCells}
-            </tr>
-          </thead>
-          <tbody id="adm-table-body"></tbody>
-        </table>
-      </div>`;
-
-    const tbody = document.getElementById("adm-table-body");
-    filtered.forEach(u => {
-        const row = document.createElement("tr");
-        row.className = "adm-user-row";
+    list.innerHTML = filtered.map(u => {
         const initials = ((u.displayName || u.email || "?")[0]).toUpperCase();
-        const st    = _stats[u.uid] || { projects: 0, links: 0 };
         const feats = _features[u.uid] || { ...FEATURE_DEFAULTS };
+        const gal   = feats.gallery || { ...GALLERY_DEFAULTS };
+        const appsOff = Object.keys(FEATURE_META).filter(k => feats[k] === false).length;
+        const galOff  = Object.keys(GALLERY_FEATURES).filter(k => gal[k] === false).length;
+        const off = appsOff + galOff;
+        const active = u.uid === _selectedUid ? " active" : "";
+        return `
+          <button class="adm-md-user${active}" data-uid="${escHtml(u.uid)}">
+            ${u.photoURL
+                ? `<img src="${escHtml(u.photoURL)}" class="adm-avatar" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'adm-avatar adm-avatar--init',textContent:'${escHtml(initials)}'}))">`
+                : `<span class="adm-avatar adm-avatar--init">${escHtml(initials)}</span>`}
+            <span class="adm-md-user-meta">
+              <span class="adm-user-name">${escHtml(u.displayName || u.email || u.uid)}</span>
+              <span class="adm-user-email">${escHtml(u.email || u.uid)}</span>
+            </span>
+            ${off ? `<span class="adm-md-user-badge" title="${off} feature${off === 1 ? "" : "s"} disabled">${off}</span>` : ""}
+          </button>`;
+    }).join("");
 
-        const featCells = Object.entries(FEATURE_META).map(([key, m]) => {
-            const on = feats[key] !== false;
-            return `<td class="adm-feat-cell">
-              <label class="adm-toggle" title="${m.label}: ${on ? "on" : "off"}">
-                <input type="checkbox" class="adm-flag-cb" data-uid="${escHtml(u.uid)}" data-feat="${key}" ${on ? "checked" : ""}>
-                <span class="adm-toggle-track"><span class="adm-toggle-thumb"></span></span>
-              </label>
-            </td>`;
-        }).join("");
-
-        row.innerHTML = `
-          <td class="adm-user-cell">
-            <div class="adm-user-id">
-              ${u.photoURL
-                  ? `<img src="${escHtml(u.photoURL)}" class="adm-avatar" alt="" onerror="this.style.display='none'">`
-                  : `<span class="adm-avatar adm-avatar--init">${escHtml(initials)}</span>`}
-              <div>
-                <div class="adm-user-name">${escHtml(u.displayName || u.email || u.uid)}</div>
-                <div class="adm-user-email">${escHtml(u.email || u.uid)}</div>
-              </div>
-            </div>
-          </td>
-          <td class="adm-num-cell">${st.projects}</td>
-          <td class="adm-num-cell adm-links-count" data-uid="${escHtml(u.uid)}" title="Browse links in Link Gallery">${st.links}</td>
-          ${featCells}`;
-        tbody.appendChild(row);
-    });
-
-    /* Feature flag toggles */
-    list.querySelectorAll(".adm-flag-cb").forEach(cb => {
-        cb.addEventListener("change", (e) => _setFlag(e.target.dataset.uid, e.target.dataset.feat, e.target.checked));
-    });
-
-    /* Click link count → open Link Gallery browsing that user */
-    list.querySelectorAll(".adm-links-count").forEach(cell => {
-        cell.addEventListener("click", () => {
-            const u = _users.find(x => x.uid === cell.dataset.uid);
-            if (!u) return;
-            /* Switch hub to Link Gallery and load user's links */
-            document.querySelector(".hub-app-btn[data-app='links']")?.click();
-            const sel = document.getElementById("adm-links-user-sel");
-            if (sel) { sel.value = u.uid; sel.dispatchEvent(new Event("change")); }
+    list.querySelectorAll(".adm-md-user").forEach(btn => {
+        btn.addEventListener("click", () => {
+            _selectedUid = btn.dataset.uid;
+            list.querySelectorAll(".adm-md-user").forEach(b => b.classList.toggle("active", b === btn));
+            _renderUserDetail(_selectedUid);
         });
     });
+
+    // Keep the open user (or auto-open the first) so the detail pane is never stale
+    if (_selectedUid && filtered.some(u => u.uid === _selectedUid)) _renderUserDetail(_selectedUid);
+    else _renderUserDetail(null);
+}
+
+/* ── Render the detail pane for one user ── */
+function _renderUserDetail(uid) {
+    const pane = document.getElementById("adm-md-detail");
+    if (!pane) return;
+
+    if (!uid) {
+        pane.innerHTML = `<div class="adm-md-empty"><span class="material-symbols-outlined">manage_accounts</span><p>Select a user to manage their features</p></div>`;
+        return;
+    }
+    const u = _users.find(x => x.uid === uid);
+    if (!u) { pane.innerHTML = `<div class="adm-md-empty"><p>User not found.</p></div>`; return; }
+
+    const initials = ((u.displayName || u.email || "?")[0]).toUpperCase();
+    const st    = _stats[uid] || { projects: 0, links: 0 };
+    const feats = _features[uid] || { ...FEATURE_DEFAULTS };
+    const gal   = feats.gallery || { ...GALLERY_DEFAULTS };
+
+    const switchEl = (cls, dataAttrs, on) =>
+        `<span class="lgs-switch"><input type="checkbox" class="${cls}" ${dataAttrs} ${on ? "checked" : ""}><span class="lgs-switch-track"></span></span>`;
+
+    const appRows = Object.entries(FEATURE_META).map(([key, m]) => {
+        const on = feats[key] !== false;
+        return `<label class="adm-md-flag">
+            <span class="material-symbols-outlined adm-md-flag-icon">${m.icon}</span>
+            <span class="adm-md-flag-label">${escHtml(m.label)}</span>
+            ${switchEl("adm-flag-cb", `data-uid="${escHtml(uid)}" data-feat="${key}"`, on)}
+          </label>`;
+    }).join("");
+
+    const galGroups = Object.entries(GALLERY_GROUPS).map(([group, items]) => `
+        <div class="adm-md-group">
+          <div class="adm-md-group-title">${escHtml(group)}</div>
+          ${items.map(it => {
+              const on = gal[it.key] !== false;
+              return `<label class="adm-md-flag">
+                  <span class="adm-md-flag-label">${escHtml(it.label)}</span>
+                  ${switchEl("adm-gflag-cb", `data-uid="${escHtml(uid)}" data-gkey="${escHtml(it.key)}"`, on)}
+                </label>`;
+          }).join("")}
+        </div>`).join("");
+
+    const galOn  = Object.keys(GALLERY_FEATURES).filter(k => gal[k] !== false).length;
+    const galTot = Object.keys(GALLERY_FEATURES).length;
+
+    pane.innerHTML = `
+      <div class="adm-md-detail-scroll">
+        <div class="adm-md-dhead">
+          ${u.photoURL
+              ? `<img src="${escHtml(u.photoURL)}" class="adm-avatar adm-avatar--xl" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'adm-avatar adm-avatar--xl adm-avatar--init',textContent:'${escHtml(initials)}'}))">`
+              : `<span class="adm-avatar adm-avatar--xl adm-avatar--init">${escHtml(initials)}</span>`}
+          <div class="adm-md-dident">
+            <div class="adm-md-dname">${escHtml(u.displayName || u.email || uid)}</div>
+            <div class="adm-md-demail">${escHtml(u.email || "")}</div>
+            <div class="adm-md-duid">${escHtml(uid)}</div>
+          </div>
+          <div class="adm-md-dstats">
+            <span class="adm-stat" title="Projects"><span class="material-symbols-outlined">grid_view</span>${st.projects}</span>
+            <button class="adm-stat adm-links-count" data-uid="${escHtml(uid)}" title="Browse this user's Link Gallery"><span class="material-symbols-outlined">link</span>${st.links}</button>
+          </div>
+        </div>
+
+        <div class="adm-md-section">
+          <div class="adm-md-section-head"><span class="material-symbols-outlined">apps</span>Applications</div>
+          <div class="adm-md-flags">${appRows}</div>
+        </div>
+
+        <div class="adm-md-section">
+          <div class="adm-md-section-head"><span class="material-symbols-outlined">tune</span>Link Gallery
+            <span class="adm-md-section-count" id="adm-md-gal-count">${galOn} / ${galTot}</span>
+          </div>
+          <div class="adm-md-groups">${galGroups}</div>
+        </div>
+      </div>`;
+
+    /* App feature toggles */
+    pane.querySelectorAll(".adm-flag-cb").forEach(cb =>
+        cb.addEventListener("change", (e) => {
+            _setFlag(e.target.dataset.uid, e.target.dataset.feat, e.target.checked);
+            _syncListBadge(e.target.dataset.uid);
+        }));
+
+    /* Gallery sub-feature toggles + live count */
+    pane.querySelectorAll(".adm-gflag-cb").forEach(cb =>
+        cb.addEventListener("change", (e) => {
+            _setGalleryFlag(e.target.dataset.uid, e.target.dataset.gkey, e.target.checked);
+            const g = _features[e.target.dataset.uid]?.gallery || {};
+            const on = Object.keys(GALLERY_FEATURES).filter(k => g[k] !== false).length;
+            const cnt = document.getElementById("adm-md-gal-count");
+            if (cnt) cnt.textContent = `${on} / ${galTot}`;
+            _syncListBadge(e.target.dataset.uid);
+        }));
+
+    /* Browse this user's links */
+    pane.querySelector(".adm-links-count")?.addEventListener("click", () => {
+        document.querySelector(".hub-app-btn[data-app='links']")?.click();
+        const sel = document.getElementById("adm-links-user-sel");
+        if (sel) { sel.value = uid; sel.dispatchEvent(new Event("change")); }
+    });
+}
+
+/* Refresh the "N disabled" badge for a user in the left list without a full re-render */
+function _syncListBadge(uid) {
+    const btn = document.querySelector(`.adm-md-user[data-uid="${CSS.escape(uid)}"]`);
+    if (!btn) return;
+    const feats = _features[uid] || {};
+    const gal   = feats.gallery || {};
+    const off = Object.keys(FEATURE_META).filter(k => feats[k] === false).length
+              + Object.keys(GALLERY_FEATURES).filter(k => gal[k] === false).length;
+    let badge = btn.querySelector(".adm-md-user-badge");
+    if (off) {
+        if (!badge) { badge = document.createElement("span"); badge.className = "adm-md-user-badge"; btn.appendChild(badge); }
+        badge.textContent = String(off);
+        badge.title = `${off} feature${off === 1 ? "" : "s"} disabled`;
+    } else if (badge) {
+        badge.remove();
+    }
 }
 
 /* ── Feature flag toggle ── */
@@ -277,6 +386,19 @@ async function _setFlag(uid, feature, enabled) {
     } catch (err) {
         console.error(err);
         toast("Error saving feature flag", "error");
+    }
+}
+
+async function _setGalleryFlag(uid, key, enabled) {
+    try {
+        await setDoc(doc(_db, "users", uid, "settings", "features"), { gallery: { [key]: enabled } }, { merge: true });
+        if (!_features[uid]) _features[uid] = { ...FEATURE_DEFAULTS, gallery: { ...GALLERY_DEFAULTS } };
+        if (!_features[uid].gallery) _features[uid].gallery = { ...GALLERY_DEFAULTS };
+        _features[uid].gallery[key] = enabled;
+        toast(`${GALLERY_FEATURES[key]?.label || key}: ${enabled ? "enabled" : "disabled"}`, "success");
+    } catch (err) {
+        console.error(err);
+        toast("Error saving gallery feature flag", "error");
     }
 }
 
