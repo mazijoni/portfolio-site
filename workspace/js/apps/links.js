@@ -313,8 +313,6 @@ export function initLinks(db, user) {
     _user = user;
     // Restore the last active category from the previous session
     try { const _sc = sessionStorage.getItem("links_active_cat"); if (_sc) _activeCat = _sc; } catch {}
-    // Clear all saved section orderings so the new default applies
-    try { Object.keys(localStorage).filter(k => k.startsWith("mghOrder_")).forEach(k => localStorage.removeItem(k)); } catch {}
 
     // Load admin-configured service domain overrides
     getDoc(refs.serviceConfig(db)).then(snap => {
@@ -2932,8 +2930,8 @@ function _openLinksSettings() {
                 try { localStorage.setItem("links_layout", _layout); } catch {}
             }
             if (ctxReset) ctxReset.style.display = _hasCatOverride() ? "" : "none";
-            document.querySelectorAll(".lgs-view-btn").forEach(b => b.classList.toggle("active", b === btn));
             _applyLayout();
+            document.querySelectorAll(".lgs-view-btn").forEach(b => b.classList.toggle("active", b === btn));
             _render();
         };
     });
@@ -3047,25 +3045,32 @@ function _openLinksSettings() {
 
                 if (isPeople) {
                     const sub = row.querySelector(".lgs-so-people");
-                    const renderChips = () => {
-                        sub.innerHTML = "";
-                        const swap = document.createElement("button");
-                        swap.className = "lgs-pc-swap"; swap.type = "button"; swap.title = "Swap which side is first";
-                        swap.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
-                        swap.addEventListener("click", () => { peopleOrder = [...peopleOrder].reverse(); _savePeopleOrder(); renderChips(); _render(); });
-                        sub.appendChild(swap);
-                        peopleOrder.forEach(pk => {
-                            const chip = document.createElement("div");
-                            chip.className = "lgs-pc-chip" + (hidden.has(pk) ? " lgs-pc-chip--hidden" : "");
-                            chip.innerHTML = `<span class="lgs-pc-name">${PEOPLE_LABELS[pk]}</span><button class="lgs-pc-eye" type="button" title="Show or hide"></button>`;
-                            const pcEye = chip.querySelector(".lgs-pc-eye");
-                            const paintPc = () => { chip.classList.toggle("lgs-pc-chip--hidden", hidden.has(pk)); pcEye.innerHTML = _eyeSvg(hidden.has(pk)); };
-                            paintPc();
-                            pcEye.addEventListener("click", _toggleHidden(pk, paintPc));
-                            sub.appendChild(chip);
+                    peopleOrder.forEach(pk => {
+                        const chip = document.createElement("div");
+                        chip.className = "lgs-pc-chip" + (hidden.has(pk) ? " lgs-pc-chip--hidden" : "");
+                        chip.dataset.key = pk;
+                        chip.innerHTML = `<span class="lgs-pc-name">${PEOPLE_LABELS[pk]}</span><button class="lgs-pc-eye" type="button" title="Show or hide"></button>`;
+                        const pcEye = chip.querySelector(".lgs-pc-eye");
+                        const paintPc = () => { chip.classList.toggle("lgs-pc-chip--hidden", hidden.has(pk)); pcEye.innerHTML = _eyeSvg(hidden.has(pk)); };
+                        paintPc();
+                        pcEye.addEventListener("click", _toggleHidden(pk, paintPc));
+                        sub.appendChild(chip);
+                    });
+                    _getSortable().then(Sortable => {
+                        Sortable.create(sub, {
+                            animation: 150,
+                            direction: "horizontal",
+                            draggable: ".lgs-pc-chip",
+                            filter: ".lgs-pc-eye",
+                            ghostClass: "sortable-ghost",
+                            chosenClass: "sortable-chosen",
+                            onEnd: () => {
+                                peopleOrder = [...sub.querySelectorAll(".lgs-pc-chip")].map(c => c.dataset.key);
+                                _savePeopleOrder();
+                                _render();
+                            }
                         });
-                    };
-                    renderChips();
+                    });
                 }
 
                 soList.appendChild(row);
@@ -3076,8 +3081,8 @@ function _openLinksSettings() {
                 if (soList._sortable) { try { soList._sortable.destroy(); } catch {} }
                 soList._sortable = Sortable.create(soList, {
                     animation: 150,
-                    handle: ".lgs-so-grip",
                     draggable: ".lgs-so-row",
+                    filter: ".lgs-so-eye, .lgs-pc-eye",
                     ghostClass: "sortable-ghost",
                     chosenClass: "sortable-chosen",
                     onEnd: () => {
