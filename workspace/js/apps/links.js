@@ -58,7 +58,7 @@ function _uid() { return _adminOwnerUid || _user?.uid; }
 let _links          = [];
 let _search         = "";
 let _activeCat      = "all";   // "all" | category name | "_uncat"
-let _sortMode       = localStorage.getItem("links_sort_mode") || "manual";
+let _sortMode       = localStorage.getItem("links_sort_mode") || "newest";
 let _editId         = null;
 let _editCatId      = null;
 let _dragId         = null;
@@ -547,6 +547,7 @@ function _sorted(list) {
         case "z-a":    return arr.sort((a, b) => (b.title || "").localeCompare(a.title || ""));
         case "newest": return arr.sort((a, b) => ((b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
         case "oldest": return arr.sort((a, b) => ((a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)));
+        case "shuffle": return arr.sort(() => Math.random() - 0.5);
         default:
             return arr.sort((a, b) => {
                 if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
@@ -1066,7 +1067,8 @@ function _mghPlatBadge(link) {
 function _mghFindCreatorFor(link) {
     if (!link || (link.type !== "image" && link.type !== "image-group" &&
                   link.type !== "3d-model" && link.type !== "youtube-video" &&
-                  link.type !== "youtube-playlist" && link.type !== "video")) return null;
+                  link.type !== "youtube-playlist" && link.type !== "video" &&
+                  link.type !== "video-group")) return null;
     if (link.creatorId) return _links.find(l => l.id === link.creatorId) ?? null;
     const _matchUrl = (testUrl) => {
         if (!testUrl) return null;
@@ -1813,7 +1815,7 @@ function _mghOpenCreatorPanel(creator) {
 function _mghSiteCard(link) {
     const card = document.createElement("div"); card.className = "db-site-card";
     const fav   = _mghFav(link.url);
-    const fav64 = fav.replace("sz=32", "sz=64");
+    const fav64 = fav.replace("sz=32", "sz=128");
     /* Only use thumbUrls that are user-supplied or og:image captures.
        Skip thum.io and unavatar.io: those services return HTML for blocked/adult content
        which triggers browser OpaqueResponseBlocking errors. */
@@ -1851,7 +1853,7 @@ function _mghVideoCard(link, opts = {}) {
         const ytId = embed.src.split("/embed/")[1]?.split("?")[0];
         if (ytId) _effThumb = `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg`;
     }
-    let mediaHtml, isThumb = false, isLink = false;
+    let mediaHtml, isThumb = false, isLink = false, isDirect = false;
     if (opts.thumbnailOnly) {
         // Force a static thumbnail instead of an embed/iframe
         if (_effThumb) {
@@ -1866,7 +1868,8 @@ function _mghVideoCard(link, opts = {}) {
         }
     } else if (embed) {
         if (embed.type === "direct") {
-            mediaHtml = `<video src="${escHtml(embed.src)}"${link.thumbUrl ? ` poster="${escHtml(link.thumbUrl)}"` : ""} controls style="position:absolute;inset:0;width:100%;height:100%;background:#000" preload="none"></video>`;
+            isDirect = true;
+            mediaHtml = `<video src="${escHtml(embed.src)}"${link.thumbUrl ? ` poster="${escHtml(link.thumbUrl)}"` : ""} controls preload="none"></video>`;
         } else {
             mediaHtml = `<iframe src="${escHtml(embed.src)}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" loading="lazy"></iframe>`;
         }
@@ -1883,7 +1886,7 @@ function _mghVideoCard(link, opts = {}) {
     }
     const badge = embed ? (embed.type === "youtube" ? "YT" : embed.type === "vimeo" ? "VIMEO" : "VIDEO") : (link.thumbUrl ? "IMG" : "LINK");
     card.innerHTML = `
-        <div class="video-iframe-wrap${isThumb ? " video-iframe-wrap--thumb" : ""}">${mediaHtml}</div>
+        <div class="video-iframe-wrap${isThumb ? " video-iframe-wrap--thumb" : ""}${isDirect ? " video-iframe-wrap--direct" : ""}">${mediaHtml}</div>
         <div class="video-card-body">
             <span class="video-type-badge">${badge}</span>
             <span class="video-card-name">${escHtml(link.title || "")}</span>
@@ -2181,6 +2184,36 @@ function _mghCreatorCard(link) {
     return card;
 }
 
+async function _mghAutoLinkAll(catLinks) {
+    const MEDIA_TYPES = ["image","3d-model","image-group","youtube-video","youtube-playlist","video","video-group"];
+    const persons = catLinks.filter(l => l.type === "person");
+    if (!persons.length) { toast("No characters or persons in this hub.", "info"); return; }
+    const media = catLinks.filter(l => MEDIA_TYPES.includes(l.type));
+    const byId = {};
+    persons.forEach(person => {
+        const name = (person.title || "").toLowerCase().trim();
+        if (!name) return;
+        media.forEach(l => {
+            if (!(l.title || "").toLowerCase().includes(name)) return;
+            const cur = l.personIds || (l.personId ? [l.personId] : []);
+            if (cur.includes(person.id)) return;
+            if (!byId[l.id]) byId[l.id] = { l, personIds: [...cur] };
+            if (!byId[l.id].personIds.includes(person.id)) byId[l.id].personIds.push(person.id);
+        });
+    });
+    const entries = Object.values(byId);
+    if (!entries.length) { toast("No new matches found.", "info"); return; }
+    try {
+        await Promise.all(entries.map(({ l, personIds }) =>
+            updateDoc(doc(_db, "users", _uid(), "gallery-links", l.id), { personIds, personId: personIds[0] })
+        ));
+        toast(`Linked ${entries.length} item${entries.length !== 1 ? "s" : ""} across ${persons.length} character${persons.length !== 1 ? "s" : ""}.`, "success");
+    } catch (err) {
+        console.error("[links] auto-link all error:", err);
+        toast("Error linking some items.", "error");
+    }
+}
+
 async function _mghAutoLinkPerson(person) {
     const name = (person.title || "").toLowerCase().trim();
     if (!name) { toast("Person has no name to match against.", "info"); return; }
@@ -2346,7 +2379,23 @@ function _attachFeedVideoControls(card) {
         muteBtn.innerHTML = _muteHtml();
     });
 
+    let _isFit = false;
+    const _fitSvgFit  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 4 20 10 20"/><polyline points="20 10 20 4 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`;
+    const _fitSvgFill = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`;
+    const fitBtn = document.createElement("button");
+    fitBtn.className = "feed-card-mute-btn";
+    fitBtn.setAttribute("aria-label", "Toggle fit");
+    fitBtn.innerHTML = _fitSvgFit;
+    fitBtn.addEventListener("click", e => {
+        e.stopPropagation();
+        _isFit = !_isFit;
+        vid.classList.toggle("feed-card-media--fit", _isFit);
+        wrap.classList.toggle("feed-card-media-wrap--fit", _isFit);
+        fitBtn.innerHTML = _isFit ? _fitSvgFill : _fitSvgFit;
+    });
+
     bottom.appendChild(progressWrap);
+    bottom.appendChild(fitBtn);
     bottom.appendChild(muteBtn);
     ctrl.appendChild(bottom);
     wrap.appendChild(ctrl);
@@ -3004,6 +3053,13 @@ function _renderMediaHub(body, cat) {
         </div>`;
     const addBtn = document.createElement("button"); addBtn.className = "ws-btn ws-btn-accent"; addBtn.textContent = "+ Add";
     addBtn.addEventListener("click", () => { _openForm(null); setTimeout(() => { const cf = document.getElementById("link-cat-field"); if (cf) cf.value = cat.name; }, 80); });
+    const autoLinkAllBtn = document.createElement("button");
+    autoLinkAllBtn.className = "ws-btn ws-btn-ghost";
+    autoLinkAllBtn.title = "Auto-link all images & videos to characters by matching title";
+    autoLinkAllBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Auto-link all`;
+    autoLinkAllBtn.addEventListener("click", () => _mghAutoLinkAll(catLinks));
+    toolbar.appendChild(autoLinkAllBtn);
+
     const importBtn = document.createElement("button");
     importBtn.className = "ws-btn ws-btn-ghost";
     importBtn.title = "Import media from a Workspace project";
@@ -4460,11 +4516,14 @@ async function _onFormSubmit(e) {
         const _vgCVal = document.getElementById("link-creator-field")?.value || null;
         const _vgPSel = document.getElementById("link-person-field");
         const _vgPIds = _vgPSel ? Array.from(_vgPSel.selectedOptions).map(o => o.value).filter(Boolean) : [];
+        const _vgSrcRaw = document.getElementById("link-source-field")?.value.trim() || "";
+        const _vgSrc    = (_vgSrcRaw && _isSafeUrl(_vgSrcRaw)) ? _vgSrcRaw : "";
         const vgData = {
             type:      "video-group",
             title:     document.getElementById("link-title-field").value.trim(),
             category:  document.getElementById("link-cat-field").value.trim(),
             videos:    vids,
+            sourceUrl: _vgSrc || deleteField(),
             creatorId: _vgCVal,
             personIds: _vgPIds,
             personId:  _vgPIds[0] || null,
