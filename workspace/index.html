@@ -2279,6 +2279,10 @@
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="6" height="5" rx="1"/><line x1="11" y1="6" x2="22" y2="6"/><line x1="11" y1="8" x2="18" y2="8"/><rect x="2" y="12" width="6" height="5" rx="1"/><line x1="11" y1="14" x2="22" y2="14"/><line x1="11" y1="16" x2="18" y2="16"/></svg>
                             List
                         </button>
+                        <button class="lgs-view-btn" data-layout="coverflow" title="Coverflow">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="6" width="6" height="12" rx="1"/><path d="M5 8v8" stroke-linecap="round"/><path d="M19 8v8" stroke-linecap="round"/><path d="M2 10v4" stroke-linecap="round"/><path d="M22 10v4" stroke-linecap="round"/></svg>
+                            Coverflow
+                        </button>
                         <button class="lgs-view-btn" data-layout="rows" title="Rows">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="5" rx="1"/><rect x="2" y="10" width="20" height="5" rx="1"/><rect x="2" y="17" width="20" height="5" rx="1"/></svg>
                             Rows
@@ -2306,6 +2310,48 @@
                 <div class="lgs-section-label">Sections</div>
                 <p style="font-size:0.72rem;color:var(--text-muted);margin:2px 0 10px">Drag to reorder. Tap the eye to hide a section.</p>
                 <div id="lgs-section-order" class="lgs-section-order"></div>
+            </div>
+            <!-- Coverflow options (media hubs only; rows hidden individually by admin gates) -->
+            <div class="lgs-divider" id="lgs-coverflow-divider" style="display:none"></div>
+            <div class="lgs-section" id="lgs-coverflow-wrap" style="display:none">
+                <div class="lgs-section-label">Coverflow view</div>
+                <p style="font-size:0.72rem;color:var(--text-muted);margin:2px 0 10px">Personalise the 3-D carousel.</p>
+                <div class="lgs-cf-opts">
+                    <label class="lgs-cf-toggle lgs-cf-select-row">
+                        <span>Style</span>
+                        <select id="lgs-cf-style" class="lgs-cf-select">
+                            <option value="coverflow">Coverflow (3-D fan)</option>
+                            <option value="flat">Flat carousel</option>
+                            <option value="wheel">Wheel (arc)</option>
+                            <option value="stack">Deck stack</option>
+                            <option value="cube">Cube spin</option>
+                        </select>
+                    </label>
+                    <label class="lgs-cf-toggle" id="lgs-cf-loop-row">
+                        <span>Loop cards endlessly</span>
+                        <span class="lgs-switch"><input type="checkbox" id="lgs-cf-loop"><span class="lgs-switch-track"></span></span>
+                    </label>
+                    <label class="lgs-cf-toggle" id="lgs-cf-reflect-row">
+                        <span>Reflection</span>
+                        <span class="lgs-switch"><input type="checkbox" id="lgs-cf-reflect"><span class="lgs-switch-track"></span></span>
+                    </label>
+                    <label class="lgs-cf-toggle" id="lgs-cf-autoplay-row">
+                        <span>Auto-advance</span>
+                        <span class="lgs-switch"><input type="checkbox" id="lgs-cf-autoplay"><span class="lgs-switch-track"></span></span>
+                    </label>
+                    <label class="lgs-cf-toggle" id="lgs-cf-explode-row">
+                        <span>Split groups into individual cards</span>
+                        <span class="lgs-switch"><input type="checkbox" id="lgs-cf-explode"><span class="lgs-switch-track"></span></span>
+                    </label>
+                    <label class="lgs-cf-range">
+                        <span>Card size</span>
+                        <input type="range" id="lgs-cf-size" min="60" max="140" step="5">
+                    </label>
+                    <label class="lgs-cf-range">
+                        <span>Spacing</span>
+                        <input type="range" id="lgs-cf-spacing" min="60" max="140" step="5">
+                    </label>
+                </div>
             </div>
             <div class="lgs-divider"></div>
             <!-- Avatar style -->

@@ -19,6 +19,10 @@ import { openModal, closeModal,
          setModalTitle, toast,
          confirm, escHtml }    from "../ui.js";
 import { materialIcons }       from "../icons.js";
+import { isGalleryFeatureEnabled } from "../features.js";
+
+/* Shorthand: is a Link-Gallery sub-feature enabled for the current user? */
+const _gf = (key) => isGalleryFeatureEnabled(key);
 
 /* ══════════ CONSTANTS ══════════ */
 
@@ -95,6 +99,11 @@ const _mediaThumbs = {}; // url → imgUrl | null  (undefined = not yet tried)
 // Fullscreen viewer state
 let _mghViewItems = [];
 let _mghViewCur   = 0;
+
+// Coverflow ("stage") view — active keyboard handler & autoplay timer so we
+// never leak/duplicate them across re-renders.
+let _mghCfKeyHandler = null;
+let _mghCfAutoTimer  = null;
 
 // Avatar crop state
 let _acmCx   = 50;   // x-center 0–100
@@ -2916,7 +2925,7 @@ function _openLinksSettings() {
 
     // ── View mode buttons ──
     // Media hubs support grid/list/feed; normal categories support grid/compact/list/rows.
-    const MEDIA_MODES  = ["grid", "tiles", "list", "feed"];
+    const MEDIA_MODES  = ["grid", "tiles", "list", "coverflow", "feed"];
     const NORMAL_MODES = ["grid", "compact", "list", "rows"];
     const currentMghLayout = isMediaHub && cat?.id ? (localStorage.getItem(`mghLayout_${cat.id}`) || "grid") : null;
     const currentLayout = isMediaHub ? currentMghLayout : _activeLayout();
@@ -3111,6 +3120,49 @@ function _openLinksSettings() {
         }
     }
 
+    // ── Coverflow options (media hubs only; each row gated by admin flags) ──
+    const cfWrap    = document.getElementById("lgs-coverflow-wrap");
+    const cfDivider = document.getElementById("lgs-coverflow-divider");
+    if (cfWrap && cfDivider) {
+        const showCf = isMediaHub && !!cat?.id && _gf("cfCustomize");
+        cfWrap.style.display    = showCf ? "" : "none";
+        cfDivider.style.display = showCf ? "" : "none";
+        if (showCf) {
+            // Style dropdown
+            const cfStyle = document.getElementById("lgs-cf-style");
+            if (cfStyle) {
+                cfStyle.value = localStorage.getItem("mghCfStyle") || "coverflow";
+                cfStyle.onchange = () => { localStorage.setItem("mghCfStyle", cfStyle.value); _render(); };
+            }
+            // checkbox rows: [inputId, rowId, storageKey, default-on?, admin-allow-flag]
+            const cfRows = [
+                ["lgs-cf-loop",     "lgs-cf-loop-row",     "mghCfLoop",       false, true],
+                ["lgs-cf-reflect",  "lgs-cf-reflect-row",  "mghCfReflection", true,  _gf("cfReflection")],
+                ["lgs-cf-autoplay", "lgs-cf-autoplay-row", "mghCfAutoplay",   false, _gf("cfAutoplay")],
+                ["lgs-cf-explode",  "lgs-cf-explode-row",  "mghCfExplode",    true,  _gf("cfExplodeGroups")],
+            ];
+            cfRows.forEach(([inpId, rowId, key, defOn, allow]) => {
+                const inp = document.getElementById(inpId);
+                const row = document.getElementById(rowId);
+                if (row) row.style.display = allow ? "" : "none";
+                if (!inp) return;
+                const cur = localStorage.getItem(key);
+                inp.checked = cur == null ? defOn : cur !== "0";
+                inp.onchange = () => { localStorage.setItem(key, inp.checked ? "1" : "0"); _render(); };
+            });
+            const cfSize = document.getElementById("lgs-cf-size");
+            const cfSpacing = document.getElementById("lgs-cf-spacing");
+            if (cfSize) {
+                cfSize.value = parseInt(localStorage.getItem("mghCfSize") || "100", 10) || 100;
+                cfSize.onchange = () => { localStorage.setItem("mghCfSize", cfSize.value); _render(); };
+            }
+            if (cfSpacing) {
+                cfSpacing.value = parseInt(localStorage.getItem("mghCfSpacing") || "100", 10) || 100;
+                cfSpacing.onchange = () => { localStorage.setItem("mghCfSpacing", cfSpacing.value); _render(); };
+            }
+        }
+    }
+
     openModal("modal-links-settings");
 }
 
@@ -3160,6 +3212,266 @@ function _addVgVideoField(urlVal = "", thumbVal = "") {
     list.appendChild(row);
 }
 
+/* ══════════ COVERFLOW ("STAGE") VIEW ══════════
+   A 3-D carousel: the focused item sits flat and front-and-centre while its
+   neighbours fan out in perspective on either side. Unlike every other layout
+   (which are all scrolling grids) this is a single immersive, navigable card
+   deck — drive it with the mouse wheel, arrow keys, drag/swipe, or by clicking
+   a side card. Clicking the centred card opens the existing fullscreen viewer. */
+
+/* Pull a single representative thumbnail out of any media link. */
+function _mghThumbForLink(link) {
+    const isVideo = ["youtube-video", "youtube-playlist", "video", "video-group"].includes(link.type);
+    if (link.type === "image-group") {
+        const first = (Array.isArray(link.images) ? link.images.filter(i => i?.url) : [])[0];
+        return { src: first?.url || link.thumbUrl || "", isVideo: false };
+    }
+    if (link.type === "video-group") {
+        const first = (Array.isArray(link.videos) ? link.videos.filter(v => v?.url) : [])[0];
+        return { src: first?.thumb || link.thumbUrl || "", isVideo: true };
+    }
+    if (isVideo) {
+        let src = link.thumbUrl || "";
+        if (!src) {
+            const embed = _mghEmbed(link.url);
+            const ytId = embed?.type === "youtube" ? embed.src.split("/embed/")[1]?.split("?")[0] : "";
+            if (ytId) src = `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg`;
+        }
+        return { src, isVideo: true };
+    }
+    return { src: link.url || link.thumbUrl || "", isVideo: false }; // image / 3d-model
+}
+
+function _mghCoverflowView(container, items, cat, opts = {}) {
+    container.innerHTML = "";
+    _mghViewItems = [];
+    // Any prior autoplay loop belongs to a now-detached render — kill it.
+    if (_mghCfAutoTimer) { clearInterval(_mghCfAutoTimer); _mghCfAutoTimer = null; }
+    const fallback = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 3'%3E%3Crect fill='%231a1a1a' width='4' height='3'/%3E%3C/svg%3E";
+
+    const allow = opts.allow || { reflect: true, autoplay: true, explode: true, customize: true };
+    let reflect  = opts.reflect  !== false && allow.reflect  !== false;
+    let autoplay = !!opts.autoplay        && allow.autoplay !== false;
+    let spacingPct = opts.spacingPct || 100;            // adjusted live by the size/spacing sliders
+    const sizePct  = opts.sizePct  || 100;
+    const style    = opts.style || "coverflow";          // coverflow | flat | wheel | stack | cube
+    const loop     = !!opts.loop && items.length > 2;    // endless wrap-around
+
+    const root  = document.createElement("div"); root.className = "mgh-cf-root mgh-cf-style-" + style;
+    root.classList.toggle("mgh-cf-reflect-off", !reflect || style === "wheel");
+    root.style.setProperty("--mgh-cf-scale", String(sizePct / 100));
+    const stage = document.createElement("div"); stage.className = "mgh-cf-stage";
+    const track = document.createElement("div"); track.className = "mgh-cf-track";
+    stage.appendChild(track);
+
+    const cards = [];
+    items.forEach((link, i) => {
+        const { src, isVideo } = _mghThumbForLink(link);
+        const viewerSrc = link.type === "image-group"
+            ? src
+            : (link.type === "video-group" ? (link.videos?.[0]?.thumb || src) : src);
+        if (isVideo) _mghViewItems.push({ type: "thumb-video", src: viewerSrc || "", name: link.title || "", url: link.url });
+        else         _mghViewItems.push({ type: "image",       src: viewerSrc || "", name: link.title || "" });
+
+        const card = document.createElement("div");
+        card.className = "mgh-cf-card";
+        card.dataset.idx = i;
+        card.innerHTML = `
+            <div class="mgh-cf-frame">
+                ${src
+                    ? `<img class="mgh-cf-img" src="${escHtml(src)}" alt="${escHtml(link.title || "")}" loading="lazy" onerror="this.onerror=null;this.src='${fallback}'">`
+                    : `<div class="mgh-cf-noimg">${isVideo ? _playSvg(46) : `<span class="material-symbols-outlined">image</span>`}</div>`}
+                ${isVideo && src ? `<div class="mgh-cf-play">${_playSvg(48)}</div>` : ""}
+            </div>`;
+        track.appendChild(card);
+        cards.push(card);
+    });
+
+    // Controls / chrome
+    const prevBtn = document.createElement("button"); prevBtn.className = "mgh-cf-nav mgh-cf-prev"; prevBtn.setAttribute("aria-label", "Previous");
+    prevBtn.innerHTML = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
+    const nextBtn = document.createElement("button"); nextBtn.className = "mgh-cf-nav mgh-cf-next"; nextBtn.setAttribute("aria-label", "Next");
+    nextBtn.innerHTML = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>`;
+    stage.appendChild(prevBtn);
+    stage.appendChild(nextBtn);
+
+    const meta = document.createElement("div"); meta.className = "mgh-cf-meta";
+    meta.innerHTML = `<div class="mgh-cf-caption"></div><div class="mgh-cf-counter"></div>`;
+    const caption = meta.querySelector(".mgh-cf-caption");
+    const counter = meta.querySelector(".mgh-cf-counter");
+
+    root.appendChild(stage);
+    root.appendChild(meta);
+    container.appendChild(root);
+
+    // ── State + layout ──
+    const STORE = `mghCfIndex_${cat.id || cat.name}`;
+    let index = parseInt(localStorage.getItem(STORE) || "", 10);
+    if (!Number.isFinite(index) || index < 0 || index >= items.length) index = 0;
+
+    function layout() {
+        const n   = items.length;
+        const gap = spacingPct / 100;
+        cards.forEach((card, i) => {
+            // Circular (shortest-path) offset when looping, so cards wrap around the ends
+            let off = i - index;
+            if (loop) { if (off > n / 2) off -= n; else if (off < -n / 2) off += n; }
+            const abs  = Math.abs(off);
+            const sign = Math.sign(off);
+            if (abs > 6) {
+                card.style.opacity = "0";
+                card.style.pointerEvents = "none";
+                card.style.transform = `translate(-50%, -50%) translateX(${sign * 900}px) rotateY(${-sign * 60}deg)`;
+                return;
+            }
+            let x = 0, y = 0, z = 0, rotY = 0, rotZ = 0, sc = 1, op = 1, bright = true;
+            if (style === "flat") {
+                // Flat filmstrip — centred card pops, neighbours shrink & fade, no tilt
+                x  = off * 150 * gap;
+                sc = off === 0 ? 1 : 0.74;
+                z  = off === 0 ? 0 : -80;
+                op = abs > 4 ? 0 : (off === 0 ? 1 : 0.5);
+            } else if (style === "wheel") {
+                // Cards fanned along a downward arc, like a hand of cards
+                x    = off * 132 * gap;
+                y    = abs * abs * 7;
+                rotZ = off * 7;
+                z    = -abs * 26;
+                sc   = off === 0 ? 1 : 0.9;
+                op   = abs > 5 ? 0 : (off === 0 ? 1 : 0.78);
+            } else if (style === "stack") {
+                // Deck — side cards stack behind the centre with a slight skew
+                x    = off === 0 ? 0 : sign * (56 + (abs - 1) * 16) * gap;
+                z    = -abs * 64;
+                rotY = off === 0 ? 0 : -sign * 9;
+                sc   = off === 0 ? 1 : Math.max(0.6, 1 - abs * 0.07);
+                op   = abs > 4 ? 0 : (off === 0 ? 1 : 0.92);
+            } else if (style === "cube") {
+                // Strong rotation + tight spacing for a turning-cube feel
+                x    = off === 0 ? 0 : sign * (150 + (abs - 1) * 40) * gap;
+                rotY = off === 0 ? 0 : -sign * 72;
+                z    = off === 0 ? 0 : -abs * 70 - 40;
+                sc   = off === 0 ? 1 : 0.9;
+                op   = abs > 4 ? 0 : (off === 0 ? 1 : 0.7);
+            } else {
+                // Classic coverflow — side-fanned with strong perspective
+                x    = off === 0 ? 0 : sign * (190 + (abs - 1) * 62) * gap;
+                rotY = off === 0 ? 0 : -sign * 52;
+                z    = off === 0 ? 0 : -abs * 42 - 70;
+                sc   = off === 0 ? 1 : 0.82;
+                op   = abs > 5 ? 0 : (off === 0 ? 1 : 0.62);
+            }
+            card.style.transform = `translate(-50%, -50%) translateX(${x}px) translateY(${y}px) translateZ(${z}px) rotateY(${rotY}deg) rotateZ(${rotZ}deg) scale(${sc})`;
+            card.style.opacity     = String(op);
+            card.style.zIndex      = String(100 - abs);
+            card.style.pointerEvents = op === 0 ? "none" : "auto";
+            card.style.filter      = off === 0 || !bright ? "none" : "brightness(0.62)";
+            card.classList.toggle("is-center", off === 0);
+        });
+        caption.textContent = items[index]?.title || "Untitled";
+        counter.textContent = `${index + 1} / ${items.length}`;
+        localStorage.setItem(STORE, String(index));
+    }
+
+    const len = items.length;
+    const go = (delta) => {
+        let n = index + delta;
+        if (loop) n = (n % len + len) % len;
+        else n = Math.min(len - 1, Math.max(0, n));
+        if (n !== index) { index = n; layout(); }
+    };
+    const goto = (n) => { if (n !== index && n >= 0 && n < len) { index = n; layout(); } };
+
+    prevBtn.addEventListener("click", () => go(-1));
+    nextBtn.addEventListener("click", () => go(1));
+
+    cards.forEach((card, i) => card.addEventListener("click", () => {
+        if (i === index) _mghOpenViewer([..._mghViewItems], index); // centred → open viewer
+        else goto(i);
+    }));
+
+    // Wheel — vertical or horizontal both navigate (debounced via threshold)
+    let wheelAcc = 0, wheelLock = false;
+    stage.addEventListener("wheel", e => {
+        e.preventDefault();
+        if (wheelLock) return;
+        wheelAcc += Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+        if (Math.abs(wheelAcc) >= 40) {
+            go(wheelAcc > 0 ? 1 : -1);
+            wheelAcc = 0; wheelLock = true;
+            setTimeout(() => { wheelLock = false; }, 110);
+        }
+    }, { passive: false });
+
+    // Drag / swipe — window listeners live only for the duration of a drag
+    let dragX = null, dragMoved = false;
+    const onMove = e => {
+        if (dragX == null) return;
+        const cx = (e.touches ? e.touches[0].clientX : e.clientX);
+        const dx = cx - dragX;
+        if (Math.abs(dx) > 60) { go(dx < 0 ? 1 : -1); dragX = cx; dragMoved = true; }
+    };
+    const onUp = () => {
+        dragX = null;
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+    };
+    stage.addEventListener("mousedown", e => {
+        dragX = e.clientX; dragMoved = false;
+        window.addEventListener("mousemove", onMove);
+        window.addEventListener("mouseup", onUp);
+    });
+    stage.addEventListener("touchstart", e => { dragX = e.touches[0].clientX; dragMoved = false; }, { passive: true });
+    stage.addEventListener("touchmove", onMove, { passive: true });
+    stage.addEventListener("touchend", () => { dragX = null; });
+    // Swallow the click that ends a drag so it doesn't open the viewer
+    stage.addEventListener("click", e => { if (dragMoved) { e.stopPropagation(); dragMoved = false; } }, true);
+
+    // Keyboard — single shared handler, ignored when typing or when detached
+    if (_mghCfKeyHandler) document.removeEventListener("keydown", _mghCfKeyHandler);
+    const onKey = e => {
+        if (!document.body.contains(stage)) return;
+        if (document.getElementById("mgh-viewer")?.classList.contains("open")) return;
+        const t = e.target;
+        if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+        if (e.key === "ArrowLeft")  { e.preventDefault(); go(-1); }
+        else if (e.key === "ArrowRight") { e.preventDefault(); go(1); }
+        else if (e.key === "Enter")  { e.preventDefault(); _mghOpenViewer([..._mghViewItems], index); }
+        else if (e.key === "Home")   { e.preventDefault(); goto(0); }
+        else if (e.key === "End")    { e.preventDefault(); goto(items.length - 1); }
+    };
+    _mghCfKeyHandler = onKey;
+    document.addEventListener("keydown", onKey);
+
+    // ── Autoplay (auto-advance, ping-pong at the ends) ──
+    let autoDir = 1;
+    const stopAuto = () => { if (_mghCfAutoTimer) { clearInterval(_mghCfAutoTimer); _mghCfAutoTimer = null; } };
+    const startAuto = () => {
+        stopAuto();
+        if (!autoplay || items.length < 2) return;
+        _mghCfAutoTimer = setInterval(() => {
+            if (!document.body.contains(stage)) { stopAuto(); return; }
+            if (document.getElementById("mgh-viewer")?.classList.contains("open")) return;
+            if (loop) { go(1); return; }          // endless: always advance & wrap
+            if (index >= items.length - 1) autoDir = -1;
+            else if (index <= 0) autoDir = 1;
+            go(autoDir);
+        }, 2600);
+    };
+    // Pause while the pointer is on the stage so users can look without fighting it
+    stage.addEventListener("mouseenter", stopAuto);
+    stage.addEventListener("mouseleave", () => { if (autoplay) startAuto(); });
+
+    container.addEventListener("ws:destroy", () => {
+        onUp();
+        stopAuto();
+        if (_mghCfKeyHandler === onKey) { document.removeEventListener("keydown", onKey); _mghCfKeyHandler = null; }
+    }, { once: true });
+
+    layout();
+    startAuto();
+}
+
 /* ══════════ MEDIA HUB VIEW ══════════ */
 
 function _renderMediaHub(body, cat) {
@@ -3193,8 +3505,25 @@ function _renderMediaHub(body, cat) {
 
     const hub = document.createElement("div"); hub.className = "media-gallery-hub";
 
+    /* ── View catalogue (admin-gateable per user via feature flags) ── */
+    const VIEW_DEFS = [
+        { key: "grid",      flag: "viewGrid",      title: "Grid",      svg: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>` },
+        { key: "tiles",     flag: "viewTiles",     title: "Tiles",     svg: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="16" y="2" width="6" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/><rect x="16" y="9" width="6" height="5" rx="1"/><rect x="2" y="16" width="5" height="6" rx="1"/><rect x="9" y="16" width="5" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/></svg>` },
+        { key: "list",      flag: "viewList",      title: "List",      svg: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="6" height="5" rx="1"/><line x1="11" y1="6" x2="22" y2="6"/><line x1="11" y1="8" x2="18" y2="8"/><rect x="2" y="12" width="6" height="5" rx="1"/><line x1="11" y1="14" x2="22" y2="14"/><line x1="11" y1="16" x2="18" y2="16"/></svg>` },
+        { key: "coverflow", flag: "viewCoverflow", title: "Coverflow", svg: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="6" width="6" height="12" rx="1"/><path d="M5 8v8" stroke-linecap="round"/><path d="M19 8v8" stroke-linecap="round"/><path d="M2 10v4" stroke-linecap="round"/><path d="M22 10v4" stroke-linecap="round"/></svg>` },
+    ];
+    const _viewFlag = { grid: "viewGrid", tiles: "viewTiles", list: "viewList", feed: "viewFeed", coverflow: "viewCoverflow" };
+    const _viewEnabled = (layout) => _gf(_viewFlag[layout] || "viewGrid");
+    // If the persisted layout has since been disabled for this user, fall back.
+    if (!_viewEnabled(_mghLayout)) {
+        _mghLayout = ["grid", "tiles", "list", "coverflow", "feed"].find(_viewEnabled) || "grid";
+    }
+
     // Toolbar
     const toolbar = document.createElement("div"); toolbar.className = "mgh-toolbar";
+    const viewBtnsHtml = VIEW_DEFS.filter(v => _gf(v.flag)).map(v =>
+        `<button class="ws-btn ws-btn-ghost ws-btn-icon mgh-layout-btn ${_mghLayout === v.key ? "active" : ""}" title="${v.title}" data-layout="${v.key}">${v.svg}</button>`
+    ).join("");
     toolbar.innerHTML = `
         <span class="mgh-title">
             <span class="material-symbols-outlined">perm_media</span>
@@ -3205,15 +3534,7 @@ function _renderMediaHub(body, cat) {
                 <span class="material-symbols-outlined">photo_size_select_large</span>
                 <input type="range" class="mgh-scale-slider" min="130" max="340" step="10" value="${_mghGridScale}">
             </label>
-            <button class="ws-btn ws-btn-ghost ws-btn-icon mgh-layout-btn ${_mghLayout === "grid" ? "active" : ""}" title="Grid" data-layout="grid">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>
-            </button>
-            <button class="ws-btn ws-btn-ghost ws-btn-icon mgh-layout-btn ${_mghLayout === "tiles" ? "active" : ""}" title="Tiles" data-layout="tiles">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="16" y="2" width="6" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/><rect x="16" y="9" width="6" height="5" rx="1"/><rect x="2" y="16" width="5" height="6" rx="1"/><rect x="9" y="16" width="5" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/></svg>
-            </button>
-            <button class="ws-btn ws-btn-ghost ws-btn-icon mgh-layout-btn ${_mghLayout === "list" ? "active" : ""}" title="List" data-layout="list">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="6" height="5" rx="1"/><line x1="11" y1="6" x2="22" y2="6"/><line x1="11" y1="8" x2="18" y2="8"/><rect x="2" y="12" width="6" height="5" rx="1"/><line x1="11" y1="14" x2="22" y2="14"/><line x1="11" y1="16" x2="18" y2="16"/></svg>
-            </button>
+            ${viewBtnsHtml}
         </div>`;
     const addBtn = document.createElement("button"); addBtn.className = "ws-btn ws-btn-accent"; addBtn.textContent = "+ Add";
     addBtn.addEventListener("click", () => { _openForm(null); setTimeout(() => { const cf = document.getElementById("link-cat-field"); if (cf) cf.value = cat.name; }, 80); });
@@ -3222,18 +3543,18 @@ function _renderMediaHub(body, cat) {
     autoLinkAllBtn.title = "Auto-link all images & videos to characters by matching title";
     autoLinkAllBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Auto-link all`;
     autoLinkAllBtn.addEventListener("click", () => _mghAutoLinkAll(catLinks));
-    toolbar.appendChild(autoLinkAllBtn);
+    if (_gf("actionAutolink")) toolbar.appendChild(autoLinkAllBtn);
 
     const importBtn = document.createElement("button");
     importBtn.className = "ws-btn ws-btn-ghost";
     importBtn.title = "Import media from a Workspace project";
     importBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="21" x2="12" y2="7"/><line x1="4" y1="4" x2="20" y2="4"/></svg>Import`;
     importBtn.addEventListener("click", () => _mghImportFromWorkspace(cat));
-    toolbar.appendChild(importBtn);
-    toolbar.appendChild(addBtn);
+    if (_gf("actionImport")) toolbar.appendChild(importBtn);
+    if (_gf("actionAdd")) toolbar.appendChild(addBtn);
     hub.appendChild(toolbar);
 
-    const mghBody = document.createElement("div"); mghBody.className = `mgh-body media-body${_mghLayout === "list" ? " layout-list" : ""}${_mghLayout === "tiles" ? " layout-tiles" : ""}${_mghLayout === "feed" ? " layout-feed" : ""}`;
+    const mghBody = document.createElement("div"); mghBody.className = `mgh-body media-body${_mghLayout === "list" ? " layout-list" : ""}${_mghLayout === "tiles" ? " layout-tiles" : ""}${_mghLayout === "feed" ? " layout-feed" : ""}${_mghLayout === "coverflow" ? " layout-coverflow" : ""}`;
     mghBody.style.setProperty("--mgh-grid-col", `${_mghGridScale}px`);
     hub.appendChild(mghBody);
 
@@ -3242,16 +3563,26 @@ function _renderMediaHub(body, cat) {
        this expanding circle. Items just re-trigger the real (hidden) controls. */
     const fabWrap = document.createElement("div");
     fabWrap.className = "mgh-fab-wrap";
+    const _fabViewItems = [
+        { act: "grid",      flag: "viewGrid",      label: "Grid view",      svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>` },
+        { act: "tiles",     flag: "viewTiles",     label: "Tiles view",     svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="16" y="2" width="6" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/><rect x="16" y="9" width="6" height="5" rx="1"/><rect x="2" y="16" width="5" height="6" rx="1"/><rect x="9" y="16" width="5" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/></svg>` },
+        { act: "list",      flag: "viewList",      label: "List view",      svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="6" height="5" rx="1"/><line x1="11" y1="6" x2="22" y2="6"/><line x1="11" y1="8" x2="18" y2="8"/><rect x="2" y="12" width="6" height="5" rx="1"/><line x1="11" y1="14" x2="22" y2="14"/><line x1="11" y1="16" x2="18" y2="16"/></svg>` },
+        { act: "feed",      flag: "viewFeed",      label: "Phone view",     svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="10" y1="18" x2="14" y2="18"/></svg>` },
+        { act: "coverflow", flag: "viewCoverflow", label: "Coverflow view", svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="6" width="6" height="12" rx="1"/><path d="M5 8v8" stroke-linecap="round"/><path d="M19 8v8" stroke-linecap="round"/><path d="M2 10v4" stroke-linecap="round"/><path d="M22 10v4" stroke-linecap="round"/></svg>` },
+    ];
+    const _fabActionItems = [
+        { act: "autolink", flag: "actionAutolink", label: "Auto-link all", cls: "", svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>` },
+        { act: "import",   flag: "actionImport",   label: "Import",        cls: "", svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="21" x2="12" y2="7"/><line x1="4" y1="4" x2="20" y2="4"/></svg>` },
+        { act: "add",      flag: "actionAdd",      label: "Add media",     cls: " mgh-fab-item--accent", svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>` },
+    ];
+    const _fabItemHtml = (it) => `<button class="mgh-fab-item${it.cls || ""}" data-act="${it.act}" role="menuitem">${it.svg}<span>${it.label}</span></button>`;
+    const _fabViews   = _fabViewItems.filter(it => _gf(it.flag));
+    const _fabActions = _fabActionItems.filter(it => _gf(it.flag));
     fabWrap.innerHTML = `
         <div class="mgh-fab-menu" role="menu">
-            <button class="mgh-fab-item" data-act="grid" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg><span>Grid view</span></button>
-            <button class="mgh-fab-item" data-act="tiles" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="16" y="2" width="6" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/><rect x="16" y="9" width="6" height="5" rx="1"/><rect x="2" y="16" width="5" height="6" rx="1"/><rect x="9" y="16" width="5" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/></svg><span>Tiles view</span></button>
-            <button class="mgh-fab-item" data-act="list" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="6" height="5" rx="1"/><line x1="11" y1="6" x2="22" y2="6"/><line x1="11" y1="8" x2="18" y2="8"/><rect x="2" y="12" width="6" height="5" rx="1"/><line x1="11" y1="14" x2="22" y2="14"/><line x1="11" y1="16" x2="18" y2="16"/></svg><span>List view</span></button>
-            <button class="mgh-fab-item" data-act="feed" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="10" y1="18" x2="14" y2="18"/></svg><span>Phone view</span></button>
-            <div class="mgh-fab-sep"></div>
-            <button class="mgh-fab-item" data-act="autolink" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Auto-link all</span></button>
-            <button class="mgh-fab-item" data-act="import" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="21" x2="12" y2="7"/><line x1="4" y1="4" x2="20" y2="4"/></svg><span>Import</span></button>
-            <button class="mgh-fab-item mgh-fab-item--accent" data-act="add" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Add media</span></button>
+            ${_fabViews.map(_fabItemHtml).join("")}
+            ${_fabViews.length && _fabActions.length ? `<div class="mgh-fab-sep"></div>` : ""}
+            ${_fabActions.map(_fabItemHtml).join("")}
         </div>
         <button class="mgh-fab" aria-label="Hub actions" aria-expanded="false">
             <svg class="mgh-fab-plus" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -3272,7 +3603,7 @@ function _renderMediaHub(body, cat) {
     fabWrap.querySelectorAll(".mgh-fab-item").forEach(item => item.addEventListener("click", () => {
         const act = item.dataset.act;
         fabWrap.classList.remove("open"); fabBtn.setAttribute("aria-expanded", "false");
-        if (act === "grid" || act === "tiles" || act === "list") {
+        if (act === "grid" || act === "tiles" || act === "list" || act === "coverflow") {
             toolbar.querySelector(`.mgh-layout-btn[data-layout="${act}"]`)?.click();
         } else if (act === "feed") {
             const allMedia = catLinks.filter(l => [...IMAGE_TYPES, ...VIDEO_TYPES].includes(l.type));
@@ -3305,6 +3636,7 @@ function _renderMediaHub(body, cat) {
         localStorage.setItem(`mghLayout_${cat.id}`, _mghLayout);
         mghBody.classList.toggle("layout-list",  _mghLayout === "list");
         mghBody.classList.toggle("layout-tiles", _mghLayout === "tiles");
+        mghBody.classList.toggle("layout-coverflow", _mghLayout === "coverflow");
         mghBody.classList.toggle("layout-feed", false);
         if (scaleWrap) scaleWrap.style.display = ["grid","tiles"].includes(_mghLayout) ? "" : "none";
         toolbar.querySelectorAll(".mgh-layout-btn").forEach(b => b.classList.toggle("active", b === btn));
@@ -3361,11 +3693,17 @@ function _renderMediaHub(body, cat) {
 
         if (!visible.length && search) { mghBody.innerHTML = `<div class="ws-placeholder">No matches.</div>`; return; }
 
-        const creators = visible.filter(l => CREATOR_TYPES.includes(l.type));
-        const persons  = visible.filter(l => PERSON_TYPES.includes(l.type));
-        const images   = visible.filter(l => IMAGE_TYPES.includes(l.type));
-        const videos   = visible.filter(l => VIDEO_TYPES.includes(l.type));
-        const sites    = visible.filter(l => ![...CREATOR_TYPES, ...PERSON_TYPES, ...IMAGE_TYPES, ...VIDEO_TYPES].includes(l.type));
+        let creators = visible.filter(l => CREATOR_TYPES.includes(l.type));
+        let persons  = visible.filter(l => PERSON_TYPES.includes(l.type));
+        let images   = visible.filter(l => IMAGE_TYPES.includes(l.type));
+        let videos   = visible.filter(l => VIDEO_TYPES.includes(l.type));
+        let sites    = visible.filter(l => ![...CREATOR_TYPES, ...PERSON_TYPES, ...IMAGE_TYPES, ...VIDEO_TYPES].includes(l.type));
+
+        // Section gating — admin can hide whole media sections per user.
+        if (!_gf("sectionImages")) images = [];
+        if (!_gf("sectionVideos")) videos = [];
+        if (!_gf("sectionSites"))  sites  = [];
+        if (!_gf("sectionPeople")) { creators = []; persons = []; }
 
         // Feed mode — portrait scroll-snap cards (Shorts style)
         if (_mghLayout === "feed") {
@@ -3391,6 +3729,42 @@ function _renderMediaHub(body, cat) {
             });
             mghBody.appendChild(feedGrid);
             _initFeedAutoplay(feedGrid);
+            return;
+        }
+
+        // Coverflow mode — 3-D card deck of all images + videos.
+        if (_mghLayout === "coverflow") {
+            // Admin gates for the per-option features
+            const allowReflect  = _gf("cfReflection");
+            const allowAutoplay = _gf("cfAutoplay");
+            const allowExplode  = _gf("cfExplodeGroups");
+            const allowCustom   = _gf("cfCustomize");
+            // End-user preferences (within what the admin allows). null = default.
+            const pref = (k, d) => { const v = localStorage.getItem(k); return v == null ? d : v; };
+            const explode  = allowExplode  && pref("mghCfExplode", "1") !== "0";
+            const reflect  = allowReflect  && pref("mghCfReflection", "1") !== "0";
+            const autoplay = allowAutoplay && pref("mghCfAutoplay", "0") === "1";
+            const sizePct    = parseInt(pref("mghCfSize", "100"), 10)    || 100;
+            const spacingPct = parseInt(pref("mghCfSpacing", "100"), 10) || 100;
+            const style      = pref("mghCfStyle", "coverflow");
+            const loop       = pref("mghCfLoop", "0") === "1";
+
+            // Like tiles, groups are exploded so every image/video gets its own card.
+            const cfImages = explode ? images.flatMap(l => l.type === "image-group"
+                ? (Array.isArray(l.images) ? l.images : []).filter(i => i?.url).map((img, idx) =>
+                    ({ ...l, type: "image", url: img.url, sourceUrl: l.sourceUrl, title: img.name || l.title || "", _fromGroup: l.id, _gi: idx }))
+                : [l]) : images;
+            const cfVideos = explode ? videos.flatMap(l => l.type === "video-group"
+                ? (Array.isArray(l.videos) ? l.videos : []).filter(v => v?.url).map((v, idx) =>
+                    ({ ...l, type: "video", url: v.url, thumbUrl: v.thumb || "", title: l.title || "", _fromGroup: l.id, _gi: idx }))
+                : [l]) : videos;
+            const allMedia = [...cfImages, ...cfVideos];
+            if (!allMedia.length) { mghBody.innerHTML = `<div class="ws-placeholder">No images or videos in this hub yet.</div>`; return; }
+            _mghCoverflowView(mghBody, allMedia, cat, {
+                reflect, autoplay, sizePct, spacingPct, explode, style, loop,
+                allow: { reflect: allowReflect, autoplay: allowAutoplay, explode: allowExplode, customize: allowCustom },
+                rerender: _renderSections,
+            });
             return;
         }
 
