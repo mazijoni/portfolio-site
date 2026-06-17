@@ -6987,6 +6987,7 @@ body.sidebar-collapsed #ws-sidebar-toggle {
 .lgs-so-row {
     display: flex;
     flex-direction: column;
+    cursor: grab;
     gap: 8px;
     padding: 0.5rem 0.6rem;
     background: var(--bg-card);
@@ -6999,15 +7000,16 @@ body.sidebar-collapsed #ws-sidebar-toggle {
 .lgs-so-grip {
     display: flex;
     color: var(--text-muted);
+    pointer-events: none;
     cursor: grab;
     flex-shrink: 0;
 }
-.lgs-so-grip:active { cursor: grabbing; }
+.lgs-so-row:active { cursor: grabbing; }
 .lgs-so-row:hover { border-color: var(--border-hover); }
 .lgs-so-name { flex: 1; min-width: 0; }
 .lgs-so-eye {
     display: flex; align-items: center; justify-content: center;
-    width: 28px; height: 24px;
+    width: 36px; height: 32px;
     padding: 0;
     border: none;
     background: none;
@@ -7021,42 +7023,37 @@ body.sidebar-collapsed #ws-sidebar-toggle {
 .lgs-so-row--hidden { opacity: 0.5; }
 .lgs-so-row--hidden > .lgs-so-main .lgs-so-name { text-decoration: line-through; }
 
-/* People sub-controls: swap order + per-side hide */
+/* People sub-row: static labels with per-side eye toggles */
 .lgs-so-people {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding-left: calc(12px + 0.6rem);   /* line up under the name */
+    padding-left: calc(12px + 0.6rem);
 }
 .lgs-pc-chip {
     display: flex;
     align-items: center;
-    gap: 2px;
-    padding: 2px 4px 2px 9px;
+    gap: 3px;
+    padding: 1px 3px 1px 7px;
     border: 1px solid var(--border);
-    border-radius: 6px;
+    border-radius: 5px;
     background: var(--bg-secondary);
-    font-size: 0.74rem;
+    font-size: 0.72rem;
     color: var(--text-secondary);
+    cursor: grab;
 }
-.lgs-pc-chip--hidden { opacity: 0.5; }
+.lgs-pc-chip:active { cursor: grabbing; }
+.lgs-pc-chip--hidden { opacity: 0.45; }
 .lgs-pc-chip--hidden .lgs-pc-name { text-decoration: line-through; }
-.lgs-pc-eye, .lgs-pc-swap {
+.lgs-pc-eye {
     display: flex; align-items: center; justify-content: center;
+    width: 28px; height: 26px; padding: 0;
     border: none; background: none; cursor: pointer;
     color: var(--text-muted);
-    border-radius: 4px;
-    transition: color 0.15s, background 0.15s;
+    border-radius: 3px;
+    transition: color 0.15s;
 }
-.lgs-pc-eye { width: 22px; height: 20px; padding: 0; }
 .lgs-pc-eye:hover { color: var(--text-primary); }
-.lgs-pc-swap {
-    width: 26px; height: 24px;
-    border: 1px solid var(--border);
-    background: var(--bg-secondary);
-    flex-shrink: 0;
-}
-.lgs-pc-swap:hover { color: var(--text-primary); border-color: var(--border-hover); }
 
 /* Mobile: collapse the cut-off media-hub toolbar actions into the speed-dial FAB */
 @media (max-width: 600px) {
