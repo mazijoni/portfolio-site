@@ -131,7 +131,11 @@ function _subscribe() {
         (snap) => {
             _links = snap.docs
                 .map(d => ({ id: d.id, ...d.data() }))
-                .sort((a, b) => (a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0));
+                .sort((a, b) => {
+                    const ao = a.sortOrder ?? a.createdAt?.seconds ?? 0;
+                    const bo = b.sortOrder ?? b.createdAt?.seconds ?? 0;
+                    return ao - bo;
+                });
             _render();
         },
         (err) => {
@@ -220,6 +224,14 @@ function _addTypeCard(typeLabel, iconSvg, typeVal) {
 
 /* ── Card action overlay helper ── */
 
+function _sortHandle() {
+    const h = document.createElement("div");
+    h.className = "sortable-handle";
+    h.title = "Drag to reorder";
+    h.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1" fill="currentColor"/><circle cx="15" cy="5" r="1" fill="currentColor"/><circle cx="9" cy="12" r="1" fill="currentColor"/><circle cx="15" cy="12" r="1" fill="currentColor"/><circle cx="9" cy="19" r="1" fill="currentColor"/><circle cx="15" cy="19" r="1" fill="currentColor"/></svg>`;
+    return h;
+}
+
 function _cardActions(link) {
     const wrap = document.createElement("div");
     wrap.className = "db-card-actions";
@@ -292,6 +304,41 @@ function _makeSubGroup(typeKey, label, gridEl) {
     return sg;
 }
 
+/* ── SortableJS per-item ordering ────────────────────────────────────────── */
+
+let _Sortable = null;
+async function _getSortable() {
+    if (_Sortable) return _Sortable;
+    const mod = await import("https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/modular/sortable.esm.js");
+    _Sortable = mod.Sortable;
+    return _Sortable;
+}
+
+async function _makeSortable(grid) {
+    if (!_canEdit) return;
+    const Sortable = await _getSortable();
+    Sortable.create(grid, {
+        animation:  150,
+        handle:     ".sortable-handle",
+        filter:     ".add-type-card",
+        ghostClass: "sortable-ghost",
+        chosenClass: "sortable-chosen",
+        onEnd: async () => {
+            const items = [...grid.querySelectorAll("[data-id]")];
+            const uid = getDataUid();
+            if (!uid) return;
+            const { updateDoc: upd, doc: fsDoc } =
+                await import("https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js");
+            items.forEach((el, i) => {
+                const id = el.dataset.id;
+                const link = _links.find(l => l.id === id);
+                if (link) link.sortOrder = i;
+                upd(fsDoc(db, "users", uid, "links", id), { sortOrder: i }).catch(console.error);
+            });
+        }
+    });
+}
+
 /* ── Site cards ─────────────────────────────────────────────────────────── */
 
 function _sitesGrid(links) {
@@ -301,12 +348,14 @@ function _sitesGrid(links) {
     if (!_search) {
         grid.appendChild(_addTypeCard("Site", `<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/>`, "site"));
     }
+    _makeSortable(grid);
     return grid;
 }
 
 function _buildSiteCard(link) {
     const card = document.createElement("div");
     card.className = "db-site-card";
+    card.dataset.id = link.id;
 
     const faviconUrl  = _getFavicon(link.url);
     const thumbSrc    = link.imageUrl?.trim() || _getScreenshot(link.url);
@@ -329,6 +378,7 @@ function _buildSiteCard(link) {
             </div>
         </a>`;
     card.appendChild(_cardActions(link));
+    card.appendChild(_sortHandle());
     return card;
 }
 
@@ -350,12 +400,14 @@ function _mediaGrid(links, typeStr) {
             grid.appendChild(_addTypeCard("Image Group", `<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/>`, "image-group"));
         }
     }
+    _makeSortable(grid);
     return grid;
 }
 
 function _buildVideoCard(link) {
     const card = document.createElement("div");
     card.className = "video-card";
+    card.dataset.id = link.id;
 
     const embed = link.url ? _getVideoEmbed(link.url) : null;
     const _vPersonIds = link.personIds || (link.personId ? [link.personId] : []);
@@ -426,12 +478,14 @@ function _buildVideoCard(link) {
     }
 
     card.appendChild(_cardActions(link));
+    card.appendChild(_sortHandle());
     return card;
 }
 
 function _buildImageCard(link) {
     const card = document.createElement("div");
     card.className = "image-card";
+    card.dataset.id = link.id;
 
     const src = link.url || link.imageUrl || "";
     const _personIds = link.personIds || (link.personId ? [link.personId] : []);
@@ -465,12 +519,14 @@ function _buildImageCard(link) {
     if (personDiv  && _persons.length) personDiv.addEventListener("click", (e) => { e.stopPropagation(); _openCreatorPanel(_persons[0]); });
 
     card.appendChild(_cardActions(link));
+    card.appendChild(_sortHandle());
     return card;
 }
 
 function _buildImageGroupCard(link) {
     const card = document.createElement("div");
     card.className = "image-group-card";
+    card.dataset.id = link.id;
 
     const imgs = Array.isArray(link.images) ? link.images.filter(i => i?.url) : [];
     const count = Math.min(imgs.length, 4);
@@ -512,6 +568,7 @@ function _buildImageGroupCard(link) {
     card.appendChild(body);
 
     card.appendChild(_cardActions(link));
+    card.appendChild(_sortHandle());
     return card;
 }
 
@@ -528,12 +585,14 @@ function _creatorsGrid(links, typeStr) {
             grid.appendChild(_addTypeCard("Person", `<path d="M12 2A10 10 0 1 0 22 12A10 10 0 0 0 12 2Z" stroke-dasharray="0" fill="none"></path><path d="M16 14C16 14 14.5 16 12 16C9.5 16 8 14 8 14"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line>`, "person"));
         }
     }
+    _makeSortable(grid);
     return grid;
 }
 
 function _buildCreatorCard(link) {
     const card = document.createElement("div");
     card.className = "creator-card";
+    card.dataset.id = link.id;
 
     const isChar    = link.type === "person";
     const avatarSrc = link.avatarUrl || "";
@@ -561,10 +620,11 @@ function _buildCreatorCard(link) {
         ${ (link.url || link.profileUrl) ? `<a class="creator-card-link" href="${escHtml(link.url || link.profileUrl)}" target="_blank" rel="noopener noreferrer" title="Open profile" onclick="event.stopPropagation()"><svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M5.5 1H9v3.5M9 1L4 6M2 3.5H1v5.5h5.5V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>` : ""}`;
 
     card.addEventListener("click", (e) => {
-        if (e.target.closest(".db-card-actions") || e.target.closest(".creator-card-link")) return;
+        if (e.target.closest(".db-card-actions") || e.target.closest(".creator-card-link") || e.target.closest(".sortable-handle")) return;
         _openCreatorPanel(link);
     });
     card.appendChild(_cardActions(link));
+    card.appendChild(_sortHandle());
     return card;
 }
 
