@@ -736,7 +736,7 @@
             <input type="text" id="links-search" class="links-search-input" placeholder="Search&#8230;" autocomplete="off">
             <!-- Sort select kept in DOM for JS listeners, controlled via settings -->
             <select id="links-sort-select" class="links-sort-select" style="display:none">
-                <option value="manual">Manual</option>
+                <option value="shuffle">Shuffle</option>
                 <option value="a-z">A → Z</option>
                 <option value="z-a">Z → A</option>
                 <option value="newest">Newest</option>
@@ -2292,7 +2292,7 @@
                 <div class="lgs-section lgs-section--half">
                     <div class="lgs-section-label">Sort By</div>
                     <div class="lgs-sort-btns lgs-btn-group" id="lgs-sort-btns">
-                        <button class="lgs-sort-btn active" data-sort="manual">Manual</button>
+                        <button class="lgs-sort-btn" data-sort="shuffle">Shuffle</button>
                         <button class="lgs-sort-btn" data-sort="a-z">A → Z</button>
                         <button class="lgs-sort-btn" data-sort="z-a">Z → A</button>
                         <button class="lgs-sort-btn" data-sort="newest">Newest</button>
@@ -2319,7 +2319,7 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
         </div>
-        <form id="form-add-link" class="ws-modal-form" autocomplete="off">
+        <form id="form-add-link" class="ws-modal-form" autocomplete="off" novalidate>
             <input type="hidden" id="link-id-field">
             <div class="form-group" id="link-url-group">
                 <label for="link-url-field" id="link-url-label">URL *</label>
@@ -2358,7 +2358,7 @@
             </div>
             <div class="form-group" id="link-source-group" style="display:none">
                 <label for="link-source-field">Source Page URL</label>
-                <input type="url" id="link-source-field" placeholder="https://… (page where image is from)">
+                <input type="url" id="link-source-field" placeholder="https://… (page where this is from)">
             </div>
             <div class="form-group">
                 <label for="link-title-field">Name / Title</label>
