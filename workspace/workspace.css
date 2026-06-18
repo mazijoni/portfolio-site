@@ -28,8 +28,21 @@
     --header-h:         52px;
     --topbar-h:         52px;
     --tabs-h:           44px;
-    --radius:           4px;
+    --radius:           0px;
     --transition:       0.15s ease;
+
+    /* aliases — unify sub-apps that reference these names onto the palette */
+    --bg-primary:       var(--bg-dark);
+    --bg-sidebar:       var(--bg-secondary);
+    --bg-tertiary:      var(--bg-card);
+    --bg-hover:         var(--bg-card-hover);
+    --hover:            var(--bg-card-hover);
+    --card-bg:          var(--bg-card);
+    --surface-1:        var(--bg-secondary);
+    --surface-2:        var(--bg-card);
+    --text:             var(--text-primary);
+    --border-subtle:    var(--border);
+    --radius-lg:        0px;
 }
 
 html, body { height: 100%; }
@@ -47,6 +60,8 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+::selection { background: var(--accent); color: #0a0008; }
 
 /* ==================== SITE HEADER ==================== */
 #site-header {
@@ -15233,3 +15248,68 @@ body[data-hub-app="sheet"] .ws-fab { display: none !important; }
 
 /* (admin links overlay removed — Link Gallery now renders in full) */
 .an-del-btn:disabled { opacity: 0.3; cursor: default; }
+
+/* =================================================================
+   PORTFOLIO FLAVOR — matches maze-development.com palette, flat
+   geometry and interaction style. Appended last so it overrides.
+   ================================================================= */
+
+/* paper grain — subtle dotted texture layered over the dark base */
+body {
+    background-image: radial-gradient(rgba(236, 232, 223, 0.022) 1px, transparent 1px);
+    background-size: 3px 3px;
+}
+
+/* flat buttons with the portfolio's hover-lift + invert */
+.ws-btn {
+    transition: background var(--transition), color var(--transition),
+                border-color var(--transition), transform 0.12s ease;
+}
+.ws-btn:hover { transform: translateY(-1px); }
+.ws-btn-accent { color: #0a0008; }
+
+/* ghost button inverts to ink-on-paper on hover, like the portfolio */
+.ws-btn-ghost:hover {
+    background: var(--text-primary);
+    color: var(--bg-dark);
+    border-color: var(--text-primary);
+}
+
+/* =================================================================
+   FLAT / SHARP — kill the bevels for the portfolio's editorial,
+   hairline-bordered look. Everything square except true circles
+   (avatars, status dots, the accent dot).
+   ================================================================= */
+
+/* zero out every rounded surface: cards, inputs, badges, buttons,
+   tabs, menus, chips, thumbnails — the bulk of the workspace UI */
+.ws-btn, .ws-btn-sm, .ws-icon-btn, .ws-new-project-btn,
+.ws-type-badge, .ws-status-badge,
+.overview-card, .overview-github-card,
+input, textarea, select, button,
+[class*="-card"], [class*="-badge"], [class*="-chip"],
+[class*="-input"], [class*="-btn"], [class*="-tab"],
+[class*="-menu"], [class*="-popup"], [class*="-thumb"],
+[class*="-pill"], [class*="-tag"], [class*="-tile"] {
+    border-radius: 0 !important;
+}
+
+/* but keep genuine circles round */
+.user-avatar, .ws-project-item-dot, .github-lang-dot,
+[class*="avatar"], [class*="-dot"], [class*="-circle"] {
+    border-radius: 50% !important;
+}
+
+/* hairline section dividers + sharp accent-tinted card hover */
+.overview-card {
+    transition: border-color var(--transition), background var(--transition);
+}
+.overview-card:hover {
+    border-color: var(--border-hover);
+    background: color-mix(in oklab, var(--accent) 4%, var(--bg-card));
+}
+
+/* flatten card/panel drop-shadows (portfolio uses none); floating
+   menus keep a crisp hairline border instead of a soft glow */
+.overview-card, [class*="-card"] { box-shadow: none !important; }
+
