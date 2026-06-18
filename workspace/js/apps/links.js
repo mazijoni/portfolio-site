@@ -2244,9 +2244,16 @@ function _mghCreatorCard(link) {
 async function _mghAutoLinkAll(catLinks) {
     const MEDIA_TYPES = ["image","3d-model","image-group","youtube-video","youtube-playlist","video","video-group"];
     const persons = catLinks.filter(l => l.type === "person");
-    if (!persons.length) { toast("No characters or persons in this hub.", "info"); return; }
-    const media = catLinks.filter(l => MEDIA_TYPES.includes(l.type));
-    const byId = {};
+    const media   = catLinks.filter(l => MEDIA_TYPES.includes(l.type));
+
+    // updates[id] = { l, data: { personIds?, personId?, creatorId? } }
+    const updates = {};
+    function getEntry(l) {
+        if (!updates[l.id]) updates[l.id] = { l, data: {} };
+        return updates[l.id];
+    }
+
+    // 1. Person matching by title (existing logic)
     persons.forEach(person => {
         const name = (person.title || "").toLowerCase().trim();
         if (!name) return;
@@ -2254,17 +2261,84 @@ async function _mghAutoLinkAll(catLinks) {
             if (!(l.title || "").toLowerCase().includes(name)) return;
             const cur = l.personIds || (l.personId ? [l.personId] : []);
             if (cur.includes(person.id)) return;
-            if (!byId[l.id]) byId[l.id] = { l, personIds: [...cur] };
-            if (!byId[l.id].personIds.includes(person.id)) byId[l.id].personIds.push(person.id);
+            const entry = getEntry(l);
+            if (!entry.data.personIds) entry.data.personIds = [...cur];
+            if (!entry.data.personIds.includes(person.id)) entry.data.personIds.push(person.id);
         });
     });
-    const entries = Object.values(byId);
+    Object.values(updates).forEach(entry => {
+        if (entry.data.personIds) entry.data.personId = entry.data.personIds[0] ?? null;
+    });
+
+    // 2. URL-based creator matching / creation
+    const _profileUrlFor = (platform, username) => ({
+        youtube:   `https://www.youtube.com/@${username}`,
+        twitter:   `https://x.com/${username}`,
+        instagram: `https://www.instagram.com/${username}`,
+        tiktok:    `https://www.tiktok.com/@${username}`,
+        twitch:    `https://www.twitch.tv/${username}`,
+    }[platform] || null);
+    const newCreatorCache = {}; // "platform:username:category" -> id
+
+    const VIDEO_TYPES = ["youtube-video", "youtube-playlist", "video", "video-group"];
+    for (const l of media) {
+        // Skip only if creatorId points to a real existing creator (stale IDs should be re-resolved)
+        if (l.creatorId && _links.some(c => c.id === l.creatorId)) continue;
+        // Videos: try url first (may be a twitter/social video URL); images: try sourceUrl first
+        const isVid = VIDEO_TYPES.includes(l.type);
+        let parsed = null;
+        let parsedFromUrl = "";
+        for (const u of isVid ? [l.url, l.sourceUrl] : [l.sourceUrl, l.url]) {
+            if (!u) continue;
+            const p = _mghParseCreatorUrl(u);
+            if (p && p.platform !== "other" && p.username) { parsed = p; parsedFromUrl = u; break; }
+        }
+        if (!parsed) continue;
+
+        const existing = _links.find(c => {
+            if (c.type !== "creator" && c.type !== "youtube-channel") return false;
+            // prefer stored username/platform fields; fall back to parsing the creator's own URL
+            const cu = c.username && c.platform
+                ? { username: c.username, platform: c.platform }
+                : _mghParseCreatorUrl(c.url || c.profileUrl || "");
+            if (!cu?.username) return false;
+            return cu.username.toLowerCase() === parsed.username.toLowerCase() && cu.platform === parsed.platform;
+        });
+
+        if (existing) {
+            getEntry(l).data.creatorId = existing.id;
+        } else {
+            const cacheKey = `${parsed.platform}:${parsed.username.toLowerCase()}:${l.category}`;
+            if (!newCreatorCache[cacheKey]) {
+                const profileUrl = _profileUrlFor(parsed.platform, parsed.username) || parsedFromUrl;
+                const cData = {
+                    title: parsed.username, url: profileUrl,
+                    type: "creator", category: l.category,
+                    username: parsed.username, platform: parsed.platform,
+                    thumbUrl: await _mghCreatorAvatar(parsed.platform, parsed.username, profileUrl),
+                    badgeLabel: "", badgeColor: "", createdAt: serverTimestamp(),
+                };
+                const cRef = await addDoc(refs.galleryLinks(_db, _uid()), cData);
+                newCreatorCache[cacheKey] = cRef.id;
+            }
+            getEntry(l).data.creatorId = newCreatorCache[cacheKey];
+        }
+    }
+
+    const entries = Object.values(updates);
     if (!entries.length) { toast("No new matches found.", "info"); return; }
     try {
-        await Promise.all(entries.map(({ l, personIds }) =>
-            updateDoc(doc(_db, "users", _uid(), "gallery-links", l.id), { personIds, personId: personIds[0] })
+        await Promise.all(entries.map(({ l, data }) =>
+            updateDoc(doc(_db, "users", _uid(), "gallery-links", l.id), data)
         ));
-        toast(`Linked ${entries.length} item${entries.length !== 1 ? "s" : ""} across ${persons.length} character${persons.length !== 1 ? "s" : ""}.`, "success");
+        const createdCount  = Object.keys(newCreatorCache).length;
+        const personCount   = entries.filter(e => e.data.personIds).length;
+        const creatorCount  = entries.filter(e => e.data.creatorId).length;
+        const parts = [];
+        if (personCount)  parts.push(`linked ${personCount} item${personCount !== 1 ? "s" : ""} to character${personCount !== 1 ? "s" : ""}`);
+        if (creatorCount) parts.push(`linked ${creatorCount} item${creatorCount !== 1 ? "s" : ""} to creator${creatorCount !== 1 ? "s" : ""}`);
+        if (createdCount) parts.push(`created ${createdCount} new creator${createdCount !== 1 ? "s" : ""}`);
+        toast((parts.join(", ") || "Done") + ".", "success");
     } catch (err) {
         console.error("[links] auto-link all error:", err);
         toast("Error linking some items.", "error");
@@ -4727,7 +4801,10 @@ function _openForm(editId) {
             }
         }
         // Attribution
-        if (creatorSel && link.creatorId) creatorSel.value = link.creatorId;
+        if (creatorSel && link.creatorId) {
+            creatorSel.value = link.creatorId;
+            if (creatorSel.selectedIndex < 0) creatorSel.value = ""; // ID not in options → show "— none —"
+        }
         if (personSel) {
             const selIds = link.personIds || (link.personId ? [link.personId] : []);
             Array.from(personSel.options).forEach(o => { o.selected = selIds.includes(o.value); });
