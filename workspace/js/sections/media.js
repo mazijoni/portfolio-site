@@ -224,15 +224,8 @@ function _addTypeCard(typeLabel, iconSvg, typeVal) {
 
 /* ── Card action overlay helper ── */
 
-function _sortHandle() {
-    const h = document.createElement("div");
-    h.className = "sortable-handle";
-    h.title = "Drag to reorder";
-    h.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1" fill="currentColor"/><circle cx="15" cy="5" r="1" fill="currentColor"/><circle cx="9" cy="12" r="1" fill="currentColor"/><circle cx="15" cy="12" r="1" fill="currentColor"/><circle cx="9" cy="19" r="1" fill="currentColor"/><circle cx="15" cy="19" r="1" fill="currentColor"/></svg>`;
-    return h;
-}
-
 function _cardActions(link) {
+
     const wrap = document.createElement("div");
     wrap.className = "db-card-actions";
     wrap.innerHTML = `
@@ -319,8 +312,7 @@ async function _makeSortable(grid) {
     const Sortable = await _getSortable();
     Sortable.create(grid, {
         animation:  150,
-        handle:     ".sortable-handle",
-        filter:     ".add-type-card",
+        filter:     ".add-type-card, .db-card-actions, .db-card-action-btn, .card-source-link, .creator-card-link, .image-card-person, .image-card-creator, .video-thumb-play-overlay",
         ghostClass: "sortable-ghost",
         chosenClass: "sortable-chosen",
         onEnd: async () => {
@@ -378,7 +370,6 @@ function _buildSiteCard(link) {
             </div>
         </a>`;
     card.appendChild(_cardActions(link));
-    card.appendChild(_sortHandle());
     return card;
 }
 
@@ -478,7 +469,6 @@ function _buildVideoCard(link) {
     }
 
     card.appendChild(_cardActions(link));
-    card.appendChild(_sortHandle());
     return card;
 }
 
@@ -519,7 +509,6 @@ function _buildImageCard(link) {
     if (personDiv  && _persons.length) personDiv.addEventListener("click", (e) => { e.stopPropagation(); _openCreatorPanel(_persons[0]); });
 
     card.appendChild(_cardActions(link));
-    card.appendChild(_sortHandle());
     return card;
 }
 
@@ -568,7 +557,6 @@ function _buildImageGroupCard(link) {
     card.appendChild(body);
 
     card.appendChild(_cardActions(link));
-    card.appendChild(_sortHandle());
     return card;
 }
 
@@ -620,11 +608,10 @@ function _buildCreatorCard(link) {
         ${ (link.url || link.profileUrl) ? `<a class="creator-card-link" href="${escHtml(link.url || link.profileUrl)}" target="_blank" rel="noopener noreferrer" title="Open profile" onclick="event.stopPropagation()"><svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M5.5 1H9v3.5M9 1L4 6M2 3.5H1v5.5h5.5V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>` : ""}`;
 
     card.addEventListener("click", (e) => {
-        if (e.target.closest(".db-card-actions") || e.target.closest(".creator-card-link") || e.target.closest(".sortable-handle")) return;
+        if (e.target.closest(".db-card-actions") || e.target.closest(".creator-card-link")) return;
         _openCreatorPanel(link);
     });
     card.appendChild(_cardActions(link));
-    card.appendChild(_sortHandle());
     return card;
 }
 

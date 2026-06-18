@@ -1287,23 +1287,14 @@ async function _getSortable() {
     return _Sortable;
 }
 
-/* Small grip handle shown on each draggable card (manual sort only) */
-function _mghSortHandle() {
-    const h = document.createElement("div");
-    h.className = "sortable-handle";
-    h.title = "Drag to reorder";
-    h.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1" fill="currentColor"/><circle cx="15" cy="5" r="1" fill="currentColor"/><circle cx="9" cy="12" r="1" fill="currentColor"/><circle cx="15" cy="12" r="1" fill="currentColor"/><circle cx="9" cy="19" r="1" fill="currentColor"/><circle cx="15" cy="19" r="1" fill="currentColor"/></svg>`;
-    return h;
-}
-
 /* Make a media-hub section grid drag-sortable. Persists `sortOrder` per item
-   to gallery-links. Only active under manual sort (handles are otherwise hidden). */
+   to gallery-links. Only active under manual sort. */
 async function _mghMakeSortable(grid) {
     const Sortable = await _getSortable();
     Sortable.create(grid, {
         animation:   150,
-        handle:      ".sortable-handle",
         draggable:   "[data-id]",
+        filter:      "button, a, input, textarea, select, .sd-movie-poster, .sd-movie-poster *, .sd-card-footer, .sd-watched-toggle, .sd-expand-toggle, .sd-toggle-show, .sd-ep, .sd-s-label, .sd-coll-toggle, .sd-coll-stack-btn",
         ghostClass:  "sortable-ghost",
         chosenClass: "sortable-chosen",
         onEnd: () => {
@@ -3836,7 +3827,6 @@ function _renderMediaHub(body, cat) {
         items.forEach(l => {
             const c = _mghCreatorCard(l);
             _applyPeopleAvatarCrop(c, l);
-            if (manual) c.appendChild(_mghSortHandle());
             grid.appendChild(c);
         });
         if (manual) { grid.classList.add("mgh-sortable"); _mghMakeSortable(grid); }
@@ -3889,7 +3879,6 @@ function _renderMediaHub(body, cat) {
         const manual = _activeSort() === "manual";
         items.forEach(l => {
             const c = buildCard(l);
-            if (manual) c.appendChild(_mghSortHandle());
             grid.appendChild(c);
         });
         sg.appendChild(grid);

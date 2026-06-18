@@ -5167,6 +5167,8 @@ button.adm-stat.adm-links-count:hover { border-color: var(--accent); color: var(
 }
 
 .card-source-link {
+    position: relative;
+    z-index: 3;
     color: var(--text-muted);
     display: flex;
     align-items: center;
