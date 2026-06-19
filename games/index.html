@@ -1,0 +1,1733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Games — Maze Development</title>
+  <link rel="icon" href="../img/logo.svg" type="image/svg"/>
+  <link rel="icon" href="../img/logo_black.svg" type="image/svg" media="(prefers-color-scheme: light)"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper:     #0d0b09;
+      --paper-2:   #161310;
+      --paper-3:   #1e1a15;
+      --ink:       #ece8df;
+      --ink-2:     #c8c2b3;
+      --ink-mute:  #88826f;
+      --ink-dim:   #57534a;
+      --line:      rgba(236,232,223,.10);
+      --line-2:    rgba(236,232,223,.22);
+      --accent:    #c772fe;
+      --accent-dim:rgba(199,114,254,.12);
+      --serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+      --sans:  'Geist', system-ui, -apple-system, sans-serif;
+      --mono:  'Geist Mono', ui-monospace, monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--paper);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      line-height: 1.55;
+    }
+
+    body::before {
+      content: "";
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 0;
+      background-image: radial-gradient(rgba(236,232,223,.022) 1px, transparent 1px);
+      background-size: 3px 3px;
+      opacity: .65;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    ::selection { background: var(--accent); color: #0a0008; }
+
+    .serif { font-family: var(--serif); }
+    .mono  { font-family: var(--mono); }
+    em     { font-style: italic; }
+
+    .meta {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--paper); }
+    ::-webkit-scrollbar-thumb { background: var(--ink-dim); }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+    /* ── MASTHEAD ─────────────────────────────────────────── */
+    .masthead {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      border-bottom: 1px solid var(--line);
+      background: color-mix(in oklab, var(--paper) 85%, transparent);
+      backdrop-filter: blur(12px);
+    }
+
+    .mast-inner {
+      max-width: 1320px; margin: 0 auto;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0 32px; height: 56px; gap: 24px;
+    }
+
+    .mast-logo {
+      font-family: var(--mono);
+      font-size: 12px; letter-spacing: .22em; text-transform: uppercase;
+      color: var(--ink-2); display: flex; align-items: center; gap: 8px;
+    }
+
+    .mast-logo .dot {
+      width: 6px; height: 6px;
+      background: var(--accent); border-radius: 50%;
+    }
+
+    .mast-nav {
+      display: flex; align-items: center; gap: 28px;
+      list-style: none;
+    }
+
+    .mast-nav a {
+      font-size: 12.5px; color: var(--ink-mute);
+      letter-spacing: .04em;
+      transition: color .15s;
+    }
+
+    .mast-nav a:hover,
+    .mast-nav a.active { color: var(--ink); }
+
+    .mast-nav .divider {
+      width: 1px; height: 16px; background: var(--line-2);
+    }
+
+    .mast-nav .pill {
+      display: inline-flex; align-items: center;
+      height: 30px; padding: 0 12px;
+      border: 1px solid var(--line-2);
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: .14em; text-transform: uppercase;
+      color: var(--ink-2);
+      transition: background .15s, border-color .15s, color .15s;
+    }
+
+    .mast-nav .pill:hover {
+      background: var(--ink); color: var(--paper); border-color: var(--ink);
+    }
+
+    #mob-toggle { display: none; }
+    .mob-btn {
+      display: none; flex-direction: column; gap: 5px;
+      cursor: pointer; padding: 4px; background: none; border: none;
+    }
+    .mob-btn span {
+      display: block; width: 22px; height: 1.5px; background: var(--ink-2);
+      transition: transform .25s, opacity .25s;
+    }
+    #mob-toggle:checked ~ .masthead .mob-btn span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+    #mob-toggle:checked ~ .masthead .mob-btn span:nth-child(2) { opacity: 0; }
+    #mob-toggle:checked ~ .masthead .mob-btn span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+
+    .mob-menu {
+      display: none;
+      position: fixed; top: 56px; left: 0; right: 0; bottom: 0; z-index: 99;
+      background: var(--paper-2); border-top: 1px solid var(--line);
+      padding: 40px 32px; flex-direction: column; gap: 28px;
+    }
+    #mob-toggle:checked ~ .mob-menu { display: flex; }
+    .mob-menu a {
+      font-size: 22px; font-weight: 500; color: var(--ink-2);
+      transition: color .15s;
+    }
+    .mob-menu a:hover { color: var(--ink); }
+    .mob-menu .mob-divider { height: 1px; background: var(--line); }
+
+    /* ── HERO ─────────────────────────────────────────────── */
+    .hero {
+      position: relative;
+      padding-top: 56px;
+      overflow: hidden;
+    }
+
+    #three-canvas {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      pointer-events: none; z-index: 0;
+    }
+
+    .hero-inner {
+      position: relative; z-index: 1;
+      max-width: 1320px; margin: 0 auto;
+      padding: 100px 32px 88px;
+    }
+
+    .hero-eyebrow {
+      font-family: var(--mono); font-size: 11px;
+      letter-spacing: .22em; text-transform: uppercase;
+      color: var(--ink-mute);
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .hero-eyebrow::before {
+      content: '';
+      display: block; width: 28px; height: 1px;
+      background: var(--accent);
+    }
+
+    .hero-title {
+      font-family: var(--serif);
+      font-size: clamp(56px, 9vw, 120px);
+      line-height: .92;
+      font-weight: 400;
+      letter-spacing: -.02em;
+      color: var(--ink);
+      margin-bottom: 32px;
+    }
+
+    .hero-title em { color: var(--accent); font-style: italic; }
+    .hero-title .sans-word {
+      font-family: var(--sans);
+      font-weight: 700;
+      font-style: normal;
+      font-size: .6em;
+      letter-spacing: -.01em;
+      display: block;
+    }
+
+    .hero-sub {
+      font-size: 17px; color: var(--ink-2);
+      line-height: 1.65; max-width: 48ch;
+      margin-bottom: 36px;
+    }
+
+    .cta-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      height: 44px; padding: 0 20px;
+      font-family: var(--sans); font-size: 13px;
+      font-weight: 500; letter-spacing: .03em;
+      border: 1px solid transparent;
+      cursor: pointer; transition: transform .12s, background .15s, color .15s, border-color .15s;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+    .btn-primary:hover { background: var(--accent); border-color: var(--accent); color: #0a0008; }
+    .btn-ghost { background: transparent; color: var(--ink-2); border-color: var(--line-2); }
+    .btn-ghost:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+    /* ── SECTIONS ─────────────────────────────────────────── */
+    .frame { max-width: 1320px; margin: 0 auto; padding: 0 32px; }
+
+    .section { padding: 112px 0; position: relative; z-index: 1; }
+    .section-alt { background: var(--paper-2); }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 48px; align-items: end;
+      padding-bottom: 56px;
+      border-bottom: 1px solid var(--ink-dim);
+      margin-bottom: 64px;
+    }
+
+    .section-num {
+      font-family: var(--mono); font-size: 11px;
+      letter-spacing: .18em; text-transform: uppercase;
+      color: var(--ink-mute);
+      display: flex; flex-direction: column; gap: 6px;
+    }
+
+    .section-num b {
+      font-family: var(--serif); font-style: italic;
+      font-size: 36px; color: var(--ink); font-weight: 400;
+      letter-spacing: -.01em; display: block;
+    }
+
+    .section-title {
+      font-family: var(--serif);
+      font-size: clamp(40px, 5.5vw, 76px);
+      line-height: .98; font-weight: 400;
+      letter-spacing: -.018em; color: var(--ink);
+      max-width: 18ch; text-wrap: balance;
+    }
+
+    .section-title em { font-style: italic; color: var(--accent); }
+
+    .reveal {
+      opacity: 0; transform: translateY(24px);
+      transition: opacity .75s ease, transform .75s ease;
+    }
+    .reveal.visible { opacity: 1; transform: none; }
+
+    /* ── GAME LIST ─────────────────────────────────────────── */
+    .game-list { display: flex; flex-direction: column; }
+
+    .game-item {
+      border-bottom: 1px solid var(--line);
+    }
+    .game-item:first-child { border-top: 1px solid var(--line); }
+
+    .game-summary {
+      display: grid;
+      grid-template-columns: 52px 1fr auto;
+      gap: 0 32px;
+      align-items: start;
+      padding: 28px 0;
+      cursor: pointer;
+      user-select: none;
+      transition: background .2s;
+    }
+
+    .game-summary:hover { background: color-mix(in oklab, var(--accent) 3%, transparent); }
+    .game-summary:hover .game-num { color: var(--accent); }
+
+    .game-num {
+      font-family: var(--mono); font-size: 20px;
+      color: var(--line-2); font-weight: 500;
+      text-align: right; line-height: 1;
+      padding-top: 4px;
+      transition: color .2s;
+    }
+
+    .game-body { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+
+    .game-row { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+
+    .game-name {
+      font-size: 18px; font-weight: 500;
+      color: var(--ink); letter-spacing: -.01em;
+    }
+
+    .game-type {
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: .15em; text-transform: uppercase;
+      color: var(--accent);
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+
+    .status-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      flex-shrink: 0; display: inline-block;
+    }
+    .dot-active    { background: #3fd17e; box-shadow: 0 0 0 2px color-mix(in oklab, #3fd17e 25%, transparent); }
+    .dot-wip       { background: #f5a623; box-shadow: 0 0 0 2px color-mix(in oklab, #f5a623 25%, transparent); }
+    .dot-released  { background: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); }
+    .dot-paused    { background: var(--ink-dim); }
+    .dot-cancelled { background: #e05252; box-shadow: 0 0 0 2px color-mix(in oklab, #e05252 25%, transparent); }
+
+    .price-badge {
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: .1em; text-transform: uppercase;
+      color: #f0c040; border: 1px solid color-mix(in oklab, #f0c040 35%, transparent);
+      padding: 2px 7px; display: inline-block;
+    }
+    .price-badge.free {
+      color: #3fd17e; border-color: color-mix(in oklab, #3fd17e 35%, transparent);
+    }
+
+    .game-desc { font-size: 13.5px; color: var(--ink-mute); line-height: 1.6; max-width: 72ch; }
+
+    .game-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+
+    .tag {
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: .1em; text-transform: uppercase;
+      color: var(--ink-dim);
+      border: 1px solid var(--line-2); padding: 4px 8px;
+    }
+
+    .game-actions {
+      display: flex; gap: 6px; align-items: center; align-self: center; flex-shrink: 0;
+    }
+
+    .expand-btn {
+      display: inline-flex; align-items: center;
+      height: 32px; padding: 0 14px;
+      border: 1px solid var(--line-2);
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: .12em; text-transform: uppercase;
+      color: var(--ink-mute);
+      background: none;
+      cursor: pointer;
+      transition: color .15s, border-color .15s, background .15s;
+      gap: 7px;
+    }
+    .expand-btn:hover { color: var(--ink); border-color: var(--ink-2); }
+    .game-item.open .expand-btn {
+      color: var(--accent); border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .expand-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: transform .25s ease;
+    }
+    .expand-icon svg { width: 9px; height: 9px; stroke: currentColor; fill: none; stroke-width: 2.2; }
+    .game-item.open .expand-icon { transform: rotate(45deg); }
+
+    /* admin edit/delete buttons on card */
+    .admin-card-btns { display: none; gap: 6px; }
+    body.admin-mode .admin-card-btns { display: flex; }
+
+    .admin-card-btn {
+      height: 32px; padding: 0 12px;
+      border: 1px solid var(--line);
+      background: none; color: var(--ink-mute); cursor: pointer;
+      font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+      transition: color .15s, border-color .15s;
+    }
+    .admin-card-btn:hover { color: var(--ink); border-color: var(--ink-mute); }
+    .admin-card-btn.del:hover { color: #ff8080; border-color: #ff8080; }
+
+    /* ── EXPANDED PANEL ────────────────────────────────────── */
+    .game-panel {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows .3s ease;
+    }
+    .game-item.open .game-panel { grid-template-rows: 1fr; }
+
+    .game-panel-inner { overflow: hidden; min-height: 0; }
+
+    .game-panel-content {
+      padding: 8px 0 44px 84px;
+    }
+
+    /* image strip */
+    .game-images {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 8px;
+      margin-bottom: 32px;
+    }
+    .game-img-wrap {
+      position: relative;
+      aspect-ratio: 16/9;
+      background: var(--paper-3);
+      border: 1px solid var(--line);
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .game-img-wrap img {
+      width: 100%; height: 100%;
+      object-fit: cover; display: block;
+      transition: transform .3s ease;
+    }
+    .game-img-wrap:hover img { transform: scale(1.03); }
+    .img-placeholder {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--mono); font-size: 10px; color: var(--ink-dim);
+      letter-spacing: .08em; text-transform: uppercase;
+      pointer-events: none;
+    }
+    .img-remove-btn {
+      position: absolute; top: 6px; right: 6px;
+      background: rgba(0,0,0,.75); color: var(--ink);
+      border: none; cursor: pointer;
+      width: 24px; height: 24px;
+      display: none; align-items: center; justify-content: center;
+      font-size: 14px; line-height: 1;
+    }
+    body.admin-mode .img-remove-btn { display: flex; }
+    .img-add-btn {
+      aspect-ratio: 16/9;
+      border: 1px dashed var(--line-2);
+      background: none;
+      display: none; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--ink-dim);
+      font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+      gap: 6px; transition: color .15s, border-color .15s;
+    }
+    .img-add-btn:hover { color: var(--ink); border-color: var(--ink-mute); }
+    body.admin-mode .img-add-btn { display: flex; }
+
+    /* two-col layout */
+    .panel-cols {
+      display: grid;
+      grid-template-columns: 1fr 260px;
+      gap: 40px 56px;
+    }
+
+    .panel-left { display: flex; flex-direction: column; gap: 28px; }
+
+    .panel-label {
+      font-family: var(--mono); font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+      color: var(--ink-mute); margin-bottom: 10px;
+    }
+
+    .panel-body {
+      font-size: 14.5px; color: var(--ink-2); line-height: 1.72; max-width: 60ch;
+    }
+    .panel-body p + p { margin-top: 1em; }
+
+    .panel-links { display: flex; flex-direction: column; }
+
+    .panel-link {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 13.5px; color: var(--ink-2);
+      transition: padding-left .2s, color .15s;
+    }
+    .panel-link:first-of-type { border-top: 1px solid var(--line); }
+    .panel-link:hover { padding-left: 6px; color: var(--accent); }
+
+    .panel-link .link-lbl {
+      font-family: var(--mono); font-size: 10px; letter-spacing: .15em; text-transform: uppercase;
+      color: var(--ink-mute);
+    }
+    .panel-link:hover .link-lbl { color: var(--accent); }
+
+    .panel-right { display: flex; flex-direction: column; gap: 28px; }
+
+    .panel-specs { display: flex; flex-direction: column; border: 1px solid var(--line); }
+    .spec-row { display: flex; border-bottom: 1px solid var(--line); }
+    .spec-row:last-child { border-bottom: none; }
+    .spec-key {
+      font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--ink-mute); padding: 11px 14px; width: 100px; flex-shrink: 0;
+      border-right: 1px solid var(--line);
+    }
+    .spec-val { font-size: 13px; color: var(--ink-2); padding: 11px 14px; flex: 1; }
+
+    /* ── LIGHTBOX ──────────────────────────────────────────── */
+    .lightbox {
+      display: none; position: fixed; inset: 0; z-index: 300;
+      background: rgba(0,0,0,.93);
+      align-items: center; justify-content: center;
+    }
+    .lightbox.open { display: flex; }
+    .lb-img { max-width: 90vw; max-height: 85vh; object-fit: contain; display: block; }
+    .lb-close {
+      position: absolute; top: 20px; right: 24px;
+      background: none; border: 1px solid var(--line-2); color: var(--ink); cursor: pointer;
+      font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+      padding: 6px 12px;
+      transition: border-color .15s, color .15s;
+    }
+    .lb-close:hover { border-color: var(--ink); color: var(--ink); }
+    .lb-nav {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      background: none; border: 1px solid var(--line-2); color: var(--ink);
+      cursor: pointer; width: 40px; height: 40px;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color .15s;
+    }
+    .lb-nav:hover { border-color: var(--ink-2); }
+    .lb-nav svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .lb-prev { left: 20px; }
+    .lb-next { right: 20px; }
+    .lb-counter {
+      position: absolute; bottom: 20px;
+      font-family: var(--mono); font-size: 10px; color: var(--ink-mute); letter-spacing: .1em;
+    }
+
+    /* ── LOGIN MODAL ───────────────────────────────────────── */
+    .overlay {
+      display: none; position: fixed; inset: 0; z-index: 110;
+      background: rgba(0,0,0,.65); backdrop-filter: blur(4px);
+      align-items: center; justify-content: center;
+    }
+    .overlay.open { display: flex; }
+
+    .login-box {
+      background: var(--paper-2);
+      border: 1px solid var(--line-2);
+      padding: 40px 44px 44px;
+      width: min(440px, 94vw);
+      display: flex; flex-direction: column; gap: 0;
+      position: relative;
+    }
+
+    .overlay-close {
+      position: absolute; top: 14px; right: 14px;
+      background: none; border: none; color: var(--ink-dim); cursor: pointer;
+      font-family: var(--mono); font-size: 11px; letter-spacing: .06em;
+      padding: 6px 10px; transition: color .15s;
+    }
+    .overlay-close:hover { color: var(--ink-mute); }
+
+    .login-heading {
+      font-family: var(--serif); font-size: 30px;
+      font-weight: 400; color: var(--ink);
+      letter-spacing: -.015em; margin-bottom: 4px;
+    }
+    .login-heading em { font-style: italic; color: var(--accent); }
+
+    .login-sub {
+      font-size: 13.5px; color: var(--ink-mute);
+      margin-bottom: 28px;
+    }
+
+    .lf-message {
+      display: none; padding: 11px 13px; margin-bottom: 16px;
+      font-family: var(--mono); font-size: 11.5px;
+      line-height: 1.5; letter-spacing: .02em;
+      border: 1px solid transparent;
+    }
+    .lf-message.error  { display: block; border-color: rgba(255,80,80,.4); color: #ff8080; background: rgba(255,80,80,.06); }
+    .lf-message.success{ display: block; border-color: rgba(76,175,125,.4); color: #4caf7d; background: rgba(76,175,125,.06); }
+
+    .lf-group {
+      display: flex; flex-direction: column; gap: 6px;
+      margin-bottom: 16px;
+    }
+    .lf-group label {
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: .18em; text-transform: uppercase;
+      color: var(--ink-mute);
+    }
+    .lf-group input {
+      background: var(--paper-3); border: 1px solid var(--line-2);
+      color: var(--ink); font-family: var(--sans); font-size: 14.5px;
+      padding: 11px 14px; outline: none;
+      transition: border-color .15s; width: 100%;
+    }
+    .lf-group input::placeholder { color: var(--ink-dim); }
+    .lf-group input:focus { border-color: var(--accent); }
+
+    .lf-submit {
+      height: 44px; padding: 0 20px; margin-bottom: 18px;
+      background: var(--ink); color: var(--paper);
+      border: 1px solid var(--ink);
+      font-family: var(--sans); font-size: 13px;
+      font-weight: 600; letter-spacing: .04em;
+      cursor: pointer; width: 100%;
+      transition: background .15s, border-color .15s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .lf-submit:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: #0a0008; }
+    .lf-submit:disabled { opacity: .5; cursor: not-allowed; }
+
+    .lf-divider {
+      display: flex; align-items: center; gap: 14px; margin-bottom: 16px;
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: .16em; text-transform: uppercase;
+      color: var(--ink-dim);
+    }
+    .lf-divider::before, .lf-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--line-2);
+    }
+
+    .lf-google {
+      height: 44px; padding: 0 20px;
+      background: transparent; color: var(--ink-2);
+      border: 1px solid var(--line-2);
+      font-family: var(--sans); font-size: 13px;
+      font-weight: 500; letter-spacing: .02em;
+      cursor: pointer; width: 100%;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: border-color .15s, color .15s;
+    }
+    .lf-google svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .lf-google:hover { border-color: var(--ink-2); color: var(--ink); }
+    .lf-google:disabled { opacity: .5; cursor: not-allowed; }
+
+    .lf-spinner {
+      display: inline-block;
+      width: 12px; height: 12px;
+      border: 1.5px solid rgba(255,255,255,.25);
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── ADMIN BAR ─────────────────────────────────────────── */
+    .admin-bar {
+      display: none;
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+      background: var(--paper-3); border-top: 1px solid var(--accent);
+      padding: 12px 32px;
+      align-items: center; gap: 16px;
+      font-family: var(--mono); font-size: 11px; color: var(--ink-mute);
+    }
+    body.admin-mode .admin-bar { display: flex; }
+    .admin-dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; flex-shrink: 0; }
+    .admin-label { color: var(--accent); letter-spacing: .1em; text-transform: uppercase; font-size: 10px; }
+    .admin-spacer { flex: 1; }
+    .abar-btn {
+      height: 30px; padding: 0 14px;
+      border: 1px solid var(--line-2);
+      background: none; color: var(--ink-mute); cursor: pointer;
+      font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+      transition: color .15s, border-color .15s;
+    }
+    .abar-btn:hover { color: var(--ink); border-color: var(--ink-mute); }
+    .abar-btn.accent {
+      background: var(--accent); color: #0a0008; border-color: var(--accent);
+    }
+    .abar-btn.accent:hover { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+
+    /* ── GAME FORM MODAL ──────────────────────────────────── */
+    .form-overlay {
+      display: none; position: fixed; inset: 0; z-index: 120;
+      background: var(--paper);
+      overflow-y: auto;
+    }
+    .form-overlay.open { display: block; }
+
+    .form-head {
+      position: sticky; top: 0; z-index: 1;
+      background: var(--paper-2); border-bottom: 1px solid var(--line);
+      padding: 16px 40px;
+      display: flex; align-items: center; gap: 20px;
+    }
+    .form-head-title {
+      font-family: var(--serif); font-style: italic;
+      font-size: 22px; color: var(--ink); letter-spacing: -.01em; flex: 1;
+    }
+    .form-body { max-width: 720px; margin: 0 auto; padding: 48px 40px 120px; }
+
+    .form-section {
+      font-family: var(--mono); font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+      color: var(--ink-dim); margin-bottom: 20px; margin-top: 40px;
+      padding-bottom: 10px; border-bottom: 1px solid var(--line);
+    }
+    .form-section:first-child { margin-top: 0; }
+
+    .f-row { margin-bottom: 20px; }
+    .f-row-2 {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+      margin-bottom: 20px;
+    }
+    .f-label {
+      font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+      color: var(--ink-mute); margin-bottom: 7px; display: block;
+    }
+    .f-input, .f-select, .f-textarea {
+      width: 100%; background: var(--paper-2); border: 1px solid var(--line-2);
+      color: var(--ink); font-family: var(--sans); font-size: 14px;
+      padding: 10px 12px; outline: none;
+      transition: border-color .15s;
+    }
+    .f-input:focus, .f-select:focus, .f-textarea:focus { border-color: var(--accent); }
+    .f-select { appearance: none; cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2388826f' stroke-width='1.5' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+    .f-textarea { resize: vertical; min-height: 100px; line-height: 1.65; font-family: var(--sans); }
+    .f-hint { font-family: var(--mono); font-size: 10px; color: var(--ink-dim); letter-spacing: .04em; margin-top: 5px; }
+
+    /* dynamic rows (links / images) */
+    .dyn-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+    .dyn-row { display: flex; gap: 8px; align-items: stretch; }
+    .dyn-row .f-input { flex: 1; }
+    .dyn-del {
+      width: 38px; flex-shrink: 0;
+      background: none; border: 1px solid var(--line);
+      color: var(--ink-mute); cursor: pointer; font-size: 16px;
+      display: flex; align-items: center; justify-content: center;
+      transition: color .15s, border-color .15s;
+    }
+    .dyn-del:hover { color: #ff8080; border-color: #ff8080; }
+    .btn-dyn-add {
+      background: none; border: 1px dashed var(--line-2);
+      color: var(--ink-mute); cursor: pointer;
+      font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+      padding: 9px 14px;
+      transition: color .15s, border-color .15s;
+    }
+    .btn-dyn-add:hover { color: var(--ink); border-color: var(--ink-mute); }
+
+    /* ── FOOTER ────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--ink-dim);
+      padding: 36px 0;
+      background: var(--paper-2);
+      position: relative; z-index: 1;
+    }
+
+    .footer-inner {
+      max-width: 1320px; margin: 0 auto;
+      padding: 0 32px;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 16px;
+    }
+
+    .footer-brand {
+      font-family: var(--mono); font-size: 11px;
+      letter-spacing: .18em; text-transform: uppercase;
+      color: var(--ink-dim);
+    }
+    .footer-brand b { color: var(--accent); font-weight: 500; }
+
+    .footer-links { display: flex; gap: 28px; }
+    .footer-links a {
+      font-size: 12px; color: var(--ink-dim);
+      transition: color .15s; letter-spacing: .02em;
+    }
+    .footer-links a:hover { color: var(--ink); }
+
+    /* ── RESPONSIVE ────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .mast-nav { display: none; }
+      .mob-btn { display: flex; }
+      .section-head { grid-template-columns: 1fr; gap: 16px; }
+      .section-title { font-size: clamp(32px, 6vw, 56px); }
+      .game-summary { grid-template-columns: 40px 1fr auto; gap: 0 20px; }
+      .game-panel-content { padding-left: 60px; }
+      .panel-cols { grid-template-columns: 1fr; }
+      .footer-inner { flex-direction: column; align-items: flex-start; }
+    }
+
+    @media (max-width: 600px) {
+      .mast-inner { padding: 0 16px; }
+      .frame { padding: 0 16px; }
+      .section { padding: 56px 0; }
+      .section-head { gap: 12px; padding-bottom: 36px; margin-bottom: 44px; }
+      .hero-inner { padding: 80px 16px 48px; }
+      .hero-title { font-size: clamp(40px, 12vw, 72px); margin-bottom: 20px; }
+      .hero-sub { font-size: 15px; margin-bottom: 24px; }
+      .cta-row { gap: 8px; }
+      .btn { height: 40px; padding: 0 16px; }
+
+      /* Game list */
+      .game-summary {
+        grid-template-columns: 1fr;
+        padding: 20px 0;
+        gap: 12px;
+      }
+      .game-num { display: none; }
+      .game-name { font-size: 16px; }
+      .game-desc { font-size: 13px; }
+      .game-row { gap: 8px; }
+
+      /* Actions row: wrap so edit/delete + expand sit cleanly */
+      .game-actions {
+        display: flex; flex-wrap: wrap; gap: 6px;
+        align-self: auto;
+      }
+      .expand-btn { height: 40px; flex: 1; min-width: 120px; }
+      .admin-card-btn { height: 40px; }
+
+      /* Expanded panel */
+      .game-panel-content { padding-left: 0; padding-bottom: 32px; }
+      .game-images { grid-template-columns: 1fr 1fr; }
+
+      /* Admin form */
+      .form-head { padding: 14px 16px; }
+      .form-body { padding: 28px 16px 100px; }
+      .f-row-2 { grid-template-columns: 1fr; }
+      .admin-bar { padding: 10px 16px; }
+    }
+
+    @media (max-width: 380px) {
+      .game-images { grid-template-columns: 1fr; }
+      .hero-title { font-size: 38px; }
+    }
+  </style>
+</head>
+<body>
+
+<input type="checkbox" id="mob-toggle" style="display:none">
+
+<!-- MASTHEAD -->
+<header class="masthead">
+  <div class="mast-inner">
+    <a href="../" class="mast-logo">
+      <span class="dot"></span>
+      Maze<span style="color:var(--accent)">_</span>Dev
+    </a>
+    <ul class="mast-nav">
+      <li><a href="../#studio">Studio</a></li>
+      <li><a href="../#projects">Projects</a></li>
+      <li><a href="../#products">Products</a></li>
+      <li><a href="../#contact">Contact</a></li>
+      <li class="divider"></li>
+      <li><a href="../" class="pill">Maze Dev</a></li>
+      <li><a href="https://maze-dev.itch.io/">Itch.io</a></li>
+      <li><a href="../login.html">Workspace</a></li>
+    </ul>
+    <label for="mob-toggle" class="mob-btn" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </label>
+  </div>
+</header>
+
+<!-- MOBILE MENU -->
+<nav class="mob-menu">
+  <a href="../#studio" onclick="document.getElementById('mob-toggle').checked=false">Studio</a>
+  <a href="../#projects" onclick="document.getElementById('mob-toggle').checked=false">Projects</a>
+  <a href="../#products" onclick="document.getElementById('mob-toggle').checked=false">Products</a>
+  <a href="../#contact" onclick="document.getElementById('mob-toggle').checked=false">Contact</a>
+  <span class="mob-divider"></span>
+  <a href="../">Maze Dev</a>
+  <a href="https://maze-dev.itch.io/">Itch.io</a>
+  <a href="../login.html">Workspace</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <canvas id="three-canvas"></canvas>
+  <div class="hero-inner">
+    <p class="hero-eyebrow">Game Dev &mdash; Maze Development</p>
+    <h1 class="hero-title">
+      <em>Games</em> &amp;
+      <span class="sans-word">Experiences</span>
+    </h1>
+    <p class="hero-sub">
+      Godot-powered 3D games, atmospheric horror, voxel engines, and experimental prototypes.
+      Everything built from scratch — one commit at a time.
+    </p>
+    <div class="cta-row">
+      <a href="https://maze-dev.itch.io/" target="_blank" rel="noopener" class="btn btn-primary">Play on itch.io</a>
+      <a href="https://github.com/mazijoni" target="_blank" rel="noopener" class="btn btn-ghost">GitHub →</a>
+    </div>
+  </div>
+</section>
+
+<!-- GAMES SECTION -->
+<section class="section section-alt reveal" id="games">
+  <div class="frame">
+    <div class="section-head">
+      <div class="section-num">
+        <span class="meta">01</span>
+        <b>Games</b>
+      </div>
+      <h2 class="section-title">All <em>games</em></h2>
+    </div>
+    <div class="game-list" id="game-list">
+      <!-- populated by JS -->
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <span class="footer-brand">Maze<b>_</b>Dev &mdash; Game Dev</span>
+    <div class="footer-links">
+      <a href="https://maze-dev.itch.io/" target="_blank" rel="noopener">itch.io</a>
+      <a href="https://github.com/mazijoni" target="_blank" rel="noopener">GitHub</a>
+      <a href="../">Home</a>
+      <a href="../portfolio/">Portfolio</a>
+    </div>
+  </div>
+</footer>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true">
+  <button class="lb-close" id="lb-close">Close ×</button>
+  <button class="lb-nav lb-prev" id="lb-prev" aria-label="Previous">
+    <svg viewBox="0 0 12 12"><polyline points="8,2 4,6 8,10"/></svg>
+  </button>
+  <img class="lb-img" id="lb-img" src="" alt="">
+  <button class="lb-nav lb-next" id="lb-next" aria-label="Next">
+    <svg viewBox="0 0 12 12"><polyline points="4,2 8,6 4,10"/></svg>
+  </button>
+  <span class="lb-counter" id="lb-counter"></span>
+</div>
+
+<!-- LOGIN MODAL -->
+<div class="overlay" id="login-overlay" role="dialog" aria-modal="true" aria-label="Admin login">
+  <div class="login-box">
+    <button class="overlay-close" id="login-close">✕</button>
+
+    <h2 class="login-heading">Admin <em>sign in</em></h2>
+    <p class="login-sub">Games page — owner access only.</p>
+
+    <div class="lf-message" id="lf-message"></div>
+
+    <div class="lf-group">
+      <label for="login-email">Email</label>
+      <input id="login-email" type="email" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <div class="lf-group">
+      <label for="login-pass">Password</label>
+      <input id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+
+    <button class="lf-submit" id="login-submit">Sign in</button>
+
+    <div class="lf-divider">or</div>
+
+    <button class="lf-google" id="btn-google-signin">
+      Continue with Google
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- ADMIN BAR -->
+<div class="admin-bar" id="admin-bar" aria-label="Admin controls">
+  <span class="admin-dot"></span>
+  <span class="admin-label">Admin</span>
+  <span id="admin-email-label" style="opacity:.55;font-size:10px"></span>
+  <span class="admin-spacer"></span>
+  <button class="abar-btn accent" id="btn-add-game">+ Add game</button>
+  <button class="abar-btn" id="btn-admin-signout">Sign out</button>
+</div>
+
+<!-- ADD / EDIT GAME FORM -->
+<div class="form-overlay" id="form-overlay" role="dialog" aria-modal="true">
+  <div class="form-head">
+    <span class="form-head-title" id="form-title">Add <em>game</em></span>
+    <button class="abar-btn accent" id="form-save">Save</button>
+    <button class="abar-btn" id="form-cancel">Cancel</button>
+  </div>
+  <div class="form-body">
+
+    <div class="form-section">Basic info</div>
+    <div class="f-row">
+      <label class="f-label" for="f-name">Title</label>
+      <input class="f-input" id="f-name" type="text" placeholder="Game title">
+    </div>
+    <div class="f-row-2">
+      <div>
+        <label class="f-label" for="f-status">Status</label>
+        <select class="f-select" id="f-status">
+          <option value="active">Active dev</option>
+          <option value="wip">WIP</option>
+          <option value="released">Released</option>
+          <option value="paused">Paused</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+      <div>
+        <label class="f-label" for="f-order">Order (lower = first)</label>
+        <input class="f-input" id="f-order" type="number" value="99" min="0">
+      </div>
+      <div>
+        <label class="f-label" for="f-price">Price (e.g. Free, $4.99)</label>
+        <input class="f-input" id="f-price" type="text" placeholder="Free">
+      </div>
+    </div>
+    <div class="f-row">
+      <label class="f-label" for="f-short">Short description (shown in list)</label>
+      <textarea class="f-textarea" id="f-short" rows="2" placeholder="One or two sentences shown in the collapsed row"></textarea>
+    </div>
+    <div class="f-row">
+      <label class="f-label" for="f-full">Full description (expanded panel)</label>
+      <textarea class="f-textarea" id="f-full" rows="6" placeholder="Full description. Separate paragraphs with a blank line."></textarea>
+      <p class="f-hint">Separate paragraphs with a blank line (two newlines).</p>
+    </div>
+
+    <div class="form-section">Tech details</div>
+    <div class="f-row-2">
+      <div>
+        <label class="f-label" for="f-engine">Engine</label>
+        <input class="f-input" id="f-engine" type="text" placeholder="Godot 4">
+      </div>
+      <div>
+        <label class="f-label" for="f-lang">Language</label>
+        <input class="f-input" id="f-lang" type="text" placeholder="GDScript">
+      </div>
+    </div>
+    <div class="f-row-2">
+      <div>
+        <label class="f-label" for="f-genre">Genre</label>
+        <input class="f-input" id="f-genre" type="text" placeholder="Horror / Exploration">
+      </div>
+      <div>
+        <label class="f-label" for="f-platform">Platform</label>
+        <input class="f-input" id="f-platform" type="text" placeholder="PC (Windows)">
+      </div>
+    </div>
+    <div class="f-row">
+      <label class="f-label" for="f-tags">Tags (comma-separated)</label>
+      <input class="f-input" id="f-tags" type="text" placeholder="Godot 4, GDScript, Horror, 3D">
+    </div>
+
+    <div class="form-section">Links</div>
+    <div class="dyn-list" id="f-links-list"></div>
+    <button class="btn-dyn-add" id="btn-add-link">+ Add link</button>
+
+    <div class="form-section">Images (paste URLs)</div>
+    <div class="dyn-list" id="f-images-list"></div>
+    <button class="btn-dyn-add" id="btn-add-image">+ Add image URL</button>
+
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp }   from 'https://www.gstatic.com/firebasejs/11.5.0/firebase-app.js';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
+         GoogleAuthProvider, signInWithPopup }
+  from 'https://www.gstatic.com/firebasejs/11.5.0/firebase-auth.js';
+import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js';
+
+/* ─── STATIC FALLBACK DATA ──────────────────────────────────── */
+const STATIC_GAMES = [
+
+];
+
+/* ─── OWNER EMAILS ───────────────────────────────────────────── */
+const OWNER_EMAILS = [
+  'maze.development.admin@gmail.com',
+  'jonatan.lund.ermesjo@gmail.com',
+];
+
+/* ─── STATE ──────────────────────────────────────────────────── */
+let currentUser  = null;
+let isAdmin      = false;
+let currentGames = [...STATIC_GAMES];
+let editingId    = null; // game id being edited, null = adding new
+let lbImages     = [];
+let lbIndex      = 0;
+let openCardId   = null;
+let unsubSnapshot = null;
+
+/* ─── DOM REFS ───────────────────────────────────────────────── */
+const listEl       = document.getElementById('game-list');
+const adminBar     = document.getElementById('admin-bar');
+const adminEmailEl = document.getElementById('admin-email-label');
+const loginOverlay = document.getElementById('login-overlay');
+const loginEmail   = document.getElementById('login-email');
+const loginPass    = document.getElementById('login-pass');
+const lfMessage    = document.getElementById('lf-message');
+const formOverlay  = document.getElementById('form-overlay');
+const lightbox     = document.getElementById('lightbox');
+const lbImg        = document.getElementById('lb-img');
+const lbCounter    = document.getElementById('lb-counter');
+
+/* ─── FIREBASE INIT ──────────────────────────────────────────── */
+let auth, db;
+try {
+  let firebaseConfig;
+  try { ({ firebaseConfig } = await import('../firebase.local.js')); }
+  catch { ({ firebaseConfig } = await import('../firebase.js')); }
+
+  if (!firebaseConfig?.apiKey || firebaseConfig.apiKey.startsWith('%%')) {
+    throw new Error('config not ready');
+  }
+
+  const app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db   = getFirestore(app);
+
+  onAuthStateChanged(auth, user => {
+    currentUser = user;
+    isAdmin     = user ? OWNER_EMAILS.includes(user.email) : false;
+    document.body.classList.toggle('admin-mode', isAdmin);
+    adminEmailEl.textContent = user?.email ?? '';
+    if (isAdmin) {
+      subscribeGames();
+    } else {
+      if (unsubSnapshot) { unsubSnapshot(); unsubSnapshot = null; }
+      subscribeGames(); // still read publicly
+    }
+  });
+
+  subscribeGames();
+
+} catch {
+  // No Firebase — render static games
+  renderGames(STATIC_GAMES);
+}
+
+/* ─── FIRESTORE LIVE SYNC ────────────────────────────────────── */
+function subscribeGames() {
+  if (!db) return;
+  if (unsubSnapshot) unsubSnapshot();
+  const q = query(collection(db, 'public_games'), orderBy('order', 'asc'));
+  unsubSnapshot = onSnapshot(q, snap => {
+    if (snap.empty) {
+      renderGames(STATIC_GAMES);
+      return;
+    }
+    const games = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    currentGames = games;
+    renderGames(games);
+  }, () => {
+    renderGames(STATIC_GAMES);
+  });
+}
+
+/* ─── RENDER ─────────────────────────────────────────────────── */
+function statusMeta(status) {
+  const map = {
+    active:    { label: 'Active dev', dot: 'dot-active' },
+    wip:       { label: 'WIP',        dot: 'dot-wip' },
+    released:  { label: 'Released',   dot: 'dot-released' },
+    paused:    { label: 'Paused',     dot: 'dot-paused' },
+    cancelled: { label: 'Cancelled',  dot: 'dot-cancelled' },
+  };
+  return map[status] ?? map.wip;
+}
+
+function esc(str) {
+  return String(str ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderGames(games) {
+  const wasOpen = openCardId;
+  listEl.innerHTML = '';
+
+  games.forEach((g, i) => {
+    const sm   = statusMeta(g.status);
+    const tags = (g.tags ?? []).map(t => `<span class="tag">${esc(t)}</span>`).join('');
+    const num  = String(i + 1).padStart(2, '0');
+
+    const images  = g.images ?? [];
+    const imgHtml = buildImgStrip(g.id, images);
+
+    const paras = (g.fullDesc ?? '')
+      .split(/\n\n+/)
+      .filter(Boolean)
+      .map(p => `<p>${esc(p)}</p>`)
+      .join('');
+
+    const linksHtml = (g.links ?? [])
+      .map(l => {
+        const external = l.url?.startsWith('http');
+        const attrs    = external ? 'target="_blank" rel="noopener"' : '';
+        return `<a href="${esc(l.url)}" ${attrs} class="panel-link">
+          <span>${esc(l.text)}</span>
+          <span class="link-lbl">${esc(l.label)}</span>
+        </a>`;
+      }).join('');
+
+    const specsHtml = [
+      ['Engine',   g.engine],
+      ['Language', g.language],
+      ['Genre',    g.genre],
+      ['Platform', g.platform],
+      ['Status',   sm.label],
+      ['Price',    g.price],
+    ].map(([k, v]) => v
+      ? `<div class="spec-row"><span class="spec-key">${esc(k)}</span><span class="spec-val">${esc(v)}</span></div>`
+      : '').join('');
+
+    const card = document.createElement('article');
+    card.className = 'game-item';
+    card.dataset.id = g.id;
+
+    card.innerHTML = `
+      <div class="game-summary" role="button" tabindex="0" aria-expanded="false">
+        <span class="game-num">${num}</span>
+        <div class="game-body">
+          <div class="game-row">
+            <span class="game-name">${esc(g.title)}</span>
+            <span style="display:inline-flex;align-items:center;gap:8px;">
+              <span class="game-type">
+                <span class="status-dot ${sm.dot}"></span>${sm.label}
+              </span>
+              ${g.price ? `<span class="price-badge${g.price.toLowerCase() === 'free' ? ' free' : ''}">${esc(g.price)}</span>` : ''}
+            </span>
+          </div>
+          <p class="game-desc">${esc(g.shortDesc)}</p>
+          <div class="game-tags">${tags}</div>
+        </div>
+        <div class="game-actions">
+          <div class="admin-card-btns">
+            <button class="admin-card-btn btn-edit" data-id="${esc(g.id)}">Edit</button>
+            <button class="admin-card-btn del btn-delete" data-id="${esc(g.id)}">Delete</button>
+          </div>
+          <button class="expand-btn" aria-label="Expand">
+            Read more
+            <span class="expand-icon">
+              <svg viewBox="0 0 9 9"><line x1="4.5" y1=".5" x2="4.5" y2="8.5"/><line x1=".5" y1="4.5" x2="8.5" y2="4.5"/></svg>
+            </span>
+          </button>
+        </div>
+      </div>
+      <div class="game-panel" aria-hidden="true">
+        <div class="game-panel-inner">
+          <div class="game-panel-content">
+            ${imgHtml ? `<div class="game-images" data-gid="${esc(g.id)}">${imgHtml}</div>` : ''}
+            <div class="panel-cols">
+              <div class="panel-left">
+                <div>
+                  <p class="panel-label">About</p>
+                  <div class="panel-body">${paras || `<p>${esc(g.shortDesc)}</p>`}</div>
+                </div>
+                ${linksHtml ? `<div>
+                  <p class="panel-label">Links</p>
+                  <div class="panel-links">${linksHtml}</div>
+                </div>` : ''}
+              </div>
+              <div class="panel-right">
+                <div>
+                  <p class="panel-label">Details</p>
+                  <div class="panel-specs">${specsHtml}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Expand / collapse
+    const summary = card.querySelector('.game-summary');
+    summary.addEventListener('click', e => {
+      if (e.target.closest('.admin-card-btns')) return;
+      toggleCard(card);
+    });
+    summary.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCard(card); }
+    });
+
+    // Admin: edit / delete
+    card.querySelector('.btn-edit')?.addEventListener('click', e => {
+      e.stopPropagation();
+      openForm(g.id);
+    });
+    card.querySelector('.btn-delete')?.addEventListener('click', e => {
+      e.stopPropagation();
+      deleteGame(g.id);
+    });
+
+    // Admin: add image (add-img button inside strip)
+    card.querySelector('.img-add-btn')?.addEventListener('click', e => {
+      e.stopPropagation();
+      promptAddImage(g.id, images);
+    });
+
+    listEl.appendChild(card);
+
+    // Re-open previously open card
+    if (wasOpen === g.id) {
+      card.classList.add('open');
+      card.querySelector('.game-summary').setAttribute('aria-expanded', 'true');
+      card.querySelector('.game-panel').setAttribute('aria-hidden', 'false');
+    }
+  });
+
+  // Wire image clicks for lightbox
+  listEl.querySelectorAll('.game-img-wrap[data-src]').forEach(wrap => {
+    wrap.addEventListener('click', () => {
+      const gid   = wrap.closest('.game-images')?.dataset.gid;
+      const game  = currentGames.find(g => g.id === gid);
+      lbImages    = game?.images ?? [];
+      lbIndex     = parseInt(wrap.dataset.idx ?? 0, 10);
+      openLightbox();
+    });
+  });
+
+  // Wire img remove buttons
+  listEl.querySelectorAll('.img-remove-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const gid = btn.dataset.gid;
+      const idx = parseInt(btn.dataset.idx, 10);
+      const game = currentGames.find(g => g.id === gid);
+      if (!game) return;
+      const imgs = [...(game.images ?? [])];
+      imgs.splice(idx, 1);
+      await saveImages(gid, imgs);
+    });
+  });
+}
+
+function buildImgStrip(gid, images) {
+  const items = images.map((src, i) => `
+    <div class="game-img-wrap" data-src="${esc(src)}" data-idx="${i}">
+      <img src="${esc(src)}" alt="Screenshot ${i + 1}" loading="lazy" onerror="this.parentElement.style.display='none'">
+      <button class="img-remove-btn" data-gid="${esc(gid)}" data-idx="${i}" title="Remove image">✕</button>
+    </div>
+  `).join('');
+
+  const addBtn = `<button class="img-add-btn" title="Add image">+ Add image</button>`;
+  return items + addBtn;
+}
+
+/* ─── EXPAND / COLLAPSE ──────────────────────────────────────── */
+function toggleCard(card) {
+  const isOpen  = card.classList.contains('open');
+  const summary = card.querySelector('.game-summary');
+  const panel   = card.querySelector('.game-panel');
+
+  listEl.querySelectorAll('.game-item.open').forEach(c => {
+    if (c !== card) {
+      c.classList.remove('open');
+      c.querySelector('.game-summary').setAttribute('aria-expanded', 'false');
+      c.querySelector('.game-panel').setAttribute('aria-hidden', 'true');
+    }
+  });
+
+  card.classList.toggle('open', !isOpen);
+  summary.setAttribute('aria-expanded', String(!isOpen));
+  panel.setAttribute('aria-hidden', String(isOpen));
+  openCardId = isOpen ? null : card.dataset.id;
+
+  if (!isOpen) {
+    setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+  }
+}
+
+/* ─── LIGHTBOX ───────────────────────────────────────────────── */
+function openLightbox() {
+  if (!lbImages.length) return;
+  showLbImage();
+  lightbox.classList.add('open');
+}
+
+function showLbImage() {
+  lbImg.src         = lbImages[lbIndex];
+  lbCounter.textContent = `${lbIndex + 1} / ${lbImages.length}`;
+  document.getElementById('lb-prev').style.display = lbImages.length > 1 ? '' : 'none';
+  document.getElementById('lb-next').style.display = lbImages.length > 1 ? '' : 'none';
+}
+
+document.getElementById('lb-close').addEventListener('click', () => lightbox.classList.remove('open'));
+document.getElementById('lb-prev').addEventListener('click', () => { lbIndex = (lbIndex - 1 + lbImages.length) % lbImages.length; showLbImage(); });
+document.getElementById('lb-next').addEventListener('click', () => { lbIndex = (lbIndex + 1) % lbImages.length; showLbImage(); });
+lightbox.addEventListener('click', e => { if (e.target === lightbox) lightbox.classList.remove('open'); });
+
+/* ─── LOGIN MODAL ────────────────────────────────────────────── */
+const FRIENDLY_ERRORS = {
+  'auth/user-not-found':           'No account found with that email.',
+  'auth/wrong-password':           'Incorrect password.',
+  'auth/invalid-credential':       'Incorrect email or password.',
+  'auth/too-many-requests':        'Too many attempts. Try again later.',
+  'auth/popup-closed-by-user':     'Sign-in popup was closed.',
+  'auth/cancelled-popup-request':  '',
+  'auth/unauthorized-domain':      'This domain is not authorised in Firebase.',
+};
+
+function showLfMsg(text, type = 'error') {
+  lfMessage.textContent = text;
+  lfMessage.className = 'lf-message ' + type;
+}
+function clearLfMsg() { lfMessage.className = 'lf-message'; lfMessage.textContent = ''; }
+
+function setLoginLoading(loading) {
+  const submitBtn = document.getElementById('login-submit');
+  const googleBtn = document.getElementById('btn-google-signin');
+  submitBtn.disabled = loading;
+  googleBtn.disabled = loading;
+  submitBtn.innerHTML = loading ? '<span class="lf-spinner"></span> Signing in…' : 'Sign in';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.altKey && (e.key === 'a' || e.key === 'A')) {
+    e.preventDefault();
+    if (isAdmin) {
+      if (confirm('Sign out of admin?')) signOut(auth);
+    } else {
+      openLogin();
+    }
+  }
+  if (e.key === 'Escape') {
+    loginOverlay.classList.remove('open');
+    formOverlay.classList.remove('open');
+    lightbox.classList.remove('open');
+  }
+});
+
+function openLogin() {
+  clearLfMsg();
+  loginEmail.value = '';
+  loginPass.value  = '';
+  loginOverlay.classList.add('open');
+  setTimeout(() => loginEmail.focus(), 80);
+}
+
+document.getElementById('login-close').addEventListener('click', () => loginOverlay.classList.remove('open'));
+loginOverlay.addEventListener('click', e => { if (e.target === loginOverlay) loginOverlay.classList.remove('open'); });
+
+document.getElementById('login-submit').addEventListener('click', doLogin);
+loginPass.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+async function doLogin() {
+  if (!auth) { showLfMsg('Firebase not configured.'); return; }
+  clearLfMsg();
+  setLoginLoading(true);
+  try {
+    const cred = await signInWithEmailAndPassword(auth, loginEmail.value.trim(), loginPass.value);
+    if (!OWNER_EMAILS.includes(cred.user.email)) {
+      await signOut(auth);
+      showLfMsg('Not authorised for this page.');
+    } else {
+      loginOverlay.classList.remove('open');
+    }
+  } catch (err) {
+    showLfMsg(FRIENDLY_ERRORS[err.code] ?? 'Login failed.');
+  } finally {
+    setLoginLoading(false);
+  }
+}
+
+document.getElementById('btn-google-signin').addEventListener('click', async () => {
+  if (!auth) { showLfMsg('Firebase not configured.'); return; }
+  clearLfMsg();
+  setLoginLoading(true);
+  try {
+    const provider = new GoogleAuthProvider();
+    const cred = await signInWithPopup(auth, provider);
+    if (!OWNER_EMAILS.includes(cred.user.email)) {
+      await signOut(auth);
+      showLfMsg('This Google account is not authorised for admin access.');
+    } else {
+      loginOverlay.classList.remove('open');
+    }
+  } catch (err) {
+    const msg = FRIENDLY_ERRORS[err.code];
+    if (msg) showLfMsg(msg);
+  } finally {
+    setLoginLoading(false);
+  }
+});
+
+document.getElementById('btn-admin-signout').addEventListener('click', () => {
+  if (auth) signOut(auth);
+});
+
+/* ─── ADMIN: ADD IMAGE PROMPT ────────────────────────────────── */
+async function promptAddImage(gid, currentImgs) {
+  const url = prompt('Paste image URL:');
+  if (!url?.trim()) return;
+  await saveImages(gid, [...currentImgs, url.trim()]);
+}
+
+async function saveImages(gid, imgs) {
+  if (!db) return;
+  try { await updateDoc(doc(db, 'public_games', gid), { images: imgs }); }
+  catch (e) { console.error(e); }
+}
+
+/* ─── ADMIN: DELETE GAME ─────────────────────────────────────── */
+async function deleteGame(gid) {
+  if (!db) return;
+  if (!confirm('Delete this game? This cannot be undone.')) return;
+  try { await deleteDoc(doc(db, 'public_games', gid)); }
+  catch (e) { alert('Error: ' + e.message); }
+}
+
+/* ─── ADMIN: ADD / EDIT FORM ─────────────────────────────────── */
+document.getElementById('btn-add-game').addEventListener('click', () => openForm(null));
+document.getElementById('form-cancel').addEventListener('click', closeForm);
+formOverlay.addEventListener('click', e => { if (e.target === formOverlay) closeForm(); });
+
+document.getElementById('btn-add-link').addEventListener('click', () => addLinkRow());
+document.getElementById('btn-add-image').addEventListener('click', () => addImageRow());
+
+function openForm(gid) {
+  editingId = gid;
+  const game = gid ? currentGames.find(g => g.id === gid) : null;
+  document.getElementById('form-title').innerHTML = game ? 'Edit <em>game</em>' : 'Add <em>game</em>';
+
+  document.getElementById('f-name').value     = game?.title    ?? '';
+  document.getElementById('f-status').value   = game?.status   ?? 'wip';
+  document.getElementById('f-order').value    = game?.order    ?? 99;
+  document.getElementById('f-short').value    = game?.shortDesc ?? '';
+  document.getElementById('f-full').value     = game?.fullDesc  ?? '';
+  document.getElementById('f-engine').value   = game?.engine    ?? '';
+  document.getElementById('f-lang').value     = game?.language  ?? '';
+  document.getElementById('f-genre').value    = game?.genre     ?? '';
+  document.getElementById('f-platform').value = game?.platform  ?? '';
+  document.getElementById('f-price').value    = game?.price    ?? '';
+  document.getElementById('f-tags').value     = (game?.tags ?? []).join(', ');
+
+  // Links
+  const linksList = document.getElementById('f-links-list');
+  linksList.innerHTML = '';
+  (game?.links ?? []).forEach(l => addLinkRow(l));
+
+  // Images
+  const imgList = document.getElementById('f-images-list');
+  imgList.innerHTML = '';
+  (game?.images ?? []).forEach(url => addImageRow(url));
+
+  formOverlay.classList.add('open');
+  formOverlay.scrollTop = 0;
+}
+
+function closeForm() {
+  formOverlay.classList.remove('open');
+  editingId = null;
+}
+
+function addLinkRow(link) {
+  const row = document.createElement('div');
+  row.className = 'dyn-row';
+  row.innerHTML = `
+    <input class="f-input" type="text" placeholder="Link text (e.g. Play on itch.io)" value="${esc(link?.text ?? '')}">
+    <input class="f-input" type="text" placeholder="Label (e.g. itch.io →)" value="${esc(link?.label ?? '')}">
+    <input class="f-input" type="url"  placeholder="URL" value="${esc(link?.url ?? '')}">
+    <button class="dyn-del" title="Remove">✕</button>
+  `;
+  row.querySelector('.dyn-del').addEventListener('click', () => row.remove());
+  document.getElementById('f-links-list').appendChild(row);
+}
+
+function addImageRow(url) {
+  const row = document.createElement('div');
+  row.className = 'dyn-row';
+  row.innerHTML = `
+    <input class="f-input" type="url" placeholder="https://..." value="${esc(url ?? '')}">
+    <button class="dyn-del" title="Remove">✕</button>
+  `;
+  row.querySelector('.dyn-del').addEventListener('click', () => row.remove());
+  document.getElementById('f-images-list').appendChild(row);
+}
+
+document.getElementById('form-save').addEventListener('click', async () => {
+  if (!db) return;
+  const title = document.getElementById('f-name').value.trim();
+  if (!title) { alert('Title is required.'); return; }
+
+  const links = [...document.getElementById('f-links-list').querySelectorAll('.dyn-row')].map(row => {
+    const inputs = row.querySelectorAll('input');
+    return { text: inputs[0].value.trim(), label: inputs[1].value.trim(), url: inputs[2].value.trim() };
+  }).filter(l => l.url);
+
+  const images = [...document.getElementById('f-images-list').querySelectorAll('input')].map(i => i.value.trim()).filter(Boolean);
+
+  const data = {
+    title,
+    status:    document.getElementById('f-status').value,
+    order:     parseInt(document.getElementById('f-order').value, 10) || 99,
+    shortDesc: document.getElementById('f-short').value.trim(),
+    fullDesc:  document.getElementById('f-full').value.trim(),
+    engine:    document.getElementById('f-engine').value.trim(),
+    language:  document.getElementById('f-lang').value.trim(),
+    genre:     document.getElementById('f-genre').value.trim(),
+    platform:  document.getElementById('f-platform').value.trim(),
+    price:     document.getElementById('f-price').value.trim(),
+    tags:      document.getElementById('f-tags').value.split(',').map(t => t.trim()).filter(Boolean),
+    links,
+    images,
+  };
+
+  const btn = document.getElementById('form-save');
+  btn.textContent = 'Saving…';
+  btn.disabled = true;
+
+  try {
+    if (editingId && !editingId.startsWith('_')) {
+      await updateDoc(doc(db, 'public_games', editingId), data);
+    } else {
+      await addDoc(collection(db, 'public_games'), { ...data, createdAt: serverTimestamp() });
+    }
+    closeForm();
+  } catch (e) {
+    alert('Save failed: ' + e.message);
+  } finally {
+    btn.textContent = 'Save';
+    btn.disabled = false;
+  }
+});
+
+/* ─── REVEAL ON SCROLL ───────────────────────────────────────── */
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); } });
+}, { threshold: .08 });
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+
+<!-- THREE.JS — rotating wireframe model in hero -->
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.165.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.165.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
+
+const canvas = document.getElementById('three-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+const scene  = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 50);
+camera.position.set(0, 0, 6);
+
+function resize() {
+  const w = canvas.parentElement.clientWidth;
+  const h = canvas.parentElement.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+resize();
+window.addEventListener('resize', resize);
+
+const TARGET_RADIUS = 3.4;
+const WIRE_COLOR    = 0x6b2098;
+
+const lineMat = new THREE.LineBasicMaterial({ color: WIRE_COLOR, transparent: true, opacity: 0.35 });
+const ptsMat  = new THREE.PointsMaterial({ color: WIRE_COLOR, size: 2, sizeAttenuation: false, transparent: true, opacity: 0.35 });
+
+const group = new THREE.Group();
+group.position.y = 0.2;
+scene.add(group);
+
+function snapToRightEdge() {
+  const vFovRad = camera.fov * Math.PI / 180;
+  const halfW   = Math.tan(vFovRad / 2) * camera.position.z * camera.aspect;
+  group.position.x = halfW * 0.88;
+  const s = window.innerWidth < 768 ? 0.65 : 1.3;
+  group.scale.setScalar(s);
+}
+snapToRightEdge();
+window.addEventListener('resize', snapToRightEdge);
+
+function setModel(srcGeo) {
+  const g = srcGeo.clone();
+  g.computeBoundingSphere();
+  const r = g.boundingSphere?.radius;
+  const c = g.boundingSphere?.center;
+  if (r > 0 && isFinite(r) && c) {
+    g.translate(-c.x, -c.y, -c.z);
+    g.scale(TARGET_RADIUS / r, TARGET_RADIUS / r, TARGET_RADIUS / r);
+  }
+  const posOnly = new THREE.BufferGeometry();
+  posOnly.setAttribute('position', g.attributes.position.clone());
+  if (g.index) posOnly.setIndex(g.index.clone());
+  g.dispose();
+  const welded = BufferGeometryUtils.mergeVertices(posOnly, 1e-4);
+  posOnly.dispose();
+  const edgesGeo = new THREE.EdgesGeometry(welded, 1);
+  welded.dispose();
+  group.clear();
+  group.add(new THREE.LineSegments(edgesGeo, lineMat));
+  group.add(new THREE.Points(edgesGeo, ptsMat));
+}
+
+setModel(new THREE.IcosahedronGeometry(TARGET_RADIUS, 1));
+
+(async () => {
+  try {
+    const res = await fetch('../3d/manifest.json');
+    if (!res.ok) return;
+    const { models } = await res.json();
+    if (!models?.length) return;
+    const filename = models[Math.floor(Math.random() * models.length)];
+    new GLTFLoader().load(`../3d/${filename}`, gltf => {
+      const geos = [];
+      gltf.scene.updateMatrixWorld(true);
+      gltf.scene.traverse(child => {
+        if (child.isMesh && child.geometry) {
+          const g = child.geometry.clone();
+          g.applyMatrix4(child.matrixWorld);
+          geos.push(g);
+        }
+      });
+      if (!geos.length) return;
+      const merged = geos.length > 1
+        ? BufferGeometryUtils.mergeGeometries(geos, true) : geos[0];
+      if (!merged) return;
+      setModel(merged);
+      geos.forEach(g => g.dispose());
+      merged.dispose();
+    });
+  } catch {}
+})();
+
+(function tick() {
+  requestAnimationFrame(tick);
+  group.rotation.x += 0.0014;
+  group.rotation.y += 0.0026;
+  renderer.render(scene, camera);
+})();
+</script>
+</body>
+</html>
