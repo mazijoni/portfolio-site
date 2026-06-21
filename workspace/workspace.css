@@ -115,7 +115,7 @@ body {
 
 .user-avatar {
     width: 28px; height: 28px;
-    border-radius: 50%;
+    border-radius: var(--radius);
     background: var(--accent-dim);
     border: 1px solid var(--accent);
     display: flex; align-items: center; justify-content: center;
@@ -14891,7 +14891,7 @@ body[data-hub-app="sheet"] .ws-fab { display: none !important; }
 .avatar-mini {
     width: 24px;
     height: 24px;
-    border-radius: 50%;
+    border-radius: var(--radius);
     object-fit: cover;
     flex-shrink: 0;
 }
@@ -15295,9 +15295,14 @@ input, textarea, select, button,
 }
 
 /* but keep genuine circles round */
-.user-avatar, .ws-project-item-dot, .github-lang-dot,
+.ws-project-item-dot, .github-lang-dot,
 [class*="avatar"], [class*="-dot"], [class*="-circle"] {
     border-radius: 50% !important;
+}
+
+/* popup is a box, not a circle */
+.user-avatar-wrap, [class*="avatar-popup"] {
+    border-radius: 0 !important;
 }
 
 /* hairline section dividers + sharp accent-tinted card hover */
