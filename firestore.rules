@@ -55,12 +55,28 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
-    // Public games — anyone can read, owner can write
+    // Public games — anyone can read, admin only can write the game doc
     match /public_games/{gameId} {
       allow read: if true;
-      allow write: if request.auth != null && (
+      allow write: if request.auth != null
+                   && request.auth.token.email == "maze.development.admin@gmail.com";
+    }
+
+    // Game ratings — anyone can read; each authenticated user writes only their own doc
+    match /public_games/{gameId}/ratings/{uid} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Game comments — anyone can read; authenticated users can create (must set uid = their own);
+    // owner or admin can delete
+    match /public_games/{gameId}/comments/{commentId} {
+      allow read: if true;
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid;
+      allow delete: if request.auth != null && (
         request.auth.token.email == "maze.development.admin@gmail.com" ||
-        request.auth.token.email == "jonatan.lund.ermesjo@gmail.com"
+        resource.data.uid == request.auth.uid
       );
     }
 
