@@ -826,6 +826,178 @@
       .game-images { grid-template-columns: 1fr; }
       .hero-title { font-size: 38px; }
     }
+
+    /* ── USER MENU ───────────────────────────────────────────── */
+    .user-menu-wrap { position: relative; }
+    .user-avatar-btn {
+      width: 32px; height: 32px;
+      border: 1px solid var(--line-2); background: var(--paper-3);
+      cursor: pointer; padding: 0; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color .15s; border-radius: 50%;
+    }
+    .user-avatar-btn:hover { border-color: var(--accent); }
+    .user-avatar-btn img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+    .user-avatar-initial { font-size: 12px; font-weight: 600; color: var(--ink); }
+    .sign-in-pill {
+      display: inline-flex; align-items: center;
+      height: 30px; padding: 0 12px;
+      border: 1px solid var(--line-2); background: none; cursor: pointer;
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2);
+      transition: background .15s, border-color .15s, color .15s;
+    }
+    .sign-in-pill:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+    .user-dropdown {
+      display: none; position: absolute; top: calc(100% + 10px); right: 0;
+      min-width: 224px; background: var(--paper-3);
+      border: 1px solid var(--line-2); padding: 6px 0; z-index: 200;
+    }
+    .user-dropdown.open { display: block; }
+    .ud-header { padding: 10px 14px 8px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+    .ud-name { font-size: 13px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ud-email { font-size: 11px; color: var(--ink-mute); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ud-item {
+      display: block; width: 100%; padding: 8px 14px;
+      font-size: 12.5px; color: var(--ink-2); text-align: left;
+      background: none; border: none; cursor: pointer;
+      transition: background .12s, color .12s;
+    }
+    .ud-item:hover { background: var(--paper-2); color: var(--ink); }
+    .ud-item.danger:hover { color: #ff6b6b; }
+    .ud-divider { height: 1px; background: var(--line); margin: 4px 0; }
+    .ud-saved-label { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-dim); padding: 4px 14px; display: block; }
+    .ud-account-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 14px; cursor: pointer; transition: background .12s;
+    }
+    .ud-account-row:hover { background: var(--paper-2); }
+    .ud-acc-avatar { width: 22px; height: 22px; object-fit: cover; border: 1px solid var(--line-2); background: var(--paper-3); display: block; border-radius: 50%; }
+    .ud-acc-name { font-size: 12px; color: var(--ink-2); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ud-acc-check { font-size: 11px; color: var(--accent); flex-shrink: 0; }
+
+    /* ── STAR RATING ─────────────────────────────────────────── */
+    .rating-section { padding: 24px 0 16px; border-top: 1px solid var(--line); margin-top: 20px; }
+    .rating-label { font-family: var(--mono); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-mute); margin-bottom: 12px; }
+    .star-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .stars { display: flex; gap: 4px; }
+    .star { font-size: 22px; color: var(--ink-dim); transition: color .1s, transform .1s; user-select: none; line-height: 1; cursor: pointer; }
+    .star.hovered { color: var(--accent); transform: scale(1.15); }
+    .star.filled { color: var(--accent); }
+    .rating-avg { font-family: var(--mono); font-size: 14px; color: var(--ink-2); }
+    .rating-count { font-size: 11px; color: var(--ink-mute); }
+
+    /* ── COMMENTS ────────────────────────────────────────────── */
+    .comments-section { padding-top: 20px; border-top: 1px solid var(--line); margin-top: 8px; padding-bottom: 8px; }
+    .comments-label { font-family: var(--mono); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-mute); margin-bottom: 16px; }
+    .comment-list { display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; }
+    .comment-item { display: flex; gap: 12px; }
+    .comment-avatar {
+      width: 34px; height: 34px; flex-shrink: 0;
+      object-fit: cover; border: 1px solid var(--line-2); background: var(--paper-3);
+      display: block; border-radius: 50%;
+    }
+    .comment-bubble { flex: 1; background: var(--paper-2); border: 1px solid var(--line); padding: 10px 12px; min-width: 0; }
+    .comment-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+    .comment-author { font-size: 12px; font-weight: 500; color: var(--ink-2); }
+    .comment-time { font-size: 10px; color: var(--ink-dim); }
+    .comment-del { margin-left: auto; background: none; border: none; font-size: 10px; color: var(--ink-dim); cursor: pointer; padding: 0 2px; flex-shrink: 0; }
+    .comment-del:hover { color: #ff6b6b; }
+    .comment-text { font-size: 13px; color: var(--ink); line-height: 1.55; word-break: break-word; }
+    .comment-empty { font-size: 13px; color: var(--ink-dim); font-style: italic; }
+    .comment-form { display: flex; gap: 10px; align-items: flex-start; }
+    .comment-input-wrap { flex: 1; min-width: 0; }
+    .comment-textarea {
+      width: 100%; background: var(--paper-2);
+      border: 1px solid var(--line-2); color: var(--ink);
+      font-family: var(--sans); font-size: 13px;
+      padding: 10px 12px; resize: vertical; min-height: 68px;
+      outline: none; transition: border-color .15s;
+    }
+    .comment-textarea:focus { border-color: var(--accent); }
+    .comment-textarea::placeholder { color: var(--ink-dim); }
+    .comment-form-actions { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+    .comment-submit {
+      height: 32px; padding: 0 16px;
+      background: var(--ink); color: var(--paper);
+      border: 1px solid var(--ink); font-family: var(--sans); font-size: 12px; font-weight: 500;
+      cursor: pointer; transition: background .15s, border-color .15s;
+    }
+    .comment-submit:hover { background: var(--accent); border-color: var(--accent); color: #0a0008; }
+    .comment-submit:disabled { opacity: .5; cursor: not-allowed; }
+    .comment-as { font-size: 11px; color: var(--ink-dim); }
+
+    .comment-signin-prompt { font-size: 12.5px; color: var(--ink-mute); padding: 12px 0 0; }
+    .comment-signin-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: inherit; font-family: inherit; padding: 0; text-decoration: underline; }
+
+    /* ── AUTH POPUP ──────────────────────────────────────────────── */
+    .auth-overlay {
+      position: fixed; inset: 0; z-index: 600;
+      background: rgba(0,0,0,.72); backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .auth-overlay.open { opacity: 1; pointer-events: all; }
+    .auth-popup {
+      background: var(--paper-3); border: 1px solid var(--line-2);
+      width: 100%; max-width: 400px; margin: 16px; position: relative;
+    }
+    .auth-popup-inner { padding: 40px; }
+    .auth-popup-close {
+      position: absolute; top: 14px; right: 16px;
+      background: none; border: none; color: var(--ink-mute);
+      font-size: 18px; cursor: pointer; line-height: 1; padding: 4px;
+    }
+    .auth-popup-close:hover { color: var(--ink); }
+    .auth-popup h2 {
+      font-family: var(--serif); font-size: 28px; font-weight: 400;
+      color: var(--ink); letter-spacing: -.01em; margin-bottom: 4px;
+    }
+    .auth-popup h2 em { font-style: italic; color: var(--accent); }
+    .ap-sub { font-size: 13px; color: var(--ink-mute); margin-bottom: 24px; }
+    .ap-tabs { display: flex; border-bottom: 1px solid var(--line-2); margin-bottom: 24px; }
+    .ap-tab {
+      background: none; border: none; cursor: pointer;
+      font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+      color: var(--ink-dim); padding: 10px 20px 10px 0;
+      margin-bottom: -1px; border-bottom: 2px solid transparent;
+      transition: color .15s, border-color .15s;
+    }
+    .ap-tab.active { color: var(--ink); border-bottom-color: var(--accent); }
+    .ap-tab:hover:not(.active) { color: var(--ink-mute); }
+    .ap-section { display: none; flex-direction: column; gap: 16px; }
+    .ap-section.active { display: flex; }
+    .ap-message { padding: 10px 12px; font-family: var(--mono); font-size: 11.5px; border: 1px solid transparent; display: none; }
+    .ap-message.error { display: block; border-color: rgba(255,80,80,.4); color: #ff8080; background: rgba(255,80,80,.06); }
+    .ap-group { display: flex; flex-direction: column; gap: 5px; }
+    .ap-group label { font-family: var(--mono); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-mute); }
+    .ap-group input {
+      background: var(--paper-2); border: 1px solid var(--line-2); color: var(--ink);
+      font-family: var(--sans); font-size: 14px; padding: 10px 12px;
+      outline: none; transition: border-color .15s; width: 100%;
+    }
+    .ap-group input::placeholder { color: var(--ink-dim); }
+    .ap-group input:focus { border-color: var(--accent); }
+    .ap-submit {
+      height: 44px; background: var(--ink); color: var(--paper);
+      border: 1px solid var(--ink); font-family: var(--sans); font-size: 13px;
+      font-weight: 600; cursor: pointer; width: 100%; transition: background .15s, border-color .15s;
+    }
+    .ap-submit:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: #0a0008; }
+    .ap-submit:disabled { opacity: .5; cursor: not-allowed; }
+    .ap-divider {
+      display: flex; align-items: center; gap: 12px;
+      font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim);
+    }
+    .ap-divider::before, .ap-divider::after { content: ''; flex: 1; height: 1px; background: var(--line-2); }
+    .ap-google {
+      height: 44px; background: transparent; color: var(--ink-2); border: 1px solid var(--line-2);
+      font-family: var(--sans); font-size: 13px; font-weight: 500; cursor: pointer; width: 100%;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: border-color .15s, color .15s;
+    }
+    .ap-google:hover { border-color: var(--ink-2); color: var(--ink); }
+    .ap-google svg { width: 16px; height: 16px; flex-shrink: 0; }
   </style>
 </head>
 <body>
@@ -848,6 +1020,8 @@
       <li><a href="../" class="pill">Maze Dev</a></li>
       <li><a href="https://maze-dev.itch.io/">Itch.io</a></li>
       <li><a href="../login.html">Workspace</a></li>
+      <li class="divider"></li>
+      <li id="nav-auth-area"><!-- JS fills --></li>
     </ul>
     <label for="mob-toggle" class="mob-btn" aria-label="Menu">
       <span></span><span></span><span></span>
@@ -929,40 +1103,60 @@
   <span class="lb-counter" id="lb-counter"></span>
 </div>
 
-<!-- LOGIN MODAL -->
-<div class="overlay" id="login-overlay" role="dialog" aria-modal="true" aria-label="Admin login">
-  <div class="login-box">
-    <button class="overlay-close" id="login-close">✕</button>
-
-    <h2 class="login-heading">Admin <em>sign in</em></h2>
-    <p class="login-sub">Games page — owner access only.</p>
-
-    <div class="lf-message" id="lf-message"></div>
-
-    <div class="lf-group">
-      <label for="login-email">Email</label>
-      <input id="login-email" type="email" placeholder="you@example.com" autocomplete="email">
+<!-- AUTH POPUP -->
+<div class="auth-overlay" id="auth-popup-overlay" role="dialog" aria-modal="true">
+  <div class="auth-popup">
+    <button class="auth-popup-close" id="auth-popup-close">✕</button>
+    <div class="auth-popup-inner">
+      <h2>Sign <em>in</em></h2>
+      <p class="ap-sub">Rate games and leave comments.</p>
+      <div class="ap-tabs">
+        <button class="ap-tab active" id="ap-tab-signin">Sign in</button>
+        <button class="ap-tab" id="ap-tab-signup">Create account</button>
+      </div>
+      <div class="ap-section active" id="ap-section-signin">
+        <div class="ap-message" id="ap-signin-msg"></div>
+        <div class="ap-group">
+          <label for="ap-email">Email</label>
+          <input type="email" id="ap-email" placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="ap-group">
+          <label for="ap-pass">Password</label>
+          <input type="password" id="ap-pass" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button class="ap-submit" id="ap-signin-btn">Sign in</button>
+        <div class="ap-divider">or</div>
+        <button class="ap-google" id="ap-google-btn">
+          Continue with Google
+          <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+        </button>
+      </div>
+      <div class="ap-section" id="ap-section-signup">
+        <div class="ap-message" id="ap-signup-msg"></div>
+        <div class="ap-group">
+          <label for="ap-name">Display name</label>
+          <input type="text" id="ap-name" placeholder="Your name" autocomplete="name">
+        </div>
+        <div class="ap-group">
+          <label for="ap-email2">Email</label>
+          <input type="email" id="ap-email2" placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="ap-group">
+          <label for="ap-pass2">Password</label>
+          <input type="password" id="ap-pass2" placeholder="Min. 6 characters" autocomplete="new-password">
+        </div>
+        <button class="ap-submit" id="ap-signup-btn">Create account</button>
+        <div class="ap-divider">or</div>
+        <button class="ap-google" id="ap-google-btn2">
+          Sign up with Google
+          <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+        </button>
+      </div>
     </div>
-    <div class="lf-group">
-      <label for="login-pass">Password</label>
-      <input id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password">
-    </div>
-
-    <button class="lf-submit" id="login-submit">Sign in</button>
-
-    <div class="lf-divider">or</div>
-
-    <button class="lf-google" id="btn-google-signin">
-      Continue with Google
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-      </svg>
-    </button>
   </div>
 </div>
+
+<!-- ANON PROMPT -->
 
 <!-- ADMIN BAR -->
 <div class="admin-bar" id="admin-bar" aria-label="Admin controls">
@@ -1057,10 +1251,11 @@
 
 <script type="module">
 import { initializeApp }   from 'https://www.gstatic.com/firebasejs/11.5.0/firebase-app.js';
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
-         GoogleAuthProvider, signInWithPopup }
+import { getAuth, onAuthStateChanged, signOut,
+         signInWithEmailAndPassword, createUserWithEmailAndPassword,
+         GoogleAuthProvider, signInWithPopup, updateProfile }
   from 'https://www.gstatic.com/firebasejs/11.5.0/firebase-auth.js';
-import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp }
+import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp, getDocs, setDoc, getDoc }
   from 'https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js';
 
 /* ─── STATIC FALLBACK DATA ──────────────────────────────────── */
@@ -1068,15 +1263,19 @@ const STATIC_GAMES = [
 
 ];
 
-/* ─── OWNER EMAILS ───────────────────────────────────────────── */
-const OWNER_EMAILS = [
-  'maze.development.admin@gmail.com',
-  'jonatan.lund.ermesjo@gmail.com',
-];
+/* ─── ADMIN ──────────────────────────────────────────────────── */
+const ADMIN_EMAIL = 'maze.development.admin@gmail.com';
+const DICEBEAR_BASE = 'https://api.dicebear.com/10.x/glyphs/svg?glyphColor=af61f2,c772fe,7d31af,5a4568&seed=';
+function dicebearUrl(seed) { return DICEBEAR_BASE + encodeURIComponent(seed || 'default'); }
 
 /* ─── STATE ──────────────────────────────────────────────────── */
 let currentUser  = null;
 let isAdmin      = false;
+
+let pendingAction = null;
+const ACCOUNTS_KEY = 'ws_saved_accounts';
+let savedAccounts = JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || '[]');
+const loadedInteractions = new Set();
 let currentGames = [...STATIC_GAMES];
 let editingId    = null; // game id being edited, null = adding new
 let lbImages     = [];
@@ -1088,10 +1287,6 @@ let unsubSnapshot = null;
 const listEl       = document.getElementById('game-list');
 const adminBar     = document.getElementById('admin-bar');
 const adminEmailEl = document.getElementById('admin-email-label');
-const loginOverlay = document.getElementById('login-overlay');
-const loginEmail   = document.getElementById('login-email');
-const loginPass    = document.getElementById('login-pass');
-const lfMessage    = document.getElementById('lf-message');
 const formOverlay  = document.getElementById('form-overlay');
 const lightbox     = document.getElementById('lightbox');
 const lbImg        = document.getElementById('lb-img');
@@ -1114,22 +1309,23 @@ try {
 
   onAuthStateChanged(auth, user => {
     currentUser = user;
-    isAdmin     = user ? OWNER_EMAILS.includes(user.email) : false;
+    isAdmin     = user?.email === ADMIN_EMAIL;
     document.body.classList.toggle('admin-mode', isAdmin);
     adminEmailEl.textContent = user?.email ?? '';
-    if (isAdmin) {
-      subscribeGames();
-    } else {
-      if (unsubSnapshot) { unsubSnapshot(); unsubSnapshot = null; }
-      subscribeGames(); // still read publicly
-    }
+    if (user && !user.isAnonymous) saveAccountToHistory(user);
+    updateUserMenu();
+    // Execute pending action before refreshing the card so the card DOM is still intact
+    if (user && !user.isAnonymous) executePendingAction();
+    refreshOpenCard();
   });
 
   subscribeGames();
+  updateUserMenu(); // render "Sign in" immediately while auth resolves
 
 } catch {
   // No Firebase — render static games
   renderGames(STATIC_GAMES);
+  updateUserMenu();
 }
 
 /* ─── FIRESTORE LIVE SYNC ────────────────────────────────────── */
@@ -1261,6 +1457,8 @@ function renderGames(games) {
                 </div>
               </div>
             </div>
+            <div class="panel-rating"></div>
+            <div class="panel-comments"></div>
           </div>
         </div>
       </div>
@@ -1361,6 +1559,7 @@ function toggleCard(card) {
 
   if (!isOpen) {
     setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+    loadGameInteractions(card.dataset.id, card);
   }
 }
 
@@ -1383,104 +1582,117 @@ document.getElementById('lb-prev').addEventListener('click', () => { lbIndex = (
 document.getElementById('lb-next').addEventListener('click', () => { lbIndex = (lbIndex + 1) % lbImages.length; showLbImage(); });
 lightbox.addEventListener('click', e => { if (e.target === lightbox) lightbox.classList.remove('open'); });
 
-/* ─── LOGIN MODAL ────────────────────────────────────────────── */
-const FRIENDLY_ERRORS = {
-  'auth/user-not-found':           'No account found with that email.',
-  'auth/wrong-password':           'Incorrect password.',
-  'auth/invalid-credential':       'Incorrect email or password.',
-  'auth/too-many-requests':        'Too many attempts. Try again later.',
-  'auth/popup-closed-by-user':     'Sign-in popup was closed.',
-  'auth/cancelled-popup-request':  '',
-  'auth/unauthorized-domain':      'This domain is not authorised in Firebase.',
-};
+/* ─── AUTH POPUP ─────────────────────────────────────────────── */
+const authOverlay   = document.getElementById('auth-popup-overlay');
+const authPopupClose = document.getElementById('auth-popup-close');
 
-function showLfMsg(text, type = 'error') {
-  lfMessage.textContent = text;
-  lfMessage.className = 'lf-message ' + type;
+function openLogin(prefillEmail = '') {
+  authOverlay.classList.add('open');
+  document.getElementById('ap-signin-msg').textContent = '';
+  document.getElementById('ap-signup-msg').textContent = '';
+  if (prefillEmail) {
+    document.getElementById('ap-email').value = prefillEmail;
+    document.getElementById('ap-pass').value  = '';
+  }
+  apSwitchTab('signin');
+  setTimeout(() => {
+    const field = prefillEmail
+      ? document.getElementById('ap-pass')
+      : document.getElementById('ap-email');
+    field.focus();
+  }, 60);
 }
-function clearLfMsg() { lfMessage.className = 'lf-message'; lfMessage.textContent = ''; }
 
-function setLoginLoading(loading) {
-  const submitBtn = document.getElementById('login-submit');
-  const googleBtn = document.getElementById('btn-google-signin');
-  submitBtn.disabled = loading;
-  googleBtn.disabled = loading;
-  submitBtn.innerHTML = loading ? '<span class="lf-spinner"></span> Signing in…' : 'Sign in';
+function closeAuthPopup() {
+  authOverlay.classList.remove('open');
 }
+
+function apSwitchTab(tab) {
+  document.getElementById('ap-tab-signin').classList.toggle('active', tab === 'signin');
+  document.getElementById('ap-tab-signup').classList.toggle('active', tab === 'signup');
+  document.getElementById('ap-section-signin').classList.toggle('active', tab === 'signin');
+  document.getElementById('ap-section-signup').classList.toggle('active', tab === 'signup');
+}
+
+authPopupClose.addEventListener('click', closeAuthPopup);
+authOverlay.addEventListener('click', e => { if (e.target === authOverlay) closeAuthPopup(); });
+document.getElementById('ap-tab-signin').addEventListener('click', () => apSwitchTab('signin'));
+document.getElementById('ap-tab-signup').addEventListener('click', () => apSwitchTab('signup'));
+
+async function apHandleSignIn() {
+  const email = document.getElementById('ap-email').value.trim();
+  const pass  = document.getElementById('ap-pass').value;
+  const msgEl = document.getElementById('ap-signin-msg');
+  msgEl.textContent = '';
+  if (!email || !pass) { msgEl.textContent = 'Enter email and password.'; return; }
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+    closeAuthPopup();
+  } catch (err) {
+    msgEl.textContent = err.code === 'auth/invalid-credential'
+      ? 'Incorrect email or password.'
+      : (err.message || 'Sign-in failed.');
+  }
+}
+
+async function apHandleSignUp() {
+  const name  = document.getElementById('ap-name').value.trim();
+  const email = document.getElementById('ap-email2').value.trim();
+  const pass  = document.getElementById('ap-pass2').value;
+  const msgEl = document.getElementById('ap-signup-msg');
+  msgEl.textContent = '';
+  if (!name)  { msgEl.textContent = 'Enter a display name.'; return; }
+  if (!email) { msgEl.textContent = 'Enter an email address.'; return; }
+  if (pass.length < 6) { msgEl.textContent = 'Password must be at least 6 characters.'; return; }
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    await updateProfile(cred.user, { displayName: name });
+    closeAuthPopup();
+  } catch (err) {
+    msgEl.textContent = err.code === 'auth/email-already-in-use'
+      ? 'An account with that email already exists.'
+      : (err.message || 'Sign-up failed.');
+  }
+}
+
+async function apHandleGoogle() {
+  try {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+    closeAuthPopup();
+  } catch (err) {
+    if (err.code !== 'auth/popup-closed-by-user') {
+      document.getElementById('ap-signin-msg').textContent = err.message || 'Google sign-in failed.';
+    }
+  }
+}
+
+document.getElementById('ap-signin-btn').addEventListener('click', apHandleSignIn);
+document.getElementById('ap-signup-btn').addEventListener('click', apHandleSignUp);
+document.getElementById('ap-google-btn').addEventListener('click', apHandleGoogle);
+document.getElementById('ap-google-btn2').addEventListener('click', apHandleGoogle);
+
+document.getElementById('ap-email').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('ap-pass').focus(); });
+document.getElementById('ap-pass').addEventListener('keydown',  e => { if (e.key === 'Enter') apHandleSignIn(); });
+document.getElementById('ap-pass2').addEventListener('keydown', e => { if (e.key === 'Enter') apHandleSignUp(); });
 
 document.addEventListener('keydown', e => {
   if (e.altKey && (e.key === 'a' || e.key === 'A')) {
     e.preventDefault();
-    if (isAdmin) {
-      if (confirm('Sign out of admin?')) signOut(auth);
+    if (currentUser) {
+      if (confirm('Sign out?')) signOut(auth);
     } else {
       openLogin();
     }
   }
   if (e.key === 'Escape') {
-    loginOverlay.classList.remove('open');
     formOverlay.classList.remove('open');
     lightbox.classList.remove('open');
+    closeAuthPopup();
   }
 });
 
-function openLogin() {
-  clearLfMsg();
-  loginEmail.value = '';
-  loginPass.value  = '';
-  loginOverlay.classList.add('open');
-  setTimeout(() => loginEmail.focus(), 80);
-}
-
-document.getElementById('login-close').addEventListener('click', () => loginOverlay.classList.remove('open'));
-loginOverlay.addEventListener('click', e => { if (e.target === loginOverlay) loginOverlay.classList.remove('open'); });
-
-document.getElementById('login-submit').addEventListener('click', doLogin);
-loginPass.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-
-async function doLogin() {
-  if (!auth) { showLfMsg('Firebase not configured.'); return; }
-  clearLfMsg();
-  setLoginLoading(true);
-  try {
-    const cred = await signInWithEmailAndPassword(auth, loginEmail.value.trim(), loginPass.value);
-    if (!OWNER_EMAILS.includes(cred.user.email)) {
-      await signOut(auth);
-      showLfMsg('Not authorised for this page.');
-    } else {
-      loginOverlay.classList.remove('open');
-    }
-  } catch (err) {
-    showLfMsg(FRIENDLY_ERRORS[err.code] ?? 'Login failed.');
-  } finally {
-    setLoginLoading(false);
-  }
-}
-
-document.getElementById('btn-google-signin').addEventListener('click', async () => {
-  if (!auth) { showLfMsg('Firebase not configured.'); return; }
-  clearLfMsg();
-  setLoginLoading(true);
-  try {
-    const provider = new GoogleAuthProvider();
-    const cred = await signInWithPopup(auth, provider);
-    if (!OWNER_EMAILS.includes(cred.user.email)) {
-      await signOut(auth);
-      showLfMsg('This Google account is not authorised for admin access.');
-    } else {
-      loginOverlay.classList.remove('open');
-    }
-  } catch (err) {
-    const msg = FRIENDLY_ERRORS[err.code];
-    if (msg) showLfMsg(msg);
-  } finally {
-    setLoginLoading(false);
-  }
-});
-
-document.getElementById('btn-admin-signout').addEventListener('click', () => {
-  if (auth) signOut(auth);
-});
+document.getElementById('btn-admin-signout').addEventListener('click', () => signOut(auth));
 
 /* ─── ADMIN: ADD IMAGE PROMPT ────────────────────────────────── */
 async function promptAddImage(gid, currentImgs) {
@@ -1617,6 +1829,341 @@ document.getElementById('form-save').addEventListener('click', async () => {
     btn.disabled = false;
   }
 });
+
+/* ─── ANONYMOUS IDENTITY ─────────────────────────────────────── */
+
+/* ─── SAVED ACCOUNTS ─────────────────────────────────────────── */
+function saveAccountToHistory(user) {
+  let accounts = JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || '[]');
+  const idx    = accounts.findIndex(a => a.uid === user.uid);
+  const entry  = {
+    uid:         user.uid,
+    email:       user.email        || '',
+    displayName: user.displayName  || '',
+    photoURL:    user.photoURL     || '',
+    provider:    user.providerData?.[0]?.providerId || 'password',
+    lastSeen:    Date.now(),
+  };
+  if (idx >= 0) accounts[idx] = entry; else accounts.push(entry);
+  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+  savedAccounts = accounts;
+}
+
+/* ─── USER MENU ──────────────────────────────────────────────── */
+function updateUserMenu() {
+  const navEl = document.getElementById('nav-auth-area');
+  if (!navEl) return;
+
+  if (currentUser) {
+    const avatarSeed = encodeURIComponent(currentUser.email || currentUser.uid);
+    const avatarSrc  = currentUser.photoURL || dicebearUrl(currentUser.email || currentUser.uid);
+    const avatarHtml = `<img src="${esc(avatarSrc)}" alt="" onerror="this.style.display='none'">`;
+
+    const savedRows = savedAccounts.length > 1
+      ? `<div class="ud-divider"></div><span class="ud-saved-label">Accounts</span>` +
+        savedAccounts.map(a => `
+          <div class="ud-account-row" data-email="${esc(a.email)}">
+            <img class="ud-acc-avatar" src="${esc(a.photoURL || dicebearUrl(a.email))}" alt="" onerror="this.style.display='none'">
+            <span class="ud-acc-name">${esc(a.displayName || a.email)}</span>
+            ${a.email === currentUser.email ? '<span class="ud-acc-check">✓</span>' : ''}
+          </div>`).join('')
+      : '';
+
+    navEl.innerHTML = `
+      <div class="user-menu-wrap">
+        <button class="user-avatar-btn" id="user-menu-btn" title="${esc(currentUser.email)}">${avatarHtml}</button>
+        <div class="user-dropdown" id="user-dropdown">
+          <div class="ud-header">
+            <div class="ud-name">${esc(currentUser.displayName || currentUser.email)}</div>
+            <div class="ud-email">${esc(currentUser.email)}</div>
+          </div>
+          ${savedRows}
+          <div class="ud-divider"></div>
+          <button class="ud-item" id="ud-add-account">Add account</button>
+          <div class="ud-divider"></div>
+          <button class="ud-item danger" id="ud-signout">Sign out</button>
+        </div>
+      </div>`;
+
+    document.getElementById('user-menu-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      document.getElementById('user-dropdown').classList.toggle('open');
+    });
+    document.getElementById('ud-signout').addEventListener('click', () => signOut(auth));
+    document.getElementById('ud-add-account').addEventListener('click', () => {
+      document.getElementById('user-dropdown')?.classList.remove('open');
+      openLogin();
+    });
+    navEl.querySelectorAll('.ud-account-row[data-email]').forEach(row => {
+      row.addEventListener('click', () => switchToSavedAccount(row.dataset.email));
+    });
+  } else {
+    navEl.innerHTML = `<button class="sign-in-pill" id="nav-login-btn">Sign in</button>`;
+    document.getElementById('nav-login-btn')?.addEventListener('click', () => openLogin());
+  }
+}
+
+async function switchToSavedAccount(email) {
+  if (email === currentUser?.email) {
+    document.getElementById('user-dropdown')?.classList.remove('open');
+    return;
+  }
+  document.getElementById('user-dropdown')?.classList.remove('open');
+  const account = savedAccounts.find(a => a.email === email);
+  if (auth) await signOut(auth);
+  if (account?.provider === 'google.com') {
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ login_hint: email });
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      if (err.code !== 'auth/popup-closed-by-user') openLogin(email);
+    }
+  } else {
+    openLogin(email);
+  }
+}
+
+document.addEventListener('click', () => {
+  document.getElementById('user-dropdown')?.classList.remove('open');
+});
+
+/* ─── REFRESH OPEN CARD ──────────────────────────────────────── */
+async function refreshOpenCard() {
+  if (!openCardId) return;
+  const cardEl = listEl.querySelector(`.game-item[data-id="${CSS.escape(openCardId)}"]`);
+  if (!cardEl) return;
+  // Clear all cached keys for this game so interactions reload with new auth state
+  [...loadedInteractions].filter(k => k.startsWith(openCardId + '_')).forEach(k => loadedInteractions.delete(k));
+  await loadGameInteractions(openCardId, cardEl);
+}
+
+/* ─── LOAD GAME INTERACTIONS ─────────────────────────────────── */
+async function loadGameInteractions(gameId, cardEl) {
+  if (!db || !gameId) return;
+  if (loadedInteractions.has(gameId + '_' + (currentUser?.uid || ''))) return;
+  loadedInteractions.add(gameId + '_' + (currentUser?.uid || ''));
+
+  const ratingEl   = cardEl.querySelector('.panel-rating');
+  const commentsEl = cardEl.querySelector('.panel-comments');
+  if (!ratingEl || !commentsEl) return;
+
+  const [ratingData, comments] = await Promise.all([
+    loadRatings(gameId),
+    loadComments(gameId),
+  ]);
+
+  renderRatingUI(gameId, ratingEl, ratingData);
+  renderCommentsUI(gameId, commentsEl, comments);
+}
+
+/* ─── RATINGS ────────────────────────────────────────────────── */
+async function loadRatings(gameId) {
+  try {
+    const snap = await getDocs(collection(db, 'public_games', gameId, 'ratings'));
+    let total = 0, count = 0, userRating = 0;
+    const myId = currentUser?.uid;
+    snap.forEach(d => {
+      const v = d.data().value;
+      if (typeof v === 'number') { total += v; count++; }
+      if (d.id === myId) userRating = v;
+    });
+    return { avg: count ? total / count : 0, count, userRating };
+  } catch { return { avg: 0, count: 0, userRating: 0 }; }
+}
+
+async function submitRating(gameId, value) {
+  const uid = currentUser?.uid;
+  if (!uid || !db) return;
+  await setDoc(doc(db, 'public_games', gameId, 'ratings', uid), {
+    value,
+    ts:   serverTimestamp(),
+  });
+}
+
+function renderRatingUI(gameId, containerEl, { avg, count, userRating }) {
+  containerEl.innerHTML = `
+    <div class="rating-section">
+      <p class="rating-label">Rate this game</p>
+      <div class="star-row">
+        <div class="stars" data-user-rating="${userRating}">
+          ${[1,2,3,4,5].map(n => `<span class="star${n <= userRating ? ' filled' : ''}" data-val="${n}">★</span>`).join('')}
+        </div>
+        ${count > 0
+          ? `<span class="rating-avg">${avg.toFixed(1)}</span><span class="rating-count">${count} rating${count !== 1 ? 's' : ''}</span>`
+          : `<span class="rating-count">No ratings yet</span>`}
+      </div>
+    </div>`;
+
+  const stars = [...containerEl.querySelectorAll('.star')];
+  stars.forEach(star => {
+    const val = parseInt(star.dataset.val, 10);
+    star.addEventListener('mouseenter', () => stars.forEach(s => s.classList.toggle('hovered', parseInt(s.dataset.val,10) <= val)));
+    star.addEventListener('mouseleave', () => stars.forEach(s => s.classList.remove('hovered')));
+    star.addEventListener('click',      () => handleRatingClick(gameId, val, containerEl));
+  });
+  containerEl.querySelector('.stars')?.addEventListener('mouseleave', () => stars.forEach(s => s.classList.remove('hovered')));
+}
+
+async function handleRatingClick(gameId, value, ratingEl) {
+  if (!currentUser) {
+    pendingAction = { type: 'rating', gameId, value };
+    openLogin();
+    return;
+  }
+  const starsEl    = ratingEl.querySelector('.stars');
+  const userRating = parseInt(starsEl?.dataset.userRating ?? '0', 10);
+  if (value === userRating) {
+    await deleteRating(gameId);
+  } else {
+    await submitRating(gameId, value);
+  }
+  const data = await loadRatings(gameId);
+  renderRatingUI(gameId, ratingEl, data);
+}
+
+async function deleteRating(gameId) {
+  const uid = currentUser?.uid;
+  if (!uid || !db) return;
+  await deleteDoc(doc(db, 'public_games', gameId, 'ratings', uid));
+}
+
+/* ─── COMMENTS ───────────────────────────────────────────────── */
+async function loadComments(gameId) {
+  try {
+    const q    = query(collection(db, 'public_games', gameId, 'comments'), orderBy('ts', 'asc'));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch { return []; }
+}
+
+async function submitComment(gameId, text) {
+  const uid = currentUser?.uid;
+  if (!uid || !db || !text.trim()) return;
+  await addDoc(collection(db, 'public_games', gameId, 'comments'), {
+    uid,
+    name:      currentUser.displayName || currentUser.email?.split('@')[0] || 'Anonymous',
+    avatarUrl: currentUser.photoURL || dicebearUrl(currentUser.email || currentUser.uid),
+    text:      text.trim(),
+    ts:        serverTimestamp(),
+  });
+}
+
+function renderCommentsUI(gameId, containerEl, comments) {
+  const commentItems = comments.length === 0
+    ? `<p class="comment-empty">No comments yet — be the first!</p>`
+    : comments.map(c => {
+        const ts = c.ts?.toDate ? c.ts.toDate().toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '';
+        const canDelete = isAdmin || (currentUser && c.uid === currentUser.uid);
+        const avatar = c.avatarUrl || dicebearUrl(c.uid);
+        return `<div class="comment-item">
+          <img class="comment-avatar" src="${esc(avatar)}" alt="" onerror="this.src='${dicebearUrl('fallback')}'">
+          <div class="comment-bubble">
+            <div class="comment-meta">
+              <span class="comment-author">${esc(c.name || 'Anonymous')}</span>
+              ${ts ? `<span class="comment-time">${ts}</span>` : ''}
+              ${canDelete ? `<button class="comment-del" data-cid="${esc(c.id)}" data-gid="${esc(gameId)}" title="Delete">✕</button>` : ''}
+            </div>
+            <p class="comment-text">${esc(c.text)}</p>
+          </div>
+        </div>`;
+      }).join('');
+
+  const inputHtml = currentUser
+    ? `<div class="comment-form">
+        <img class="comment-avatar" src="${esc(currentUser.photoURL || dicebearUrl(currentUser.email || currentUser.uid))}" alt="" onerror="this.style.opacity='.3'">
+        <div class="comment-input-wrap">
+          <textarea class="comment-textarea" placeholder="Leave a comment…" rows="2"></textarea>
+          <div class="comment-form-actions">
+            <button class="comment-submit">Post</button>
+            <span class="comment-as">As ${esc(currentUser.displayName || currentUser.email?.split('@')[0])}</span>
+          </div>
+        </div>
+      </div>`
+    : `<p class="comment-signin-prompt"><button class="comment-signin-btn">Sign in</button> to leave a comment.</p>`;
+
+  containerEl.innerHTML = `
+    <div class="comments-section">
+      <p class="comments-label">Comments</p>
+      <div class="comment-list">${commentItems}</div>
+      ${inputHtml}
+    </div>`;
+
+  containerEl.querySelectorAll('.comment-del').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Delete this comment?')) return;
+      try {
+        await deleteDoc(doc(db, 'public_games', btn.dataset.gid, 'comments', btn.dataset.cid));
+        const cs = await loadComments(gameId);
+        renderCommentsUI(gameId, containerEl, cs);
+      } catch (e) { alert('Delete failed: ' + e.message); }
+    });
+  });
+
+  containerEl.querySelector('.comment-submit')?.addEventListener('click', () => {
+    const textareaEl = containerEl.querySelector('.comment-textarea');
+    handleCommentSubmit(gameId, textareaEl, containerEl);
+  });
+  containerEl.querySelector('.comment-signin-btn')?.addEventListener('click', openLogin);
+}
+
+async function handleCommentSubmit(gameId, textareaEl, commentsEl) {
+  const text = textareaEl.value.trim();
+  if (!text) return;
+
+  if (!currentUser) {
+    pendingAction = { type: 'comment', gameId, text };
+    openLogin();
+    return;
+  }
+
+  const btn = commentsEl.querySelector('.comment-submit');
+  if (btn) { btn.disabled = true; btn.textContent = 'Posting…'; }
+  try {
+    await submitComment(gameId, text);
+    textareaEl.value = '';
+    loadedInteractions.delete(gameId + '_' + (currentUser?.uid || ''));
+    const cs = await loadComments(gameId);
+    renderCommentsUI(gameId, commentsEl, cs);
+  } catch (e) {
+    alert('Failed to post: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Post'; }
+  }
+}
+
+
+async function executePendingAction() {
+  if (!pendingAction) return;
+  const action = pendingAction;
+  pendingAction = null;
+
+  // Always look up fresh DOM refs — stored refs go stale when the card re-renders
+  const cardEl = listEl.querySelector(`.game-item[data-id="${CSS.escape(action.gameId)}"]`);
+
+  if (action.type === 'rating') {
+    await submitRating(action.gameId, action.value);
+    const ratingEl = cardEl?.querySelector('.panel-rating');
+    if (ratingEl) {
+      const data = await loadRatings(action.gameId);
+      renderRatingUI(action.gameId, ratingEl, data);
+    }
+  } else if (action.type === 'comment') {
+    const commentsEl = cardEl?.querySelector('.panel-comments');
+    const textareaEl = commentsEl?.querySelector('.comment-textarea');
+    const btn = commentsEl?.querySelector('.comment-submit');
+    if (btn) { btn.disabled = true; btn.textContent = 'Posting…'; }
+    try {
+      await submitComment(action.gameId, action.text);
+      if (textareaEl) textareaEl.value = '';
+      loadedInteractions.delete(action.gameId + '_' + (currentUser?.uid || ''));
+      const cs = await loadComments(action.gameId);
+      if (commentsEl) renderCommentsUI(action.gameId, commentsEl, cs);
+    } catch (e) {
+      alert('Failed to post: ' + e.message);
+      if (btn) { btn.disabled = false; btn.textContent = 'Post'; }
+    }
+  }
+}
 
 /* ─── REVEAL ON SCROLL ───────────────────────────────────────── */
 const io = new IntersectionObserver(entries => {
