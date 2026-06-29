@@ -1362,6 +1362,7 @@ try {
       }
       localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(existing));
     } catch {}
+    history.replaceState(null, '', location.pathname);
   }
 
   /* Intercept workspace link clicks — add google_hint + accounts so the
