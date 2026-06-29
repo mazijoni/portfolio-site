@@ -507,7 +507,7 @@
 
     onAuthStateChanged(auth, (user) => {
       if (user) {
-        const dest = new URLSearchParams(window.location.search).get('redirect') || 'workspace/';
+        const dest = new URLSearchParams(window.location.search).get('redirect') || 'https://workspace.maze-development.com';
         window.location.href = dest;
       }
     });

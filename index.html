@@ -701,7 +701,7 @@
       <li class="divider"></li>
       <li><a href="portfolio/" class="pill">Portfolio</a></li>
       <li><a href="games/">Games</a></li>
-      <li><a href="login.html">Workspace</a></li>
+      <li><a href="https://workspace.maze-development.com">Workspace</a></li>
       <li class="divider"></li>
       <li id="nav-auth-area"><!-- JS fills --></li>
     </ul>
@@ -720,7 +720,7 @@
   <span class="mob-divider"></span>
   <a href="portfolio/">Portfolio</a>
   <a href="games/">Games</a>
-  <a href="login.html">Workspace</a>
+  <a href="https://workspace.maze-development.com">Workspace</a>
 </nav>
 
 <!-- HERO -->
@@ -917,7 +917,7 @@
         <span class="product-eyebrow">Platform — Live</span>
         <h3>Workspace</h3>
         <p>Project management platform with boards, kanban, media gallery, and real-time collaboration. Built on Firebase, requires login.</p>
-        <a href="login.html" class="product-link">Open Workspace</a>
+        <a href="https://workspace.maze-development.com" class="product-link">Open Workspace</a>
       </div>
       <div class="product-card">
         <span class="product-eyebrow">Portfolio</span>
@@ -977,7 +977,7 @@
     <div class="footer-links">
       <a href="portfolio/">Portfolio</a>
       <a href="games/">Games</a>
-      <a href="login.html">Workspace</a>
+      <a href="https://workspace.maze-development.com">Workspace</a>
       <a href="https://github.com/mazijoni" target="_blank">GitHub</a>
     </div>
   </div>
@@ -1348,6 +1348,39 @@ try {
   });
 
   updateNav(null);
+
+  /* Import saved accounts passed back from the workspace via ?accounts=base64json */
+  const _incomingAccounts = new URLSearchParams(location.search).get('accounts');
+  if (_incomingAccounts) {
+    try {
+      const incoming = JSON.parse(atob(_incomingAccounts));
+      const existing = getSavedAccounts();
+      for (const a of incoming) {
+        const idx = existing.findIndex(e => e.uid === a.uid);
+        if (idx < 0) existing.push(a);
+        else if (a.lastSeen > existing[idx].lastSeen) existing[idx] = a;
+      }
+      localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(existing));
+    } catch {}
+  }
+
+  /* Intercept workspace link clicks — add google_hint + accounts so the
+     workspace auto-signs the user in without re-entering credentials */
+  document.querySelectorAll('a[href*="workspace.maze-development.com"]').forEach(link => {
+    link.addEventListener('click', e => {
+      if (!_auth?.currentUser) return;
+      e.preventDefault();
+      const user   = _auth.currentUser;
+      const params = new URLSearchParams();
+      if (user.providerData?.[0]?.providerId === 'google.com') {
+        params.set('google_hint', user.email);
+      } else {
+        params.set('email', user.email);
+      }
+      try { params.set('accounts', btoa(JSON.stringify(getSavedAccounts()))); } catch {}
+      window.location.href = `https://workspace.maze-development.com/login?${params}`;
+    });
+  });
 
   document.addEventListener('click', () => document.getElementById('user-dropdown')?.classList.remove('open'));
 } catch {
